@@ -40,8 +40,8 @@ const LoginScreen = ({ navigation, route }: any) => {
         value={password}
         onChangeText={setPassword}
       />
-      <Button title="Scan QR Code" onPress={() => navigation.navigate('ScanQR')} />
       <Button title="Login" onPress={handleLogin} />
+      <Button title="Scan QR Code" onPress={() => navigation.navigate('ScanQR')} />
     </View>
   );
 };
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center', // Center items horizontally
+    alignItems: 'center', // Add this to center the content horizontally
     padding: 20,
   },
   input: {
@@ -59,15 +59,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 10,
     paddingLeft: 10,
-    width: '80%', // Optional: Make input fields a percentage of the screen width
+    width: '100%', // Ensures the inputs take full width
   },
   image: {
-    width: 200, // Set the desired width for the image
-    height: 100, // Set the desired height for the image
-    marginBottom: 20, // Add spacing below the image
-    resizeMode: 'contain', // Maintain the aspect ratio of the image
+    width: 200,
+    height: 100,
+    marginBottom: 20,
+    resizeMode: 'contain',
+    alignSelf: 'center', // This centers the image within its parent view
   },
 });
-
 
 export default LoginScreen;
