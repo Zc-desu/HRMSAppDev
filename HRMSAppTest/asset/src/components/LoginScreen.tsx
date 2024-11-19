@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, TextInput, View, StyleSheet } from 'react-native';
+import { Alert, Button, TextInput, View, StyleSheet, Image } from 'react-native';
 
 const LoginScreen = ({ navigation, route }: any) => {
   const [loginId, setLoginId] = useState('');
@@ -23,6 +23,10 @@ const LoginScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
+      <Image 
+        source={require('../../img/mcsb.png')} 
+        style={styles.image} 
+      />
       <TextInput
         style={styles.input}
         placeholder="Enter Login ID"
@@ -46,6 +50,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center', // Center items horizontally
     padding: 20,
   },
   input: {
@@ -54,7 +59,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 10,
     paddingLeft: 10,
+    width: '80%', // Optional: Make input fields a percentage of the screen width
+  },
+  image: {
+    width: 200, // Set the desired width for the image
+    height: 100, // Set the desired height for the image
+    marginBottom: 20, // Add spacing below the image
+    resizeMode: 'contain', // Maintain the aspect ratio of the image
   },
 });
+
 
 export default LoginScreen;
