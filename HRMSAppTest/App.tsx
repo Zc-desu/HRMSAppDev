@@ -3,7 +3,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './asset/src/components/LoginScreen';
 import ScanQRScreen from './asset/src/components/ScanQRScreen';
-import ImagePickerScreen from './asset/src/components/ImagePicker';
 
 const Stack = createStackNavigator();
 
@@ -13,7 +12,6 @@ const App = () => {
       <Stack.Navigator initialRouteName="Login">
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="ScanQR" component={ScanQRScreen} />
-        <Stack.Screen name="ImagePicker" component={ImagePickerScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
