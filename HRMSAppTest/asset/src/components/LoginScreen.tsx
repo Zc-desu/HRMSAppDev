@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, Button, TextInput, View, StyleSheet, Image } from 'react-native';
+import { Alert, Button, TextInput, View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
 
 const LoginScreen = ({ navigation, route }: any) => {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [scannedData, setScannedData] = useState<string | null>(route.params?.scannedData || null); // Get scanned data (API URL)
+  const [showPassword, setShowPassword] = useState(false);
 
   // Handle login and API authentication
   const handleLogin = () => {
@@ -12,17 +13,16 @@ const LoginScreen = ({ navigation, route }: any) => {
       Alert.alert('Error', 'You must scan the QR code to authenticate. Please contact your HR Administrator');
       return;
     }
-  
+
     if (!loginId || !password) {
       Alert.alert('Error', 'Please enter both login ID and password.');
       return;
     }
-  
+
     // Log the scanned data (URL) and the payload
     console.log('Scanned Data (URL):', scannedData);
     console.log('Username:', loginId + ' Password:', password);
 
-  
     // API Authentication using the scanned API URL and the correct login endpoint
     fetch(`${scannedData}/v1/auth/credentials-login`, {  // Using the QR code base URL + the credentials-login endpoint
       method: 'POST',
@@ -49,7 +49,6 @@ const LoginScreen = ({ navigation, route }: any) => {
         Alert.alert('Error', 'Failed to authenticate. Please try again later.');
       });
   };
-  
 
   return (
     <View style={styles.container}>
@@ -68,19 +67,30 @@ const LoginScreen = ({ navigation, route }: any) => {
       />
 
       {/* Password input */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Password"
+          secureTextEntry={!showPassword}  // Toggle password visibility
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.showPasswordButton}>
+          <Image 
+            source={showPassword ? require('../../img/chakan.png') : require('../../img/yincang(1).png')}
+            style={styles.showPasswordIcon}
+          />
+        </TouchableOpacity>
+      </View>
 
-      {/* Login button */}
-      <Button title="Login" onPress={handleLogin} />
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>LOGIN</Text>
+      </TouchableOpacity>
 
-      {/* Navigate to Scan QR page */}
-      <Button title="Scan QR Code" onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}/>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}>
+        <Text style={styles.buttonText}>SCAN QR CODE</Text>
+      </TouchableOpacity>
+
     </View>
   );
 };
@@ -93,12 +103,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   input: {
-    height: 40,
+    height: 45,
+    width: '100%',
     borderColor: '#ccc',
     borderWidth: 1,
+    borderRadius: 25,
     marginBottom: 10,
-    paddingLeft: 10,
-    width: '100%',
+    paddingLeft: 15,
+    fontSize: 16,
   },
   image: {
     width: 200,
@@ -107,6 +119,39 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     alignSelf: 'center',
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    position: 'relative',
+  },
+  showPasswordButton: {
+    position: 'absolute',
+    right: 15,
+    top: '50%',
+    transform: [{ translateY: -25 }],
+    padding: 5,
+  },
+  showPasswordIcon: {
+    width: 27,
+    height: 27,
+    resizeMode: 'contain',
+  },
+  button: {
+    width: '80%', // Adjust to your preferred width
+    height: 45, // Set the height of both buttons the same
+    borderRadius: 25, // Rounded corners
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#007BFF', // Button color
+    marginBottom: 15, // Space between buttons
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
+
 
 export default LoginScreen;
