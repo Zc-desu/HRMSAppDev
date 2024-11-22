@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, View, Text, Button, StyleSheet } from 'react-native';
 import QRCodeScanner from 'react-native-qrcode-scanner';
 import { RNCamera } from 'react-native-camera';
 import RNQRGenerator from 'rn-qr-generator';
 import { launchImageLibrary } from 'react-native-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ScanQRScreen = ({ navigation, route }: any) => {
   const [qrData, setQrData] = useState<string | null>(null);
@@ -11,31 +12,44 @@ const ScanQRScreen = ({ navigation, route }: any) => {
   // Get login data from route.params (or set fallback values)
   const { username, password } = route.params || {}; 
 
-  // Function to handle QR code scanning from the camera
-  const onSuccess = (e: any) => {
-    setQrData(e.data); // Successfully decoded QR code
-    if (!username || !password) {
-      Alert.alert(
-        'Error',
-        'Missing login credentials. Please return to the login screen and try again.'
-      );
-      return;
-    }
+  // Check if QR code data exists in AsyncStorage on mount
+  useEffect(() => {
+    const fetchScannedData = async () => {
+      const storedData = await AsyncStorage.getItem('scannedData');
+      if (storedData) {
+        setQrData(storedData);
+      }
+    };
 
-    // Show an alert when QR code is successfully scanned
-    Alert.alert(
-      'QR Code Scanned',
-      'QR Code was successfully scanned!',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate back to the login screen with the scanned data
-            navigation.navigate('Login', { scannedData: e.data });
+    fetchScannedData();
+  }, []);
+
+  // Function to handle QR code scanning from the camera
+  const onSuccess = async (e: any) => {
+    const scannedData = e.data;
+    setQrData(scannedData); // Successfully decoded QR code
+    
+    try {
+      // Save the scanned data to AsyncStorage for future use
+      await AsyncStorage.setItem('scannedData', scannedData);
+
+      // Show an alert when QR code is successfully scanned
+      Alert.alert(
+        'QR Code Scanned',
+        'QR Code was successfully scanned!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to the login screen with the scanned data
+              navigation.navigate('Login', { scannedData });
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error saving QR data to AsyncStorage:', error);
+    }
   };
 
   // Function to open gallery and pick an image to detect QR code
@@ -57,10 +71,13 @@ const ScanQRScreen = ({ navigation, route }: any) => {
         RNQRGenerator.detect({
           base64: base64,
         })
-          .then((detectedQRCodes) => {
+          .then(async (detectedQRCodes) => {
             const { values } = detectedQRCodes;
             if (values && values.length > 0) {
               setQrData(values[0]); // Display the first detected QR code value
+
+              // Save the scanned data to AsyncStorage for future use
+              await AsyncStorage.setItem('scannedData', values[0]);
 
               // Show an alert when QR code is successfully scanned from gallery
               Alert.alert(

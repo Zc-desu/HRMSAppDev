@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, Button, TextInput, View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation, route }: any) => {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  const [scannedData, setScannedData] = useState<string | null>(route.params?.scannedData || null); // Get scanned data (API URL)
+  const [scannedData, setScannedData] = useState<string | null>(null); // Get scanned data (API URL)
   const [showPassword, setShowPassword] = useState(false);
+
+  // Effect to load saved QR code data when the app is reopened
+  useEffect(() => {
+    const loadScannedData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem('scannedData');
+        if (savedData) {
+          setScannedData(savedData); // Set scanned data if found in AsyncStorage
+        }
+      } catch (error) {
+        console.error('Failed to load scanned data:', error);
+      }
+    };
+
+    loadScannedData();
+  }, []);
 
   // Handle login and API authentication
   const handleLogin = () => {
@@ -50,6 +67,16 @@ const LoginScreen = ({ navigation, route }: any) => {
       });
   };
 
+  // Function to handle saving scanned QR data to AsyncStorage
+  const handleSaveScannedData = async (data: string) => {
+    try {
+      await AsyncStorage.setItem('scannedData', data); // Save QR data to AsyncStorage
+      setScannedData(data); // Update state with the saved data
+    } catch (error) {
+      console.error('Failed to save scanned data:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Company logo */}
@@ -90,6 +117,7 @@ const LoginScreen = ({ navigation, route }: any) => {
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}>
         <Text style={styles.buttonText}>SCAN QR CODE</Text>
       </TouchableOpacity>
+
 
     </View>
   );
@@ -152,6 +180,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
 
 export default LoginScreen;
