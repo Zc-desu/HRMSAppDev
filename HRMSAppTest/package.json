@@ -25,6 +25,7 @@
     "react-native-camera": "^4.2.1",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.21.1",
+    "react-native-html-parser": "^0.1.0",
     "react-native-image-crop-picker": "^0.41.5",
     "react-native-image-picker": "^7.1.2",
     "react-native-image-resizer": "^1.4.5",
