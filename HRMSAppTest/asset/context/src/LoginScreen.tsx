@@ -34,7 +34,10 @@ const LoginScreen = ({ navigation }: any) => {
       return;
     }
 
-    const baseUrl = scannedData.split('/apps/api')[0]; // Extract base URL from QR
+    const baseUrl = scannedData.split('/apps/api')[0];  // Extract base URL from QR
+
+    // Store baseUrl in AsyncStorage
+    AsyncStorage.setItem('baseUrl', baseUrl);
 
     // Authenticate with API
     fetch(`${scannedData}/v1/auth/credentials-login`, {
@@ -46,7 +49,6 @@ const LoginScreen = ({ navigation }: any) => {
     .then((data) => {
       if (data.success) {
         AsyncStorage.setItem('authToken', data.data.accessToken);
-        AsyncStorage.setItem('baseUrl', baseUrl);  // Save baseUrl for future use
         Alert.alert('Login Success', `Welcome, ${loginId}!`);
         navigation.navigate('App', { baseUrl });  // Pass baseUrl to AppScreen
       } else {
@@ -57,7 +59,6 @@ const LoginScreen = ({ navigation }: any) => {
       console.error('Error during authentication:', error);
       Alert.alert('Error', 'Failed to authenticate. Please try again later.');
     });
-    
   };
 
   return (

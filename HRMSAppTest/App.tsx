@@ -1,21 +1,34 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { AuthProvider } from './asset/context/auth/AuthContext';
 import LoginScreen from './asset/context/src/LoginScreen';
 import ScanQRScreen from './asset/context/src/ScanQRScreen';
 import AppScreen from './asset/context/src/AppScreen';
+import HomePage from './asset/context/src/HomePage';
 
 const Stack = createStackNavigator();
 
 const App = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-      <Stack.Screen name="Login" component={LoginScreen} options={{headerLeft: () => null,}} />
-      <Stack.Screen name="ScanQR" component={ScanQRScreen} />
-      <Stack.Screen name="App" component={AppScreen} options={{headerLeft: () => null,}} />
-    </Stack.Navigator>
-    </NavigationContainer>
+    <AuthProvider>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Login">
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen} 
+            options={{ headerLeft: () => null }} 
+          />
+          <Stack.Screen name="ScanQR" component={ScanQRScreen} />
+          <Stack.Screen 
+            name="App" 
+            component={AppScreen} 
+            options={{ headerLeft: () => null }} 
+          />
+          <Stack.Screen name="HomePage" component={HomePage} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 };
 
