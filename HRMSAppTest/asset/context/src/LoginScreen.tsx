@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, Button, TextInput, View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
+import { useAuth } from '../auth/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation }: any) => {
-  const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
-  const [scannedData, setScannedData] = useState<string | null>(null);
+  const { authData, setAuth } = useAuth();
+  const [loginId, setLoginId] = useState(authData.loginId || '');
+  const [password, setPassword] = useState(authData.password || '');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Effect to load saved QR code data when app reopens
   useEffect(() => {
     const loadScannedData = async () => {
       try {
         const savedData = await AsyncStorage.getItem('scannedData');
         if (savedData) {
-          setScannedData(savedData);
+          setAuth({ ...authData, scannedData: savedData });
         }
       } catch (error) {
         console.error('Failed to load scanned data:', error);
@@ -24,41 +24,41 @@ const LoginScreen = ({ navigation }: any) => {
   }, []);
 
   const handleLogin = () => {
-    if (!scannedData) {
+    if (!authData.scannedData) {
       Alert.alert('Error', 'You must scan the QR code to authenticate. Please contact your HR Administrator');
       return;
     }
-  
+
     if (!loginId || !password) {
       Alert.alert('Error', 'Please enter both login ID and password.');
       return;
     }
 
-    const baseUrl = scannedData.split('/apps/api')[0];  // Extract base URL from QR
+    const baseUrl = authData.scannedData.split('/apps/api')[0]; // Extract base URL from QR
+    AsyncStorage.setItem('baseUrl', baseUrl); // Store baseUrl in AsyncStorage
+    setAuth({ ...authData, baseUrl }); // Update AuthContext with baseUrl
 
-    // Store baseUrl in AsyncStorage
-    AsyncStorage.setItem('baseUrl', baseUrl);
-
-    // Authenticate with API
-    fetch(`${scannedData}/v1/auth/credentials-login`, {
+    fetch(`${authData.scannedData}/v1/auth/credentials-login`, {
       method: 'POST',
       body: JSON.stringify({ username: loginId, password }),
       headers: { 'Content-Type': 'application/json' },
     })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.success) {
-        AsyncStorage.setItem('authToken', data.data.accessToken);
-        Alert.alert('Login Success', `Welcome, ${loginId}!`);
-        navigation.navigate('App', { baseUrl });  // Pass baseUrl to AppScreen
-      } else {
-        Alert.alert('Login Failed', 'Invalid login ID or password.');
-      }
-    })
-    .catch((error) => {
-      console.error('Error during authentication:', error);
-      Alert.alert('Error', 'Failed to authenticate. Please try again later.');
-    });
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          AsyncStorage.setItem('authToken', data.data.accessToken); // Store authToken in AsyncStorage
+          Alert.alert('Login Success', `Welcome, ${loginId}!`);
+          
+          // Pass both baseUrl and authToken to the App screen
+          navigation.navigate('App', { baseUrl, authToken: data.data.accessToken });
+        } else {
+          Alert.alert('Login Failed', 'Invalid login ID or password.');
+        }
+      })
+      .catch((error) => {
+        console.error('Error during authentication:', error);
+        Alert.alert('Error', 'Failed to authenticate. Please try again later.');
+      });
   };
 
   return (

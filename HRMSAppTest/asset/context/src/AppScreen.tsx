@@ -1,29 +1,35 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Button, Alert, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Button, Alert, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppScreen = ({ route, navigation }: any) => {
-  const baseUrl = route?.params?.baseUrl; // Safely access baseUrl from route params with optional chaining
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const { baseUrl, authToken: routeAuthToken } = route?.params || {}; // Get authToken from route params
+  const [authToken, setAuthToken] = useState<string | null>(routeAuthToken || null); // Initialize with route token
   const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
-    // Retrieve the authToken from AsyncStorage
+    // Fetch authToken first if not already provided in route params
     const fetchAuthToken = async () => {
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        setAuthToken(token);
-        console.log('Auth Token:', token);
-      } else {
-        console.log('No auth token found. Please log in again.');
+      if (!authToken) { // Only fetch if no token exists
+        const token = await AsyncStorage.getItem('authToken');
+        const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
+        if (token) {
+          setAuthToken(token); // Set authToken once retrieved
+          if (storedBaseUrl && !baseUrl) {
+            navigation.setParams({ baseUrl: storedBaseUrl });
+          }
+        } else {
+          Alert.alert('Error', 'Authentication failed. Please login again.');
+          navigation.navigate('Login');
+        }
       }
     };
 
     fetchAuthToken();
-  }, []);
+  }, [navigation, authToken, baseUrl]); // Include baseUrl in dependencies
 
   useEffect(() => {
-    // Fetch user profile when authToken is available and baseUrl is not undefined
+    // Fetch user profile only when authToken is available and baseUrl is defined
     if (authToken && baseUrl) {
       const fetchUserProfile = async () => {
         try {
@@ -35,11 +41,11 @@ const AppScreen = ({ route, navigation }: any) => {
             },
           });
           const data = await response.json();
-          console.log('User Profile Data:', data);
           if (data.success) {
             setUserProfile(data.data[0]);
           } else {
             console.error('Error fetching user profile:', data.message);
+            Alert.alert('Error', 'Failed to fetch user profile.');
           }
         } catch (error) {
           console.error('Error during API call:', error);
@@ -49,9 +55,14 @@ const AppScreen = ({ route, navigation }: any) => {
 
       fetchUserProfile();
     } else {
-      Alert.alert('Error', 'Base URL is not defined.');
+      console.log("Base URL: " + baseUrl);
+      console.log("Auth Token: " + authToken);
+      // Only show alert if both values are actually missing
+      if (!baseUrl || !authToken) {
+        Alert.alert('Error', 'Base URL or Auth Token is missing.');
+      }
     }
-  }, [authToken, baseUrl]);
+  }, [authToken, baseUrl]); // Run this effect whenever authToken or baseUrl changes
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerTitle: "" }); // Set header title to an empty string
@@ -63,19 +74,14 @@ const AppScreen = ({ route, navigation }: any) => {
       'Log Out',
       'Are you sure you want to log out?',
       [
-        {
-          text: 'Cancel',
-          onPress: () => console.log('Cancel Pressed'),
-          style: 'cancel',
-        },
-        {
-          text: 'OK',
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'OK', 
           onPress: async () => {
             await AsyncStorage.removeItem('authToken'); // Clear auth token
             navigation.navigate('Login'); // Navigate to login screen
-            console.log('Successfully logged out!');
-          },
-        },
+          }
+        }
       ],
       { cancelable: false }
     );
@@ -97,9 +103,20 @@ const AppScreen = ({ route, navigation }: any) => {
 
       const data = await response.json();
 
+      // Log the full response to inspect the structure
+      console.log('Profile Switch Response:', data);
+
       if (data.success) {
-        Alert.alert('Success', 'Profile switched successfully!');
-        navigation.navigate('HomePage', { selectedCompanyName: data.companyName });
+        // Access the company name from the first company in the array
+        const companyName = userProfile?.companies?.[0]?.name || 'Unknown Company';
+        console.log('Company Name:', companyName); // Log the company name
+        
+        // Navigate to HomePage with selected company name
+        navigation.navigate('HomePage', { 
+          selectedCompanyName: companyName, 
+          baseUrl,
+          authToken 
+        });
       } else {
         Alert.alert('Error', data.message || 'Failed to switch profile.');
       }
@@ -115,8 +132,11 @@ const AppScreen = ({ route, navigation }: any) => {
         <>
           {/* Title and User Info */}
           <Text style={styles.welcomeText}>Welcome! {userProfile.description}</Text>
-          <Text style={styles.userInfo}>{`User Role: ${userProfile.userRole}`}</Text>
-          <Text style={styles.userInfo}>{`User ID: ${userProfile.userId}`}</Text>
+
+          {/* User Role with rounded rectangle */}
+          <View style={styles.userRoleContainer}>
+            <Text style={styles.userRole}>{userProfile.userRole}</Text>
+          </View>
 
           {/* Instructions */}
           <Text style={styles.instructions}>Please select a company below:</Text>
@@ -124,16 +144,20 @@ const AppScreen = ({ route, navigation }: any) => {
           {/* Company Selection Buttons */}
           {userProfile.companies.map((company: any) => (
             <View key={company.companyId} style={styles.buttonContainer}>
-              <Button
-                title={`${company.name}`}
+              <TouchableOpacity
+                style={styles.companyButton}
                 onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
-              />
+              >
+                <Text style={styles.buttonText}>{company.name}</Text>
+              </TouchableOpacity>
             </View>
           ))}
 
-          {/* Logout Button */}
-          <View style={styles.buttonContainer}>
-            <Button title="Log Out" onPress={handleLogout} />
+          {/* Log out button moved to bottom */}
+          <View style={styles.logoutContainer}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutText}>Log Out</Text>
+            </TouchableOpacity>
           </View>
         </>
       ) : (
@@ -155,9 +179,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontWeight: 'bold',
   },
-  userInfo: {
+  userRoleContainer: {
+    backgroundColor: '#e0e0e0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  userRole: {
     fontSize: 16,
-    marginBottom: 5,
+    color: '#000',
   },
   instructions: {
     fontSize: 18,
@@ -167,6 +198,39 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginVertical: 10,
     width: '100%',
+    alignItems: 'center', // Ensures the buttons are centered horizontally
+  },
+  companyButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+    width: '80%',
+    alignSelf: 'center', // Ensures the button is centered within the container
+    marginBottom: 20,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    textAlign: 'center'
+  },
+  logoutContainer: {
+    position: 'absolute',
+    bottom: 30,
+    width: '100%',
+    alignItems: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#FF6347',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+    width: '70%',
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 18,
   },
 });
 

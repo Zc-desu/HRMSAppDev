@@ -1,13 +1,16 @@
+// screens/ScanQRScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { Alert, View, Text, Button, StyleSheet } from 'react-native';
 import QRCodeScanner from 'react-native-qrcode-scanner';
 import { RNCamera } from 'react-native-camera';
 import RNQRGenerator from 'rn-qr-generator';
-import { launchImageLibrary, MediaType } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../auth/AuthContext';
 
 const ScanQRScreen = ({ navigation, route }: any) => {
-  const [qrData, setQrData] = useState<string | null>(null); // Store the scanned QR code data
+  const { setAuth } = useAuth(); // AuthContext to manage authentication
+  const [qrData, setQrData] = useState<string | null>(null);
 
   // Get login data from route.params (or set fallback values)
   const { username, password } = route.params || {};
@@ -28,10 +31,19 @@ const ScanQRScreen = ({ navigation, route }: any) => {
   const onSuccess = async (e: any) => {
     const scannedData = e.data;
     setQrData(scannedData); // Successfully decoded QR code
-    
+
     try {
       // Save the scanned data to AsyncStorage for future use
       await AsyncStorage.setItem('scannedData', scannedData);
+
+      // Extract baseUrl from scanned QR data (assuming it's the first part of the URL)
+      const baseUrl = scannedData.split('/apps/api')[0];
+
+      // Save baseUrl to AsyncStorage
+      await AsyncStorage.setItem('baseUrl', baseUrl);
+
+      // Update AuthContext with the scanned data
+      setAuth({ scannedData, baseUrl });
 
       // Show an alert when QR code is successfully scanned
       Alert.alert(
@@ -42,7 +54,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
             text: 'OK',
             onPress: () => {
               // Navigate back to the login screen with the scanned data
-              navigation.navigate('Login', { scannedData });
+              navigation.navigate('Login', { scannedData, baseUrl });
             },
           },
         ]
@@ -55,11 +67,11 @@ const ScanQRScreen = ({ navigation, route }: any) => {
   // Function to open gallery and pick an image to detect QR code
   const openQRCodeFromGallery = () => {
     const galleryOptions = {
-      mediaType: 'photo' as MediaType,
+      mediaType: 'photo',
       includeBase64: true,
-    };
+    } as const;
 
-    launchImageLibrary(galleryOptions, (response) => {
+    launchImageLibrary(galleryOptions, (response: any) => {
       if (!response || response.didCancel) {
         return;
       }
@@ -68,7 +80,6 @@ const ScanQRScreen = ({ navigation, route }: any) => {
       if (assets && assets[0] && assets[0].base64) {
         const base64 = assets[0].base64;
 
-        // Detect QR code from the base64 image data
         RNQRGenerator.detect({
           base64: base64,
         })
@@ -77,8 +88,14 @@ const ScanQRScreen = ({ navigation, route }: any) => {
             if (values && values.length > 0) {
               setQrData(values[0]); // Display the first detected QR code value
 
-              // Save the scanned data to AsyncStorage for future use
-              await AsyncStorage.setItem('scannedData', values[0]);
+              // Extract baseUrl from scanned QR data (assuming it's the first part of the URL)
+              const baseUrl = values[0].split('/apps/api')[0];
+
+              // Save baseUrl to AsyncStorage
+              await AsyncStorage.setItem('baseUrl', baseUrl);
+
+              // Update AuthContext with the scanned data
+              setAuth({ scannedData: values[0], baseUrl });
 
               // Show an alert when QR code is successfully scanned from gallery
               Alert.alert(
@@ -89,7 +106,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
                     text: 'OK',
                     onPress: () => {
                       // Navigate back to the login screen with the scanned data
-                      navigation.navigate('Login', { scannedData: values[0] });
+                      navigation.navigate('Login', { scannedData: values[0], baseUrl });
                     },
                   },
                 ]
@@ -109,9 +126,10 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
+      {/* QR Code Scanner */}
       <QRCodeScanner
         onRead={onSuccess}
-        flashMode={RNCamera.Constants.FlashMode.on}
+        flashMode={RNCamera.Constants.FlashMode.off}
         topContent={<Text style={styles.centerText}>Scan a QR Code</Text>}
         cameraStyle={styles.cameraStyle}
       />
