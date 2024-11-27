@@ -44,7 +44,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     if (accessToken && baseUrl) {
       const fetchUserProfile = async () => {
         try {
-          console.log(`Fetching from: ${baseUrl}/apps/api/v1/auth/user-profiles`);
+          // Fetching the link by using API url of user-profiles
           const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
             method: 'GET',
             headers: {
@@ -66,8 +66,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
       fetchUserProfile();
     } else {
-      console.log("Base URL:", baseUrl);
-      console.log("Auth Token:", accessToken);
+      return;
     }
   }, [accessToken, baseUrl]);
 
@@ -107,31 +106,36 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           userId: userId,
         }),
       });
-
+  
       const data = await response.json();
-
-      // Log the full response to inspect the structure
-      console.log('Profile Switch Response:', data);
-
+  
       if (data.success) {
-        // Access the company name from the first company in the array
-        const companyName = userProfile?.companies?.[0]?.name || 'Unknown Company';
-        console.log('Company Name:', companyName); // Log the company name
-        
-        // Navigate to HomePage with selected company name
-        navigation.navigate('HomePage', { 
-          selectedCompanyName: companyName, 
-          baseUrl,
-          accessToken
-        });
+        const role = userProfile?.userRole;
+  
+        if (role === "Approval") {
+          navigation.navigate("ApprovalMenu", { 
+            companyId, 
+            baseUrl, 
+            accessToken 
+          });
+        } else if (role === "Employee") {
+          navigation.navigate("EmployeeMenu", { 
+            companyId, 
+            baseUrl, 
+            accessToken 
+          });
+        } else {
+          Alert.alert("Error", "Unsupported user role.");
+        }
       } else {
-        Alert.alert('Error', data.message || 'Failed to switch profile.');
+        Alert.alert("Error", data.message || "Failed to switch profile.");
       }
     } catch (error) {
-      console.error('Error during profile switch:', error);
-      Alert.alert('Error', 'Something went wrong.');
+      console.error("Error during profile switch:", error);
+      Alert.alert("Error", "Something went wrong.");
     }
   };
+  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

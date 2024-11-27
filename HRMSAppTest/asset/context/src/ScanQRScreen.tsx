@@ -7,10 +7,12 @@ import RNQRGenerator from 'rn-qr-generator';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthContext';
+import LoadingAnimation from '../anim/loadingAnimation';
 
 const ScanQRScreen = ({ navigation, route }: any) => {
-  const { setAuth } = useAuth(); // AuthContext to manage authentication
+  const { setAuth } = useAuth();
   const [qrData, setQrData] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Get login data from route.params (or set fallback values)
   const { username, password } = route.params || {};
@@ -29,23 +31,16 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
   // Function to handle QR code scanning from the camera
   const onSuccess = async (e: any) => {
+    setIsLoading(true); // Start loading animation
     const scannedData = e.data;
-    setQrData(scannedData); // Successfully decoded QR code
+    setQrData(scannedData);
 
     try {
-      // Save the scanned data to AsyncStorage for future use
       await AsyncStorage.setItem('scannedData', scannedData);
-
-      // Extract baseUrl from scanned QR data (assuming it's the first part of the URL)
       const baseUrl = scannedData.split('/apps/api')[0];
-
-      // Save baseUrl to AsyncStorage
       await AsyncStorage.setItem('baseUrl', baseUrl);
-
-      // Update AuthContext with the scanned data
       setAuth({ scannedData, baseUrl });
 
-      // Show an alert when QR code is successfully scanned
       Alert.alert(
         'QR Code Scanned',
         'QR Code was successfully scanned!',
@@ -53,14 +48,15 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           {
             text: 'OK',
             onPress: () => {
-              // Navigate back to the login screen with the scanned data
+              setIsLoading(false); // Stop loading animation
               navigation.navigate('Login', { scannedData, baseUrl });
             },
           },
         ]
       );
     } catch (error) {
-      console.error('Error saving QR data to AsyncStorage:', error);
+      console.error('Error saving QR data:', error);
+      setIsLoading(false); // Stop loading animation
     }
   };
 
@@ -73,8 +69,11 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
     launchImageLibrary(galleryOptions, (response: any) => {
       if (!response || response.didCancel) {
-        return;
+        return; // User cancelled image picker
       }
+
+      // Start loading animation AFTER image is selected
+      setIsLoading(true);
 
       const { assets } = response;
       if (assets && assets[0] && assets[0].base64) {
@@ -86,18 +85,11 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           .then(async (detectedQRCodes) => {
             const { values } = detectedQRCodes;
             if (values && values.length > 0) {
-              setQrData(values[0]); // Display the first detected QR code value
-
-              // Extract baseUrl from scanned QR data (assuming it's the first part of the URL)
+              setQrData(values[0]);
               const baseUrl = values[0].split('/apps/api')[0];
-
-              // Save baseUrl to AsyncStorage
               await AsyncStorage.setItem('baseUrl', baseUrl);
-
-              // Update AuthContext with the scanned data
               setAuth({ scannedData: values[0], baseUrl });
 
-              // Show an alert when QR code is successfully scanned from gallery
               Alert.alert(
                 'QR Code Scanned',
                 'QR Code was successfully scanned!',
@@ -105,7 +97,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
                   {
                     text: 'OK',
                     onPress: () => {
-                      // Navigate back to the login screen with the scanned data
+                      setIsLoading(false);
                       navigation.navigate('Login', { scannedData: values[0], baseUrl });
                     },
                   },
@@ -113,13 +105,20 @@ const ScanQRScreen = ({ navigation, route }: any) => {
               );
             } else {
               setQrData('QR code not found');
+              setIsLoading(false);
+              Alert.alert('Error', 'No QR code found in the image');
             }
           })
-          .catch(() => {
+          .catch((error) => {
+            console.error('QR detection error:', error);
             setQrData('Error decoding QR from image');
+            setIsLoading(false);
+            Alert.alert('Error', 'Failed to decode QR code from image');
           });
       } else {
         setQrData('No base64 data available');
+        setIsLoading(false);
+        Alert.alert('Error', 'Failed to process image');
       }
     });
   };
@@ -139,6 +138,13 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
       {/* Button for picking an image from the gallery */}
       <Button title="Pick an image from gallery" onPress={openQRCodeFromGallery} />
+
+      {/* Loading Animation Overlay */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <LoadingAnimation />
+        </View>
+      )}
     </View>
   );
 };
@@ -166,6 +172,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'green',
   },
+  loadingOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 1000,
+  }
 });
 
 export default ScanQRScreen;
