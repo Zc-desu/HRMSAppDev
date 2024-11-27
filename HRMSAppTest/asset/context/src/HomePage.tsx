@@ -3,36 +3,62 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HomePage = ({ navigation, route }: any) => {
+  const { baseUrl, authToken: routeAuthToken } = route?.params || {};
   const { selectedCompanyName } = route.params;
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [employeeName, setEmployeeName] = useState('');
+  const [userId, setUserId] = useState(null); // Store userId dynamically
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const response = await fetch('http://training.mcsb-pg.com/apps/api/v1/auth/user-profiles', {
+        // Step 1: Fetch the user profile to get the userId
+        const authToken = await AsyncStorage.getItem('authToken');
+        if (!authToken) {
+          Alert.alert('Error', 'Authentication token is missing.');
+          return;
+        }
+
+        const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer ' + (await AsyncStorage.getItem('authToken')),
+            'Authorization': `Bearer ${authToken}`,
           },
         });
+
+        if (!response.ok) {
+          Alert.alert('Error', 'Failed to fetch user profiles.');
+          return;
+        }
 
         const data = await response.json();
-        const userId = data?.data[0]?.userId;
+        if (!data?.data || !data.data[0]?.userId) {
+          Alert.alert('Error', 'User profile data is invalid or missing.');
+          return;
+        }
 
-        const profileResponse = await fetch(`http://training.mcsb-pg.com/apps/api/v1/employees/${userId}/profile`, {
+        const fetchedUserId = data.data[0].userId;
+        setUserId(fetchedUserId);
+
+        // Step 2: Use the userId to fetch the employee profile
+        const profileResponse = await fetch(`${baseUrl}/apps/api/v1/employees/${fetchedUserId}/profile`, {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer ' + (await AsyncStorage.getItem('authToken')),
+            'Authorization': `Bearer ${authToken}`,
           },
         });
 
-        const profileData = await profileResponse.json();
+        if (!profileResponse.ok) {
+          Alert.alert('Error', 'Failed to fetch employee profile.');
+          return;
+        }
 
-        setEmployeeNumber(profileData?.data?.employeeNumber || '');
-        setEmployeeName(profileData?.data?.name || '');
+        const profileData = await profileResponse.json();
+        setEmployeeNumber(profileData?.data?.employeeNumber || 'N/A');
+        setEmployeeName(profileData?.data?.name || 'N/A');
       } catch (error) {
         console.error('Error fetching profile data:', error);
+        Alert.alert('Error', 'An unexpected error occurred while fetching profile data.');
       }
     };
 
@@ -64,7 +90,11 @@ const HomePage = ({ navigation, route }: any) => {
   };
 
   const handleViewEmployeeDetails = () => {
-    navigation.navigate("Profile", { userId: 193 });
+    if (userId) {
+      navigation.navigate("Profile", { userId }); // Use the dynamic userId
+    } else {
+      Alert.alert("Error", "User ID is not available.");
+    }
   };
 
   return (

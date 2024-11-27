@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { AuthProvider } from './asset/context/auth/AuthContext';
 import LoginScreen from './asset/context/src/LoginScreen';
 import ScanQRScreen from './asset/context/src/ScanQRScreen';
-import AppScreen from './asset/context/src/AppScreen';
+import ProfileSwitch from './asset/context/src/ProfileSwitch';
 import HomePage from './asset/context/src/HomePage';
 import ShowEmployeeDetail from './asset/context/src/ShowEmployeeDetail';
 
@@ -22,8 +22,8 @@ const App = () => {
           />
           <Stack.Screen name="ScanQR" component={ScanQRScreen} />
           <Stack.Screen 
-            name="App" 
-            component={AppScreen} 
+            name="ProfileSwitch" 
+            component={ProfileSwitch} 
             options={{ headerLeft: () => null }} 
           />
           <Stack.Screen name="HomePage" component={HomePage} />

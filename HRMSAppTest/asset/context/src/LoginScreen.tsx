@@ -46,11 +46,67 @@ const LoginScreen = ({ navigation }: any) => {
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {
-          AsyncStorage.setItem('authToken', data.data.accessToken); // Store authToken in AsyncStorage
-          Alert.alert('Login Success', `Welcome, ${loginId}!`);
+          const accessToken = AsyncStorage.setItem('accessToken', data.data.accessToken); // Store authToken in AsyncStorage
+          const fetchUserRole = async () => {
+            try {
+              const accessToken = await AsyncStorage.getItem('accessToken');
+              console.log('Access Token:', accessToken); // Log token to ensure it's correct
+              if (!accessToken) {
+                throw new Error('Access token is missing.');
+              }
           
-          // Pass both baseUrl and authToken to the App screen
-          navigation.navigate('App', { baseUrl, authToken: data.data.accessToken });
+              const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
+                method: 'GET',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+          
+              // Check for 401 error
+              if (response.status === 401) {
+                throw new Error('Unauthorized. Please check your login credentials or token.');
+              }
+              // Check for other status codes
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+          
+              const data = await response.json();
+              if (data.success) {
+                const userRole = data.data[0].userRole;
+                await AsyncStorage.setItem('userRole', userRole);
+                console.log("User role: " + userRole);
+                if (userRole === 'Support')
+                {
+                  Alert.alert(
+                    'Access Denied',
+                    'HR Admin can only manage tasks via the browser.'
+                  );
+                  return;
+                }
+                else if (userRole === 'Employee')
+                {
+                  Alert.alert('Login Success', `Welcome, ${loginId}! Now you are login as ${userRole}`);
+                  navigation.navigate('ProfileSwitch', {accessToken: accessToken});
+                }
+                else if (userRole === 'Approval')
+                {
+                  Alert.alert('Login Success', `Welcome, ${loginId}! Now you are login as ${userRole}`);
+                  navigation.navigate('ProfileSwitch', {accessToken: accessToken});
+                }
+                else
+                {
+                  return;
+                }
+              } else {
+                Alert.alert('Error', 'Failed to fetch user profile.');
+              }
+            } catch (error) {
+              console.error('Error during API call:', error);
+              Alert.alert('Error', 'There was an issue fetching the user profile.');
+            }
+          };
+          fetchUserRole();
         } else {
           Alert.alert('Login Failed', 'Invalid login ID or password.');
         }
@@ -60,10 +116,12 @@ const LoginScreen = ({ navigation }: any) => {
         Alert.alert('Error', 'Failed to authenticate. Please try again later.');
       });
   };
+  
+  
 
   return (
     <View style={styles.container}>
-      <Image source={require('../../img/mcsb.png')} style={styles.image} />
+      <Image source={require('../../img/logo/mcsb.png')} style={styles.image} />
       <TextInput style={styles.input} placeholder="Enter Login ID" value={loginId} onChangeText={setLoginId} />
       <View style={styles.passwordContainer}>
         <TextInput
@@ -74,7 +132,7 @@ const LoginScreen = ({ navigation }: any) => {
           onChangeText={setPassword}
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.showPasswordButton}>
-          <Image source={showPassword ? require('../../img/chakan.png') : require('../../img/yincang(1).png')} style={styles.showPasswordIcon} />
+          <Image source={showPassword ? require('../../img/icon/chakan.png') : require('../../img/icon/yincang(1).png')} style={styles.showPasswordIcon} />
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
