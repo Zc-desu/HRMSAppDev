@@ -76,7 +76,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.squareButton, styles.logoutButtonStyle]} onPress={handleLogout}>
         <Image source={require('../../img/icon/tuichu.png')} style={styles.logoutImage} />
-        <Text style={styles.squareButtonText}>Log Out</Text>
+        <Text style={styles.logoutTextStyle}>Log Out</Text>
       </TouchableOpacity>
       </View>
     </ScrollView>
@@ -150,14 +150,15 @@ const styles = StyleSheet.create({
   logoutButtonStyle: {
     backgroundColor: '#FF4C4C',  // Red to make it distinct as the log out button
   },  
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 18,
-  },
   logoutImage: {
     width: 40,  // Adjust the width as per your image size
     height: 40, // Adjust the height as per your image size
     marginBottom: 10, // Space between image and text
+  },
+  logoutTextStyle: {
+    color: 'black',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 
