@@ -3,13 +3,47 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const EmployeeMenu = ({ route, navigation }: any) => {
-  const { companyId, baseUrl, decodedToken } = route.params;
+  // Extract companyId, baseUrl, and decodedToken from route params
+  const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
   const [loggedIn, setLoggedIn] = useState(true);
+  const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
 
-  // Destructure employee details from the decoded token
+  // Destructure employee details from the decoded token if available
   const employeeName = decodedToken?.decodedPayload?.employee_name;
   const employeeNumber = decodedToken?.decodedPayload?.employee_number;
 
+  // Ensure baseUrl and employeeId are set properly
+  useEffect(() => {
+    const getBaseUrlAndEmployeeId = async () => {
+      // First, check if baseUrl is passed in route params
+      if (passedBaseUrl) {
+        setBaseUrl(passedBaseUrl);
+      } else {
+        // If not, attempt to fetch it from AsyncStorage
+        const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
+        if (storedBaseUrl) {
+          setBaseUrl(storedBaseUrl);
+        } else {
+          Alert.alert('Error', 'Base URL is not available');
+        }
+      }
+
+      // Check if employeeId is available in the decoded token or AsyncStorage
+      const storedEmployeeId = decodedToken?.decodedPayload?.employee_id
+        || await AsyncStorage.getItem('employeeId');
+
+      if (storedEmployeeId) {
+        setEmployeeId(storedEmployeeId);
+      } else {
+        Alert.alert('Error', 'Employee ID is not available');
+      }
+    };
+
+    getBaseUrlAndEmployeeId();
+  }, [passedBaseUrl, decodedToken]);
+
+  // Handle logout functionality
   const handleLogout = async () => {
     Alert.alert(
       'Log Out',
@@ -35,59 +69,75 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity style={styles.viewDetailButton} 
-        onPress={() => navigation.navigate('ViewEmployeeDetail', 
-        { employeeId: decodedToken.decodedPayload.employee_id })}
+      {/* Wrapper View */}
+      <View>
+        <TouchableOpacity
+          style={styles.viewDetailButton}
+          onPress={() => {
+            if (employeeId) {
+              navigation.navigate('ViewEmployeeDetail', { employeeId });
+            } else {
+              Alert.alert('Error', 'Employee ID is unavailable');
+            }
+          }}
         >
-        <View style={styles.buttonContent}>
-          <View style={styles.textContainer}>
-            {/* Display employee number and name from the decoded token */}
-            <Text style={styles.employeeNoText}>{employeeNumber}</Text>
-            <Text style={styles.employeeNameText}>{employeeName}</Text>
+          <View style={styles.buttonContent}>
+            <View style={styles.textContainer}>
+              <Text style={styles.employeeNoText}>{employeeNumber}</Text>
+              <Text style={styles.employeeNameText}>{employeeName}</Text>
+            </View>
+            <View style={styles.avatar} />
           </View>
-          <View style={styles.avatar} />
+        </TouchableOpacity>
+
+        {/* Button Rows */}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.squareButton}
+            onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
+          >
+            <Text style={styles.squareButtonText}>Payslip</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 2</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 1</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 2</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 3</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 4</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 3</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 4</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 5</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 6</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 5</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 6</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 7</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.squareButton, styles.logoutButtonStyle]} onPress={handleLogout}>
-          <Image source={require('../../img/icon/tuichu.png')} style={styles.logoutImage} />
-          <Text style={styles.logoutTextStyle}>Log Out</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 7</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.squareButton, styles.logoutButtonStyle]}
+            onPress={handleLogout}
+          >
+            <Image source={require('../../img/icon/tuichu.png')} style={styles.logoutImage} />
+            <Text style={styles.logoutTextStyle}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

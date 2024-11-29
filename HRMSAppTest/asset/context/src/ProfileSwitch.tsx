@@ -149,10 +149,8 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
       if (data.success) {
         const userToken = data.data.token;
-        console.log('User Token:', userToken);
         await AsyncStorage.setItem('userToken', userToken);
         const decodedToken = decodeJWT(userToken);
-        console.log('Decoded Token:', decodedToken);
 
         // Save employee_id from the decoded token to AsyncStorage
         const employeeId = decodedToken?.decodedPayload?.employee_id;
@@ -171,9 +169,9 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         await AsyncStorage.setItem('userRole', role);
 
         if (role === 'Approval') {
-          navigation.navigate('ApprovalMenu', { userToken, baseUrl, companyId, decodedToken });
+          navigation.navigate('ApprovalMenu', { userToken, baseUrl, companyId, employeeId, decodedToken });
         } else if (role === 'Employee') {
-          navigation.navigate('EmployeeMenu', { userToken, baseUrl, companyId, decodedToken });
+          navigation.navigate('EmployeeMenu', { userToken, baseUrl, companyId, employeeId, decodedToken });
         } else {
           Alert.alert('Error', 'Unsupported user role.');
         }

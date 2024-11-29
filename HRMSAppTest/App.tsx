@@ -7,6 +7,7 @@ import ProfileSwitch from './asset/context/src/ProfileSwitch';
 import ApprovalMenu from './asset/context/role/ApprovalMenu';
 import EmployeeMenu from './asset/context/role/EmployeeMenu';
 import ViewEmployeeDetail from './asset/context/modules/ViewEmployeeDetail';
+import Payslip from './asset/context/modules/Payslip';
 
 const Stack = createStackNavigator();
 
@@ -51,6 +52,14 @@ const App = () => {
         <Stack.Screen
           name="ViewEmployeeDetail"
           component={ViewEmployeeDetail}
+          //options={{ 
+            //headerLeft: () => null,
+            //headerShown: false 
+          //}}
+        />
+        <Stack.Screen
+          name="Payslip"
+          component={Payslip}
           //options={{ 
             //headerLeft: () => null,
             //headerShown: false 
