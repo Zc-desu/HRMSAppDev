@@ -3,6 +3,13 @@ import { View, Button, Alert, Text, StyleSheet, ScrollView, TouchableOpacity } f
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
 
+// Define the structure of the JWT payload (including the 'exp' property)
+interface JWTDecodedPayload {
+  exp: number;  // The expiration timestamp in Unix format
+  employee_id: string;  // Include the employee_id from the payload
+  [key: string]: any; // Other dynamic fields in the JWT payload
+}
+
 const ProfileSwitch = ({ route, navigation }: any) => {
   const { baseUrl: routeBaseUrl, accessToken: routeAccessToken } = route?.params || {};
   const [accessToken, setAccessToken] = useState<string | null>(routeAccessToken || null);
@@ -44,7 +51,6 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     if (accessToken && baseUrl) {
       const fetchUserProfile = async () => {
         try {
-          // Fetching the link by using API url of user-profiles
           const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
             method: 'GET',
             headers: {
@@ -54,13 +60,45 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           const data = await response.json();
           if (data.success) {
             setUserProfile(data.data[0]);
+
+            // Save employeeId to AsyncStorage after successful user profile fetch
+            const employeeId = data.data[0]?.employeeId; // Assuming the employeeId is in the profile data
+            if (employeeId) {
+              await AsyncStorage.setItem('employeeId', employeeId.toString());
+            }
           } else {
             console.error('Error fetching user profile:', data.message);
-            Alert.alert('Error', 'Failed to fetch user profile.');
+            Alert.alert(
+              'Error',
+              'Failed to fetch user profile.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    // Redirect to login page when "OK" is pressed
+                    navigation.navigate('Login');
+                  },
+                },
+              ],
+              { cancelable: false }
+            );
           }
         } catch (error) {
           console.error('Error during API call:', error);
-          Alert.alert('Error', 'There was an issue fetching the user profile.');
+          Alert.alert(
+            'Error',
+            'There was an issue fetching the user profile.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Redirect to login page when "OK" is pressed
+                  navigation.navigate('Login');
+                },
+              },
+            ],
+            { cancelable: false }
+          );
         }
       };
 
@@ -71,8 +109,8 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   }, [accessToken, baseUrl]);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerTitle: "" }); // Set header title to an empty string
-    navigation.setOptions({ headerShown: false }); // Hide the title bar
+    navigation.setOptions({ headerTitle: "" });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const handleLogout = () => {
@@ -84,8 +122,9 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         { 
           text: 'OK', 
           onPress: async () => {
-            await AsyncStorage.removeItem('authToken'); // Clear auth token
-            navigation.navigate('Login'); // Navigate to login screen
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('employeeId');  // Remove employeeId on logout
+            navigation.navigate('Login');
           }
         }
       ],
@@ -95,64 +134,85 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
   const handleCompanySelect = async (companyId: number, userId: number) => {
     try {
-      const response = await fetch(`${baseUrl}/apps/api/v1/auth/profile-switch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          companyId: companyId,
-          userId: userId,
-        }),
-      });
-  
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/auth/userId/${userId}/token?companyId=${companyId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
       const data = await response.json();
-  
+
       if (data.success) {
+        const userToken = data.data.token;
+        console.log('User Token:', userToken);
+        await AsyncStorage.setItem('userToken', userToken);
+        const decodedToken = decodeJWT(userToken);
+        console.log('Decoded Token:', decodedToken);
+
+        // Save employee_id from the decoded token to AsyncStorage
+        const employeeId = decodedToken?.decodedPayload?.employee_id;
+        if (employeeId) {
+          await AsyncStorage.setItem('employeeId', employeeId.toString());
+        }
+
+        // Check if the 'exp' field exists and validate the expiration time
+        if (decodedToken?.decodedPayload?.exp && Date.now() >= decodedToken.decodedPayload.exp * 1000) {
+          Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+          handleLogout();
+          return;
+        }
+
         const role = userProfile?.userRole;
-  
-        if (role === "Approval") {
-          navigation.navigate("ApprovalMenu", { 
-            companyId, 
-            baseUrl, 
-            accessToken 
-          });
-        } else if (role === "Employee") {
-          navigation.navigate("EmployeeMenu", { 
-            companyId, 
-            baseUrl, 
-            accessToken 
-          });
+        await AsyncStorage.setItem('userRole', role);
+
+        if (role === 'Approval') {
+          navigation.navigate('ApprovalMenu', { userToken, baseUrl, companyId, decodedToken });
+        } else if (role === 'Employee') {
+          navigation.navigate('EmployeeMenu', { userToken, baseUrl, companyId, decodedToken });
         } else {
-          Alert.alert("Error", "Unsupported user role.");
+          Alert.alert('Error', 'Unsupported user role.');
         }
       } else {
-        Alert.alert("Error", data.message || "Failed to switch profile.");
+        Alert.alert('Error', data.message || 'Failed to fetch user token.');
       }
     } catch (error) {
-      console.error("Error during profile switch:", error);
-      Alert.alert("Error", "Something went wrong.");
+      console.error('Error during profile switch:', error);
+      Alert.alert('Error', 'Something went wrong.');
     }
   };
-  
+
+  // JWT Decoding function with types for better TypeScript support
+  function decodeBase64Url(base64Url: string): string {
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedBase64 = base64 + '='.repeat((4 - base64.length % 4) % 4); 
+    return atob(paddedBase64);
+  }
+
+  function decodeJWT(token: string) {
+    const [headerB64, payloadB64, signatureB64] = token.split('.');
+    const decodedHeader = JSON.parse(decodeBase64Url(headerB64));
+    const decodedPayload: JWTDecodedPayload = JSON.parse(decodeBase64Url(payloadB64));
+
+    return { decodedHeader, decodedPayload };
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {userProfile ? (
         <>
-          {/* Title and User Info */}
           <Text style={styles.welcomeText}>Welcome! {userProfile.description}</Text>
 
-          {/* User Role with rounded rectangle */}
           <View style={styles.userRoleContainer}>
             <Text style={styles.userRole}>{userProfile.userRole}</Text>
           </View>
 
-          {/* Instructions */}
           <Text style={styles.instructions}>Please select a company below:</Text>
 
-          {/* Company Selection Buttons */}
           {userProfile.companies.map((company: any) => (
             <View key={company.companyId} style={styles.buttonContainer}>
               <TouchableOpacity
@@ -164,7 +224,6 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             </View>
           ))}
 
-          {/* Log out button moved to bottom */}
           <View style={styles.logoutContainer}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutText}>Log Out</Text>

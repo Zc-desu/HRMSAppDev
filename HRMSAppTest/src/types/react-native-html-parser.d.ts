@@ -9,4 +9,6 @@ declare module 'react-native-html-parser' {
       textContent: string | null;
     }
   }
+
+
   

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Button, TextInput, View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
-import { useAuth } from '../auth/AuthContext';
+import { Alert, TextInput, View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingAnimation from '../anim/loadingAnimation';
 
 const LoginScreen = ({ navigation }: any) => {
-  const { authData, setAuth } = useAuth();
-  const [loginId, setLoginId] = useState(authData.loginId || '');
-  const [password, setPassword] = useState(authData.password || '');
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
+  const [scannedData, setScannedData] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -16,7 +15,7 @@ const LoginScreen = ({ navigation }: any) => {
       try {
         const savedData = await AsyncStorage.getItem('scannedData');
         if (savedData) {
-          setAuth({ ...authData, scannedData: savedData });
+          setScannedData(savedData);
         }
       } catch (error) {
         console.error('Failed to load scanned data:', error);
@@ -26,23 +25,22 @@ const LoginScreen = ({ navigation }: any) => {
   }, []);
 
   const handleLogin = () => {
-    if (!authData.scannedData) {
+    if (!scannedData) {
       Alert.alert('Error', 'You must scan the QR code to authenticate. Please contact your HR Administrator');
       return;
     }
-
+  
     if (!loginId || !password) {
       Alert.alert('Error', 'Please enter both login ID and password.');
       return;
     }
-
-    const baseUrl = authData.scannedData.split('/apps/api')[0]; // Extract base URL from QR
-    AsyncStorage.setItem('baseUrl', baseUrl); // Store baseUrl in AsyncStorage
-    setAuth({ ...authData, baseUrl }); // Update AuthContext with baseUrl
-
-    setIsLoading(true); // Start loading animation
-
-    fetch(`${authData.scannedData}/v1/auth/credentials-login`, {
+  
+    const baseUrl = scannedData.split('/apps/api')[0];
+    AsyncStorage.setItem('baseUrl', baseUrl);
+  
+    setIsLoading(true);
+  
+    fetch(`${scannedData}/v1/auth/credentials-login`, {
       method: 'POST',
       body: JSON.stringify({ username: loginId, password }),
       headers: { 'Content-Type': 'application/json' },
@@ -50,48 +48,32 @@ const LoginScreen = ({ navigation }: any) => {
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {
-          const accessToken = AsyncStorage.setItem('accessToken', data.data.accessToken); // Store authToken in AsyncStorage
+          const accessToken = data.data.accessToken;
+          AsyncStorage.setItem('accessToken', accessToken);
+  
           const fetchUserRole = async () => {
             try {
-              const accessToken = await AsyncStorage.getItem('accessToken');
-              if (!accessToken) {
-                throw new Error('Access token is missing.');
-              }
-
               const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
                 method: 'GET',
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                },
+                headers: { Authorization: `Bearer ${accessToken}` },
               });
-
-              // Check for 401 error
-              if (response.status === 401) {
-                throw new Error('Unauthorized. Please check your login credentials or token.');
-              }
-              // Check for other status codes
+  
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
               }
-
-              const data = await response.json();
-              if (data.success) {
-                const userRole = data.data[0].userRole;
+  
+              const roleData = await response.json();
+              if (roleData.success) {
+                const userRole = roleData.data[0].userRole;
+                const userId = roleData.data[0].userId; // Extract userId
+                const companyId = roleData.data[0].companies[0]?.companyId; // Extract first companyId
                 await AsyncStorage.setItem('userRole', userRole);
+  
                 if (userRole === 'Support') {
-                  Alert.alert(
-                    'Access Denied',
-                    'HR Admin can only manage tasks via the browser.'
-                  );
-                  return;
-                } else if (userRole === 'Employee') {
-                  Alert.alert('Login Success', `Welcome, ${loginId}! Now you are login as ${userRole}`);
-                  navigation.navigate('ProfileSwitch', { accessToken: accessToken });
-                } else if (userRole === 'Approval') {
-                  Alert.alert('Login Success', `Welcome, ${loginId}! Now you are login as ${userRole}`);
-                  navigation.navigate('ProfileSwitch', { accessToken: accessToken });
-                } else {
-                  return;
+                  Alert.alert('Access Denied', 'HR Admin can only manage tasks via the browser.');
+                } else if (['Employee', 'Approval'].includes(userRole)) {
+                  Alert.alert('Login Success', `Welcome, ${loginId}! You are logged in as ${userRole}.`);
+                  navigation.navigate('ProfileSwitch', { accessToken, userId, companyId }); // Pass userId and companyId
                 }
               } else {
                 Alert.alert('Error', 'Failed to fetch user profile.');
@@ -101,6 +83,7 @@ const LoginScreen = ({ navigation }: any) => {
               Alert.alert('Error', 'There was an issue fetching the user profile.');
             }
           };
+  
           fetchUserRole();
         } else {
           Alert.alert('Login Failed', 'Invalid login ID or password.');
@@ -111,16 +94,20 @@ const LoginScreen = ({ navigation }: any) => {
         Alert.alert('Error', 'Failed to authenticate. Please try again later.');
       })
       .finally(() => {
-        setIsLoading(false); // Stop loading animation after the login request completes
+        setIsLoading(false);
       });
   };
-  
   
 
   return (
     <View style={styles.container}>
       <Image source={require('../../img/logo/mcsb.png')} style={styles.image} />
-      <TextInput style={styles.input} placeholder="Enter Login ID" value={loginId} onChangeText={setLoginId} />
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Login ID"
+        value={loginId}
+        onChangeText={setLoginId}
+      />
       <View style={styles.passwordContainer}>
         <TextInput
           style={styles.input}
@@ -130,17 +117,22 @@ const LoginScreen = ({ navigation }: any) => {
           onChangeText={setPassword}
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.showPasswordButton}>
-          <Image source={showPassword ? require('../../img/icon/chakan.png') : require('../../img/icon/yincang(1).png')} style={styles.showPasswordIcon} />
+          <Image
+            source={showPassword ? require('../../img/icon/chakan.png') : require('../../img/icon/yincang(1).png')}
+            style={styles.showPasswordIcon}
+          />
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>LOGIN</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}
+      >
         <Text style={styles.buttonText}>SCAN QR CODE</Text>
       </TouchableOpacity>
 
-      {/* Custom Loading Animation */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <LoadingAnimation />
@@ -169,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     zIndex: 1000,
-  }
+  },
 });
 
 export default LoginScreen;
