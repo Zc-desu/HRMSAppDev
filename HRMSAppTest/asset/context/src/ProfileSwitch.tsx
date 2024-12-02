@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Button, Alert, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
+import LoadingAnimation from '../../context/anim/loadingAnimation';  // Import the LoadingAnimation component
 
 // Define the structure of the JWT payload (including the 'exp' property)
 interface JWTDecodedPayload {
@@ -15,6 +16,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   const [accessToken, setAccessToken] = useState<string | null>(routeAccessToken || null);
   const [baseUrl, setBaseUrl] = useState<string | null>(routeBaseUrl || null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false); // Add loading state
 
   useEffect(() => {
     const fetchAuthData = async () => {
@@ -27,7 +29,6 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         if (!baseUrl) {
           const storedBaseUrl = await AsyncStorage.getItem('scannedData');
           if (storedBaseUrl) {
-            // Extract base URL from scanned data
             const extractedBaseUrl = storedBaseUrl.split('/apps/api')[0];
             setBaseUrl(extractedBaseUrl);
             navigation.setParams({ baseUrl: extractedBaseUrl });
@@ -61,8 +62,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           if (data.success) {
             setUserProfile(data.data[0]);
 
-            // Save employeeId to AsyncStorage after successful user profile fetch
-            const employeeId = data.data[0]?.employeeId; // Assuming the employeeId is in the profile data
+            const employeeId = data.data[0]?.employeeId;
             if (employeeId) {
               await AsyncStorage.setItem('employeeId', employeeId.toString());
             }
@@ -75,7 +75,6 @@ const ProfileSwitch = ({ route, navigation }: any) => {
                 {
                   text: 'OK',
                   onPress: () => {
-                    // Redirect to login page when "OK" is pressed
                     navigation.navigate('Login');
                   },
                 },
@@ -92,7 +91,6 @@ const ProfileSwitch = ({ route, navigation }: any) => {
               {
                 text: 'OK',
                 onPress: () => {
-                  // Redirect to login page when "OK" is pressed
                   navigation.navigate('Login');
                 },
               },
@@ -123,7 +121,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           text: 'OK', 
           onPress: async () => {
             await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.removeItem('employeeId');  // Remove employeeId on logout
+            await AsyncStorage.removeItem('employeeId');
             navigation.navigate('Login');
           }
         }
@@ -133,6 +131,8 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   };
 
   const handleCompanySelect = async (companyId: number, userId: number) => {
+    setIsLoading(true);  // Show loading animation when button is clicked
+
     try {
       const response = await fetch(
         `${baseUrl}/apps/api/v1/auth/userId/${userId}/token?companyId=${companyId}`,
@@ -152,13 +152,11 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         await AsyncStorage.setItem('userToken', userToken);
         const decodedToken = decodeJWT(userToken);
 
-        // Save employee_id from the decoded token to AsyncStorage
         const employeeId = decodedToken?.decodedPayload?.employee_id;
         if (employeeId) {
           await AsyncStorage.setItem('employeeId', employeeId.toString());
         }
 
-        // Check if the 'exp' field exists and validate the expiration time
         if (decodedToken?.decodedPayload?.exp && Date.now() >= decodedToken.decodedPayload.exp * 1000) {
           Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
           handleLogout();
@@ -181,10 +179,11 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     } catch (error) {
       console.error('Error during profile switch:', error);
       Alert.alert('Error', 'Something went wrong.');
+    } finally {
+      setIsLoading(false);  // Hide loading animation after the process is complete
     }
   };
 
-  // JWT Decoding function with types for better TypeScript support
   function decodeBase64Url(base64Url: string): string {
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const paddedBase64 = base64 + '='.repeat((4 - base64.length % 4) % 4); 
@@ -201,35 +200,41 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {userProfile ? (
-        <>
-          <Text style={styles.welcomeText}>Welcome! {userProfile.description}</Text>
-
-          <View style={styles.userRoleContainer}>
-            <Text style={styles.userRole}>{userProfile.userRole}</Text>
-          </View>
-
-          <Text style={styles.instructions}>Please select a company below:</Text>
-
-          {userProfile.companies.map((company: any) => (
-            <View key={company.companyId} style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.companyButton}
-                onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
-              >
-                <Text style={styles.buttonText}>{company.name}</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          <View style={styles.logoutContainer}>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Log Out</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+      {isLoading ? (
+        <LoadingAnimation />  // Show loading animation when isLoading is true
       ) : (
-        <Text>Loading user profile...</Text>
+        <>
+          {userProfile ? (
+            <>
+              <Text style={styles.welcomeText}>Welcome! {userProfile.description}</Text>
+
+              <View style={styles.userRoleContainer}>
+                <Text style={styles.userRole}>{userProfile.userRole}</Text>
+              </View>
+
+              <Text style={styles.instructions}>Please select a company below:</Text>
+
+              {userProfile.companies.map((company: any) => (
+                <View key={company.companyId} style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={styles.companyButton}
+                    onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
+                  >
+                    <Text style={styles.buttonText}>{company.name}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <View style={styles.logoutContainer}>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                  <Text style={styles.logoutText}>Log Out</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <Text>Loading user profile...</Text>
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -256,49 +261,43 @@ const styles = StyleSheet.create({
   },
   userRole: {
     fontSize: 16,
-    color: '#000',
+    fontWeight: 'bold',
+    color: '#333',
   },
   instructions: {
     fontSize: 18,
-    marginVertical: 20,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    marginVertical: 10,
-    width: '100%',
-    alignItems: 'center', // Ensures the buttons are centered horizontally
-  },
-  companyButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-    width: '80%',
-    alignSelf: 'center', // Ensures the button is centered within the container
     marginBottom: 20,
   },
+  buttonContainer: {
+    marginBottom: 15,
+  },
+  companyButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 5,
+  },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    textAlign: 'center'
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
   },
   logoutContainer: {
-    position: 'absolute',
-    bottom: 30,
-    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20,
+    height: 60,  // Ensure consistent height
   },
   logoutButton: {
-    backgroundColor: '#FF6347',
+    backgroundColor: '#FF5733',
     paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-    width: '70%',
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 5,
   },
   logoutText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: 'white',
+    fontSize: 16,
   },
 });
 

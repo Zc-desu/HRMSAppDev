@@ -97,7 +97,6 @@ const LoginScreen = ({ navigation }: any) => {
         setIsLoading(false);
       });
   };
-  
 
   return (
     <View style={styles.container}>
@@ -124,13 +123,24 @@ const LoginScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Image source={require('../../img/icon/a-avatar.png')} style={styles.buttonIcon} />
         <Text style={styles.buttonText}>LOGIN</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate('ScanQR', { username: loginId, password })}
       >
+        <Image source={require('../../img/icon/QR.png')} style={styles.buttonIcon} />
         <Text style={styles.buttonText}>SCAN QR CODE</Text>
+      </TouchableOpacity>
+
+      {/* Settings Button */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('Settings')}  // Navigates to the Settings page
+      >
+        <Image source={require('../../img/icon/a-s-tools.png')} style={styles.buttonIcon} />
+        <Text style={styles.buttonText}>SETTINGS</Text>
       </TouchableOpacity>
 
       {isLoading && (
@@ -143,25 +153,87 @@ const LoginScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  input: { height: 45, width: '100%', borderColor: '#ccc', borderWidth: 1, borderRadius: 25, marginBottom: 10, paddingLeft: 15 },
-  image: { width: 200, height: 100, marginBottom: 20, resizeMode: 'contain' },
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  showPasswordButton: { position: 'absolute', right: 15, top: '50%', transform: [{ translateY: -25 }], padding: 5 },
-  showPasswordIcon: { width: 27, height: 27, resizeMode: 'contain' },
-  button: { width: '80%', height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', backgroundColor: '#007BFF', marginBottom: 15 },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  loadingOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    zIndex: 1000,
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  
+  input: { 
+    height: 45, 
+    width: '100%', 
+    borderColor: '#ccc', 
+    borderWidth: 1, 
+    borderRadius: 25, 
+    marginBottom: 10, 
+    paddingLeft: 15 
+  },
+
+  image: { 
+    width: 200, 
+    height: 100, 
+    marginBottom: 20, 
+    resizeMode: 'contain' 
+  },
+
+  passwordContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    width: '100%' 
+  },
+
+  showPasswordButton: { 
+    position: 'absolute', 
+    right: 15, 
+    top: '50%', 
+    transform: [{ translateY: -25 }], 
+    padding: 5 
+  },
+
+  showPasswordIcon: { 
+    width: 27, 
+    height: 27, 
+    resizeMode: 'contain' 
+  },
+
+  button: { 
+    width: '80%', 
+    height: 45, 
+    borderRadius: 25, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#007BFF', 
+    marginBottom: 15, 
+    flexDirection: 'row' 
+  },
+
+  buttonText: { 
+    color: 'white', 
+    fontSize: 16, 
+    fontWeight: 'bold' 
+  },
+
+  buttonIcon: {
+    tintColor: 'white',
+    width: 30, 
+    height: 30, 
+    marginRight: 20,
+    resizeMode: 'contain' 
+  },
+
+  loadingOverlay: { 
+    position: 'absolute', 
+    left: 0, 
+    right: 0, 
+    top: 0, 
+    bottom: 0, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+    zIndex: 1000 
   },
 });
+
 
 export default LoginScreen;

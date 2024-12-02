@@ -6,8 +6,12 @@ import ScanQRScreen from './asset/context/src/ScanQRScreen';
 import ProfileSwitch from './asset/context/src/ProfileSwitch';
 import ApprovalMenu from './asset/context/role/ApprovalMenu';
 import EmployeeMenu from './asset/context/role/EmployeeMenu';
-import ViewEmployeeDetail from './asset/context/modules/ViewEmployeeDetail';
-import Payslip from './asset/context/modules/Payslip';
+import ViewEmployeeDetail from './asset/context/modules/employee/ViewEmployeeDetail';
+import Payslip from './asset/context/modules/payslip/Payslip';
+import ViewPayslip from './asset/context/modules/payslip/ViewPayslip';
+import LeaveMenu from './asset/context/modules/leave/LeaveMenu';
+import ViewLeaveApplication from './asset/context/modules/leave/ViewLeaveApplication';
+import Settings from './asset/context/src/Settings';
 
 const Stack = createStackNavigator();
 
@@ -31,6 +35,14 @@ const App = () => {
             headerLeft: () => null,
             headerShown: false  
           }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={Settings}
+          // //options={{ 
+          //   //headerLeft: () => null,
+          //   //headerShown: false 
+          // //}}
         />
         {/* Add ApprovalMenu and EmployeeMenu */}
         <Stack.Screen
@@ -64,6 +76,30 @@ const App = () => {
             //headerLeft: () => null,
             //headerShown: false 
           //}}
+        />
+        <Stack.Screen
+          name="ViewPayslip"
+          component={ViewPayslip}
+          // //options={{ 
+          //   //headerLeft: () => null,
+          //   //headerShown: false 
+          // //}}
+        />
+        <Stack.Screen
+          name="LeaveMenu"
+          component={LeaveMenu}
+          // //options={{ 
+          //   //headerLeft: () => null,
+          //   //headerShown: false 
+          // //}}
+        />
+        <Stack.Screen
+          name="ViewLeaveApplication"
+          component={ViewLeaveApplication}
+          // //options={{ 
+          //   //headerLeft: () => null,
+          //   //headerShown: false 
+          // //}}
         />
       </Stack.Navigator>
     </NavigationContainer>

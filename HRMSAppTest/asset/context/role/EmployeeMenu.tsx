@@ -98,8 +98,11 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           >
             <Text style={styles.squareButtonText}>Payslip</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 2</Text>
+          <TouchableOpacity
+            style={styles.squareButton}
+            onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
+          >
+            <Text style={styles.squareButtonText}>Leave</Text>
           </TouchableOpacity>
         </View>
 
