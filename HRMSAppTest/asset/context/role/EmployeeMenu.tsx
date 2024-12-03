@@ -87,25 +87,35 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               <Text style={styles.employeeNameText}>{employeeName}</Text>
             </View>
             <View style={styles.avatar} />
+            <Image source={require('../../../asset/img/icon/a-avatar.png')} style={styles.avatarStyle}/>
           </View>
         </TouchableOpacity>
 
         {/* Button Rows */}
         <View style={styles.buttonRow}>
+          {/* Payslip Button with Icon */}
           <TouchableOpacity
             style={styles.squareButton}
             onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
           >
-            <Text style={styles.squareButtonText}>Payslip</Text>
+            <View style={styles.iconTextContainer}>
+              {/* Icon above text */}
+              <Image source={require('../../../asset/img/icon/gongzidan.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Payslip</Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.squareButton}
             onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
           >
-            <Text style={styles.squareButtonText}>Leave</Text>
+            <View style={styles.iconTextContainer}>
+              {/* Icon above text */}
+              <Image source={require('../../../asset/img/icon/leave2.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Leave</Text>
+            </View>
           </TouchableOpacity>
         </View>
-
+        {/* Other Button Rows */}
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.squareButton}>
             <Text style={styles.squareButtonText}>Button 3</Text>
@@ -132,15 +142,14 @@ const EmployeeMenu = ({ route, navigation }: any) => {
             style={[styles.squareButton, styles.logoutButtonStyle]}
             onPress={handleLogout}
           >
-            <Image source={require('../../img/icon/tuichu.png')} style={styles.logoutImage} />
-            <Text style={styles.logoutTextStyle}>Log Out</Text>
+            <Image source={require('../../../asset/img/icon/tuichu.png')} style={styles.iconImage} />
+            <Text style={styles.squareButtonText}>Log Out</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -180,13 +189,24 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 80,
+    height: 80,
+    borderRadius: 40, // Makes it circular
     backgroundColor: '#FFFFFF',
     position: 'absolute',
     right: 15,
+    justifyContent: 'center', // Centers content
+    alignItems: 'center', // Centers content
   },
+  avatarStyle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30, // Make the image round
+    position: 'absolute',
+    top: '50%', // Centers the image vertically within the circle
+    left: '50%', // Centers the image horizontally within the circle
+    transform: [{ translateX: 100 }, { translateY: -30 }], // Offsets the image by half of its size to truly center it
+  },  
   buttonRow: {
     flexDirection: 'row',
     width: '100%',
@@ -204,20 +224,27 @@ const styles = StyleSheet.create({
   },
   squareButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  iconTextContainer: {
+    flexDirection: 'column',  // Stack icon above text
+    alignItems: 'center',     // Center align the content horizontally
+    justifyContent: 'center', // Center align the content vertically
+  },  
+  icon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  iconImage: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+    tintColor: 'white',
   },
   logoutButtonStyle: {
     backgroundColor: '#FF4C4C',
-  },
-  logoutImage: {
-    width: 40,
-    height: 40,
-    marginBottom: 10,
-  },
-  logoutTextStyle: {
-    color: 'black',
-    fontSize: 16,
-    textAlign: 'center',
   },
 });
 

@@ -12,9 +12,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 
-// Define the navigation params type
 type PayslipNavigationProp = {
-  navigate: (screen: string, params: {
+  navigate: (screen: string, params?: {
     baseUrl: string;
     employeeId: string;
     payrollType: string;
@@ -30,7 +29,6 @@ const Payslip = ({ route }: any) => {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const navigation = useNavigation<PayslipNavigationProp>();
 
-  // Fetch payslips when baseUrl, employeeId, or year changes
   useEffect(() => {
     if (!baseUrl || !employeeId) {
       Alert.alert('Error', 'Base URL or Employee ID is missing.');
@@ -41,7 +39,6 @@ const Payslip = ({ route }: any) => {
     }
   }, [baseUrl, employeeId, year]);
 
-  // Fetch payslips from the API
   const fetchPayslips = async () => {
     setLoading(true);
     const userToken = await AsyncStorage.getItem('userToken');
@@ -73,16 +70,36 @@ const Payslip = ({ route }: any) => {
       }
     } catch (err) {
       console.error('Error fetching payslips:', err);
-      setError('Error fetching payslips');
+
+      // Check if the error is due to session expiration or invalid JSON
+      if (err instanceof SyntaxError) {
+        Alert.alert(
+          'Session Expired',
+          'Login session expired! Please login again.',
+          [
+            {
+              text: 'OK',
+              onPress: async () => {
+                // Remove user token and navigate to login screen
+                await AsyncStorage.removeItem('userToken');
+                navigation.navigate('Login');
+                },
+            },
+          ],
+          { cancelable: false }
+        );
+      } else {
+        setError('Error fetching payslips');
+      }
+
       setPayslips([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Navigate to ViewPayslip screen and pass data
   const handleViewPayslip = async (payrollType: string, payrollDate: string) => {
-    const formattedDate = new Date(payrollDate).toISOString().split('T')[0]; // Formats to 'YYYY-MM-DD'
+    const formattedDate = new Date(payrollDate).toISOString().split('T')[0];
 
     try {
       await AsyncStorage.setItem('payrollType', payrollType);
@@ -99,14 +116,12 @@ const Payslip = ({ route }: any) => {
     }
   };
 
-  // Format date to 'Month YYYY' (e.g., 'October 2023')
   const formatDate = (date: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long' };
     const formattedDate = new Date(date);
     return new Intl.DateTimeFormat('en-US', options).format(formattedDate);
   };
 
-  // Render individual payslip items
   const renderPayslip = ({ item }: any) => (
     <View style={styles.payslipItem}>
       <View style={styles.dateContainer}>
@@ -141,14 +156,20 @@ const Payslip = ({ route }: any) => {
           onPress={() => setYear((prev) => prev - 1)}
           style={styles.yearButton}
         >
-          <Text style={styles.yearButtonText}>{'<'}</Text>
+          <Image
+            source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+            style={styles.arrowIcon}
+          />
         </TouchableOpacity>
         <Text style={styles.yearText}>{year}</Text>
         <TouchableOpacity
           onPress={() => setYear((prev) => prev + 1)}
           style={styles.yearButton}
         >
-          <Text style={styles.yearButtonText}>{'>'}</Text>
+          <Image
+            source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+            style={styles.arrowIcon}
+          />
         </TouchableOpacity>
       </View>
 
@@ -187,16 +208,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   yearButton: {
-    backgroundColor: '#243a84',
-    borderRadius: 50,
     paddingHorizontal: 15,
     paddingVertical: 15,
     marginHorizontal: 10,
   },
-  yearButtonText: {
-    color: 'white',
-    fontSize: 24,
-    textAlign: 'center',
+  arrowIcon: {
+    width: 30,
+    height: 30,
+    tintColor: 'black', // Optional: change the color of the arrow icon
   },
   yearText: {
     fontSize: 28,
@@ -258,7 +277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10, // Optional spacing
+    marginBottom: 10,
   },  
 });
 

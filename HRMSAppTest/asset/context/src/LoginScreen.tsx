@@ -29,17 +29,17 @@ const LoginScreen = ({ navigation }: any) => {
       Alert.alert('Error', 'You must scan the QR code to authenticate. Please contact your HR Administrator');
       return;
     }
-  
+
     if (!loginId || !password) {
       Alert.alert('Error', 'Please enter both login ID and password.');
       return;
     }
-  
+
     const baseUrl = scannedData.split('/apps/api')[0];
     AsyncStorage.setItem('baseUrl', baseUrl);
-  
+
     setIsLoading(true);
-  
+
     fetch(`${scannedData}/v1/auth/credentials-login`, {
       method: 'POST',
       body: JSON.stringify({ username: loginId, password }),
@@ -49,26 +49,28 @@ const LoginScreen = ({ navigation }: any) => {
       .then((data) => {
         if (data.success) {
           const accessToken = data.data.accessToken;
+          const refreshToken = data.data.refreshToken; // Save the refresh token
           AsyncStorage.setItem('accessToken', accessToken);
-  
+          AsyncStorage.setItem('refreshToken', refreshToken); // Store refresh token in AsyncStorage
+
           const fetchUserRole = async () => {
             try {
               const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
                 method: 'GET',
                 headers: { Authorization: `Bearer ${accessToken}` },
               });
-  
+
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
               }
-  
+
               const roleData = await response.json();
               if (roleData.success) {
                 const userRole = roleData.data[0].userRole;
                 const userId = roleData.data[0].userId; // Extract userId
                 const companyId = roleData.data[0].companies[0]?.companyId; // Extract first companyId
                 await AsyncStorage.setItem('userRole', userRole);
-  
+
                 if (userRole === 'Support') {
                   Alert.alert('Access Denied', 'HR Admin can only manage tasks via the browser.');
                 } else if (['Employee', 'Approval'].includes(userRole)) {
@@ -83,7 +85,7 @@ const LoginScreen = ({ navigation }: any) => {
               Alert.alert('Error', 'There was an issue fetching the user profile.');
             }
           };
-  
+
           fetchUserRole();
         } else {
           Alert.alert('Login Failed', 'Invalid login ID or password.');
@@ -234,6 +236,5 @@ const styles = StyleSheet.create({
     zIndex: 1000 
   },
 });
-
 
 export default LoginScreen;

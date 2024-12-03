@@ -10,7 +10,8 @@ import ViewEmployeeDetail from './asset/context/modules/employee/ViewEmployeeDet
 import Payslip from './asset/context/modules/payslip/Payslip';
 import ViewPayslip from './asset/context/modules/payslip/ViewPayslip';
 import LeaveMenu from './asset/context/modules/leave/LeaveMenu';
-import ViewLeaveApplication from './asset/context/modules/leave/ViewLeaveApplication';
+import LeaveApplicationListing from './asset/context/modules/leave/LeaveApplicationListing';
+import LeaveDetail from './asset/context/modules/leave/LeaveDetail';
 import Settings from './asset/context/src/Settings';
 
 const Stack = createStackNavigator();
@@ -94,8 +95,16 @@ const App = () => {
           // //}}
         />
         <Stack.Screen
-          name="ViewLeaveApplication"
-          component={ViewLeaveApplication}
+          name="LeaveApplicationListing"
+          component={LeaveApplicationListing}
+          // //options={{ 
+          //   //headerLeft: () => null,
+          //   //headerShown: false 
+          // //}}
+        />
+        <Stack.Screen
+          name="LeaveDetail"
+          component={LeaveDetail}
           // //options={{ 
           //   //headerLeft: () => null,
           //   //headerShown: false 

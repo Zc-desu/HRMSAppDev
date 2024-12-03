@@ -179,6 +179,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     } catch (error) {
       console.error('Error during profile switch:', error);
       Alert.alert('Error', 'Something went wrong.');
+      navigation.navigate('Login');
     } finally {
       setIsLoading(false);  // Hide loading animation after the process is complete
     }

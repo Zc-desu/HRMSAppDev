@@ -40,7 +40,7 @@ const LeaveMenu = ({ navigation }: any) => {
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.navigate('ViewLeaveApplication', { baseUrl, employeeId })}
+        onPress={() => navigation.navigate('LeaveApplicationListing', { baseUrl, employeeId })}
       >
         <Text style={styles.buttonText}>View Leave Application</Text>
       </TouchableOpacity>
