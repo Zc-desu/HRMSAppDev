@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Button, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LeaveDetail = ({ route, navigation }: any) => {
@@ -54,14 +54,14 @@ const LeaveDetail = ({ route, navigation }: any) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Approved':
-        return 'green';
+        return '#34C759'; // iOS green
       case 'Cancelled':
-        return 'red';
+        return '#FF3B30'; // iOS red
       case 'Pending':
-      case 'Pending Cancellation':
-        return 'orange';
+      case 'PendingCancellation':
+        return '#FF9500'; // iOS orange
       default:
-        return 'gray';
+        return '#8E8E93'; // iOS gray
     }
   };
 
@@ -69,30 +69,86 @@ const LeaveDetail = ({ route, navigation }: any) => {
     switch (decision) {
       case 'A':
         return 'Approved';
-      case 'R':
-        return 'Rejected';
+      case 'P':
+        return 'Pending';
+      case 'C':
+        return 'Pending Cancellation';
+      case 'L':
+        return 'Cancelled';
       default:
         return 'Unknown';
     }
   };
 
   const formatDate = (dateString: string) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' } as const;
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `${day} ${month} ${year}`;
   };
 
   const handleCancelLeave = () => {
     navigation.navigate('CancelLeaveApplication', { applicationId });
   };
 
+  const getSessionIcon = (session: string) => {
+    switch (session) {
+      case 'Full':
+        return require('../../../../asset/img/icon/full.png');
+      case 'First Half':
+        return require('../../../../asset/img/icon/first-half.png');
+      case 'Second Half':
+        return require('../../../../asset/img/icon/second-half.png');
+      default:
+        return require('../../../../asset/img/icon/full.png');
+    }
+  };
+
+  const renderLeaveSession = (leaveDates: any[]) => {
+    return leaveDates.map((date, index) => (
+      <View key={index} style={styles.sessionContainer}>
+        <View style={styles.sessionRow}>
+          <View style={styles.sessionInfo}>
+            <Text style={styles.sessionDate}>
+              {formatDate(date.date)}
+            </Text>
+            <View style={styles.sessionDetails}>
+              <Image 
+                source={getSessionIcon(date.session)}
+                style={styles.sessionIcon}
+              />
+              <Text style={styles.sessionText}>
+                {date.session} ({date.day} day)
+              </Text>
+            </View>
+          </View>
+          {date.detail && (
+            <Text style={styles.sessionDetail}>{date.detail}</Text>
+          )}
+        </View>
+      </View>
+    ));
+  };
+
   if (loading) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
   if (!leaveDetail) {
     return (
-      <View style={styles.container}>
-        <Text>Leave details not found.</Text>
+      <View style={styles.messageContainer}>
+        <Text style={styles.messageText}>Leave details not found.</Text>
       </View>
     );
   }
@@ -100,103 +156,257 @@ const LeaveDetail = ({ route, navigation }: any) => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.row}>
-          <Text style={styles.title}>{leaveDetail.leaveCodeDesc}</Text>
-          <View style={[styles.statusBox, { backgroundColor: getStatusColor(leaveDetail.approvalStatusDisplay) }]}>
-            <Text style={styles.statusText}>{leaveDetail.approvalStatusDisplay}</Text>
+        <View style={styles.headerCard}>
+          <View style={styles.row}>
+            <Text style={styles.title}>{leaveDetail.leaveCodeDesc}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(leaveDetail.approvalStatusDisplay) }]}>
+              <Text style={styles.statusText}>{leaveDetail.approvalStatusDisplay}</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.detailText}>Applied On: {formatDate(leaveDetail.createdDate)}</Text>
-        <Text style={styles.detailText}>Start Date: {formatDate(leaveDetail.dateFrom)}</Text>
-        <Text style={styles.detailText}>End Date: {formatDate(leaveDetail.dateTo)}</Text>
-        <Text style={styles.detailText}>Reason: {leaveDetail.reason || '--'}</Text>
-        <Text style={styles.detailText}>Backup Person: {leaveDetail.backupPersonEmployeeName || '--'}</Text>
-        <Text style={styles.subTitle}>Approval Details:</Text>
-        {approvalDetails && approvalDetails.length > 0 ? (
-          approvalDetails.map((approval: any, index: number) => (
-            <View key={index} style={styles.approvalRow}>
-              <Text style={styles.approvalText}>Approver: {approval.approval}</Text>
-              <Text style={styles.approvalText}>Decision: {mapApprovalDecision(approval.approvalDecision)}</Text>
-              <Text style={styles.approvalText}>Respond Date: {formatDate(approval.respondDate)}</Text>
-              <Text style={styles.approvalText}>Reason: {approval.reason || '--'}</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.noApprovalText}>No approval details available.</Text>
-        )}
+
+        <View style={styles.detailsCard}>
+          <DetailItem label="Applied On" value={formatDate(leaveDetail.createdDate)} />
+          <DetailItem label="Department" value={leaveDetail.departmentDesc} />
+          <DetailItem label="Position" value={leaveDetail.jobTitleDesc} />
+          <DetailItem label="Total Days" value={`${leaveDetail.totalDays} day(s)`} />
+          <DetailItem label="Reason" value={leaveDetail.reason || '--'} />
+          <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} />
+        </View>
+
+        <View style={styles.sessionCard}>
+          <Text style={styles.sectionTitle}>Leave Sessions</Text>
+          {leaveDetail.leaveDates && leaveDetail.leaveDates.length > 0 ? (
+            renderLeaveSession(leaveDetail.leaveDates)
+          ) : (
+            <Text style={styles.messageText}>No session details available.</Text>
+          )}
+        </View>
+
+        <View style={styles.approvalCard}>
+          <Text style={styles.sectionTitle}>Approval Details</Text>
+          {approvalDetails && approvalDetails.length > 0 ? (
+            approvalDetails.map((approval: any, index: number) => (
+              <View key={index} style={styles.approvalItem}>
+                <DetailItem label="Approver" value={approval.approval} />
+                <DetailItem label="Decision" value={mapApprovalDecision(approval.approvalDecision)} />
+                <DetailItem label="Respond Date" value={formatDate(approval.respondDate)} />
+                <DetailItem label="Reason" value={approval.reason || '--'} />
+              </View>
+            ))
+          ) : (
+            <Text style={styles.messageText}>No approval details available.</Text>
+          )}
+        </View>
       </ScrollView>
-      {(leaveDetail.approvalStatusDisplay === 'Approved' || leaveDetail.approvalStatusDisplay === 'Pending') && (
-        <View style={styles.cancelLeaveButton}>
-          <Button title="Cancel Leave" onPress={handleCancelLeave} color="red" />
+
+      {(leaveDetail.approvalStatusDisplay === 'Approved' || 
+        leaveDetail.approvalStatusDisplay === 'Pending' ||
+        leaveDetail.approvalStatusDisplay === 'PendingCancellation') && (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={handleCancelLeave}
+          >
+            <Text style={styles.cancelButtonText}>Cancel Leave</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
   );
 };
 
+// Helper component for detail items
+const DetailItem = ({ label, value }: { label: string; value: string }) => (
+  <View style={styles.detailRow}>
+    <Text style={styles.detailLabel}>{label}</Text>
+    <Text style={styles.detailValue}>{value}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   scrollViewContent: {
-    paddingBottom: 100, // Add some padding to avoid content being hidden behind the button
+    padding: 16,
+    paddingBottom: 100,
+  },
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  approvalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   title: {
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#333',
     flex: 1,
   },
-  statusBox: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+  statusBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
   },
   statusText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: 14,
   },
-  detailText: {
-    fontSize: 16,
-    marginBottom: 8,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
     color: '#333',
-  },
-  subTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginVertical: 12,
-  },
-  approvalRow: {
     marginBottom: 16,
-    padding: 8,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
   },
-  approvalText: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  detailLabel: {
     fontSize: 16,
-    marginBottom: 4,
+    color: '#666',
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 16,
     color: '#333',
+    flex: 1,
+    textAlign: 'right',
+    fontWeight: '500',
   },
-  noApprovalText: {
-    fontSize: 16,
-    color: 'gray',
-    marginTop: 8,
+  approvalItem: {
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
-  cancelLeaveButton: {
+  buttonContainer: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    borderRadius: 8,
-    overflow: 'hidden',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: '#F5F5F5',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  cancelButton: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  messageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 20,
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  sessionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sessionContainer: {
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingBottom: 12,
+  },
+  sessionRow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  sessionInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sessionDate: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  sessionDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
+  },
+  sessionText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  sessionDetail: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
 

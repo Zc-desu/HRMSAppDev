@@ -10,7 +10,6 @@ import {
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 
 type PayslipNavigationProp = {
   navigate: (screen: string, params?: {
@@ -21,13 +20,12 @@ type PayslipNavigationProp = {
   }) => void;
 };
 
-const Payslip = ({ route }: any) => {
+const Payslip = ({ route, navigation }: any) => {
   const { baseUrl, employeeId } = route?.params || {};
   const [payslips, setPayslips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const navigation = useNavigation<PayslipNavigationProp>();
 
   useEffect(() => {
     if (!baseUrl || !employeeId) {
@@ -117,75 +115,98 @@ const Payslip = ({ route }: any) => {
   };
 
   const formatDate = (date: string) => {
-    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long' };
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
     const formattedDate = new Date(date);
-    return new Intl.DateTimeFormat('en-US', options).format(formattedDate);
+    const month = months[formattedDate.getMonth()];
+    const year = formattedDate.getFullYear();
+    
+    return `${month} ${year}`;
   };
 
   const renderPayslip = ({ item }: any) => (
-    <View style={styles.payslipItem}>
-      <View style={styles.dateContainer}>
+    <TouchableOpacity
+      style={styles.payslipCard}
+      onPress={() => handleViewPayslip(item.payrollType, item.payrollDate)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.payslipContent}>
         <View style={styles.textContainer}>
           <Text style={styles.payrollDateText}>
-            {formatDate(item.payrollDate) || 'N/A'}
+            {formatDate(item.payrollDate)}
           </Text>
           <Text style={styles.descriptionText}>
             {item.payrollTypeDescription || 'N/A'}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => handleViewPayslip(item.payrollType, item.payrollDate)}
-          style={styles.viewButton}
-        >
+        <View style={styles.viewButtonContainer}>
           <Image
             source={require('../../../../asset/img/icon/sousuo.png')}
             style={styles.icon}
           />
           <Text style={styles.viewButtonText}>View</Text>
-        </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Payslip</Text>
-
-      <View style={styles.yearNavigation}>
-        <TouchableOpacity
-          onPress={() => setYear((prev) => prev - 1)}
-          style={styles.yearButton}
-        >
-          <Image
-            source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
-            style={styles.arrowIcon}
-          />
-        </TouchableOpacity>
-        <Text style={styles.yearText}>{year}</Text>
-        <TouchableOpacity
-          onPress={() => setYear((prev) => prev + 1)}
-          style={styles.yearButton}
-        >
-          <Image
-            source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
-            style={styles.arrowIcon}
-          />
-        </TouchableOpacity>
+      <View style={styles.headerCard}>
+        <Text style={styles.headerText}>Yearly Payslip</Text>
+        <View style={styles.yearNavigation}>
+          <TouchableOpacity
+            onPress={() => setYear((prev) => prev - 1)}
+            style={styles.yearButton}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+              style={styles.arrowIcon}
+            />
+          </TouchableOpacity>
+          <Text style={styles.yearText}>{year}</Text>
+          <TouchableOpacity
+            onPress={() => setYear((prev) => prev + 1)}
+            style={styles.yearButton}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+              style={styles.arrowIcon}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {loading && <ActivityIndicator size="large" color="#0000ff" />}
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <FlatList
-        data={payslips}
-        renderItem={renderPayslip}
-        keyExtractor={(item: any) => item.payrollDate}
-        ListEmptyComponent={
-          <Text style={styles.noDataText}>
-            No payslips available for this year.
-          </Text>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      ) : (
+        <View style={styles.contentContainer}>
+          <FlatList
+            data={payslips}
+            renderItem={renderPayslip}
+            keyExtractor={(item: any) => item.payrollDate}
+            contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={
+              !error ? (
+                <View style={styles.messageContainer}>
+                  <Text style={styles.messageText}>
+                    No payslips available for {year}.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.messageContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )
+            }
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -193,92 +214,121 @@ const Payslip = ({ route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
+    padding: 16,
   },
-  header: {
-    fontSize: 24,
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerText: {
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   yearNavigation: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
   },
   yearButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    marginHorizontal: 10,
-  },
-  arrowIcon: {
-    width: 30,
-    height: 30,
-    tintColor: 'black', // Optional: change the color of the arrow icon
+    padding: 12,
+    borderRadius: 8,
   },
   yearText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 32,
   },
-  errorText: {
-    color: 'red',
-    marginTop: 10,
-    textAlign: 'center',
+  arrowIcon: {
+    width: 28,
+    height: 28,
+    tintColor: '#007AFF',
   },
-  noDataText: {
-    fontSize: 16,
-    color: 'gray',
-    marginTop: 10,
-    textAlign: 'center',
+  listContainer: {
+    paddingBottom: 16,
   },
-  payslipItem: {
-    marginBottom: 15,
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
+  payslipCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  payslipContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
   },
   textContainer: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 16,
   },
   payrollDateText: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
   descriptionText: {
-    fontSize: 18,
-    color: '#555',
-    marginTop: 5,
+    fontSize: 16,
+    color: '#666',
   },
-  viewButton: {
+  viewButtonContainer: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007bff',
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 90,
+    height: 90,
   },
   icon: {
-    width: 30,
-    height: 30,
-    tintColor: 'white',
+    width: 32,
+    height: 32,
+    tintColor: '#FFFFFF',
+    marginBottom: 8,
   },
   viewButtonText: {
-    fontSize: 14,
-    color: 'white',
-    marginTop: 5,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  dateContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-  },  
+  },
+  messageContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+  },
 });
 
 export default Payslip;

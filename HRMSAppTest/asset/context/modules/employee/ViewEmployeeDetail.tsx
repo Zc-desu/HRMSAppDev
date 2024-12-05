@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Alert, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ViewEmployeeDetail = ({ navigation }: any) => {
@@ -75,78 +75,150 @@ const ViewEmployeeDetail = ({ navigation }: any) => {
     }
   }, [userToken, baseUrl]);
 
+  // Helper function to format date
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return '-';
+    
+    const date = new Date(dateString);
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `${day} ${month} ${year}`;
+  };
+
   if (loading) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
   if (!employeeDetails) {
-    return <Text>No employee details available.</Text>;
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>No employee details available.</Text>
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Employee Details</Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Employee Number:</Text> {employeeDetails.employeeNumber}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Name:</Text> {employeeDetails.name}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Title:</Text> {employeeDetails.title}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Nationality:</Text> {employeeDetails.nationality}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>NRIC:</Text> {employeeDetails.nric}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Date of Birth:</Text> {employeeDetails.dateOfBirth}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Age:</Text> {employeeDetails.age}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Gender:</Text> {employeeDetails.gender}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Resident Status:</Text> {employeeDetails.resident}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Marital Status:</Text> {employeeDetails.maritalStatus}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Religion:</Text> {employeeDetails.religion}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Ethnic:</Text> {employeeDetails.ethnic}
-      </Text>
-      <Text style={styles.detailText}>
-        <Text style={styles.boldText}>Smoker:</Text> {employeeDetails.smoker ? 'Yes' : 'No'}
-      </Text>
-    </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.contentContainer}>
+        {/* Header Section */}
+        <View style={styles.headerCard}>
+          <Text style={styles.headerText}>Employee Details</Text>
+        </View>
+
+        {/* Details Section */}
+        <View style={styles.detailsCard}>
+          <DetailItem label="Employee Number" value={employeeDetails.employeeNumber} />
+          <DetailItem label="Name" value={employeeDetails.name} />
+          <DetailItem label="Title" value={employeeDetails.title} />
+          <DetailItem label="Nationality" value={employeeDetails.nationality} />
+          <DetailItem label="NRIC" value={employeeDetails.nric} />
+          <DetailItem 
+            label="Date of Birth" 
+            value={formatDate(employeeDetails.dateOfBirth)} 
+          />
+          <DetailItem label="Age" value={employeeDetails.age?.toString()} />
+          <DetailItem label="Gender" value={employeeDetails.gender} />
+          <DetailItem label="Resident Status" value={employeeDetails.resident} />
+          <DetailItem label="Marital Status" value={employeeDetails.maritalStatus} />
+          <DetailItem label="Religion" value={employeeDetails.religion} />
+          <DetailItem label="Ethnic" value={employeeDetails.ethnic} />
+          <DetailItem label="Smoker" value={employeeDetails.smoker ? 'Yes' : 'No'} />
+        </View>
+      </View>
+    </ScrollView>
   );
 };
+
+// Helper component for detail items
+const DetailItem = ({ label, value }: { label: string; value: string | undefined }) => (
+  <View style={styles.detailRow}>
+    <Text style={styles.labelText}>{label}</Text>
+    <Text style={styles.valueText}>{value || '-'}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    padding: 20,
+    backgroundColor: '#F5F5F5',
   },
-  header: {
+  contentContainer: {
+    padding: 16,
+  },
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
   },
-  detailText: {
+  detailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  labelText: {
     fontSize: 16,
-    marginVertical: 5,
+    color: '#666',
+    flex: 1,
   },
-  boldText: {
-    fontWeight: 'bold',
+  valueText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 

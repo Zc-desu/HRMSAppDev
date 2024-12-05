@@ -19,6 +19,7 @@ import LeaveApplicationListing from './asset/context/modules/leave/LeaveApplicat
 import LeaveDetail from './asset/context/modules/leave/LeaveDetail';
 import CancelLeaveApplication from './asset/context/modules/leave/CancelLeaveApplication';
 import CreateLeaveApplication from './asset/context/modules/leave/CreateLeaveApplication';
+import LeaveEntitlementListing from './asset/context/modules/leave/LeaveEntitlementListing';
 // Import Setting
 import Settings from './asset/context/src/Settings';
 
@@ -81,10 +82,15 @@ const App = () => {
         <Stack.Screen
           name="Payslip"
           component={Payslip}
-          //options={{ 
-            //headerLeft: () => null,
-            //headerShown: false 
-          //}}
+          options={{ 
+            title: 'Payslip',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
         <Stack.Screen
           name="ViewPayslip"
@@ -97,42 +103,80 @@ const App = () => {
         <Stack.Screen
           name="LeaveMenu"
           component={LeaveMenu}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
+          options={{ 
+            title: 'Leave',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
         <Stack.Screen
           name="LeaveApplicationListing"
           component={LeaveApplicationListing}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
+          options={{ 
+            title: 'List of Leave Application',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
         <Stack.Screen
           name="LeaveDetail"
           component={LeaveDetail}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
+          options={{ 
+            title: 'Detail',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
         <Stack.Screen
           name="CancelLeaveApplication"
           component={CancelLeaveApplication}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
+          options={{ 
+            title: 'Cancel Leave Application',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
         <Stack.Screen
           name="CreateLeaveApplication"
           component={CreateLeaveApplication}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
+          options={{ 
+            title: 'Create Leave Application',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
+        />
+        <Stack.Screen
+          name="LeaveEntitlementListing"
+          component={LeaveEntitlementListing}
+          options={{ 
+            title: 'Leave Entitlement',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const EmployeeMenu = ({ route, navigation }: any) => {
   // Extract companyId, baseUrl, and decodedToken from route params
@@ -43,7 +44,43 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     getBaseUrlAndEmployeeId();
   }, [passedBaseUrl, decodedToken]);
 
-  // Handle logout functionality
+  // Modify checkAuth to check for userToken instead of authToken
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const userToken = await AsyncStorage.getItem('userToken');
+        if (!userToken) {
+          setLoggedIn(false);
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } else {
+          setLoggedIn(true);
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      }
+    };
+    checkAuth();
+  }, [navigation]);
+
+  // Handle hardware back button
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        if (!loggedIn) {
+          return true; // Prevent going back if logged out
+        }
+        return false;
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [loggedIn])
+  );
+
+  // Modified handleLogout
   const handleLogout = async () => {
     Alert.alert(
       'Log Out',
@@ -51,15 +88,37 @@ const EmployeeMenu = ({ route, navigation }: any) => {
       [
         {
           text: 'Cancel',
-          onPress: () => console.log('Log out canceled'),
           style: 'cancel',
         },
         {
           text: 'OK',
           onPress: async () => {
-            setLoggedIn(false);
-            await AsyncStorage.removeItem('authToken');
-            navigation.navigate('Login');
+            try {
+              setLoggedIn(false);
+              
+              // Store necessary data temporarily
+              const baseUrl = await AsyncStorage.getItem('baseUrl');
+              const scannedData = await AsyncStorage.getItem('scannedData');
+              
+              // Get all keys and filter out the ones we want to keep
+              const keys = await AsyncStorage.getAllKeys();
+              const keysToRemove = keys.filter(key => 
+                key !== 'baseUrl' && 
+                key !== 'scannedData'
+              );
+              
+              // Remove only the authentication-related items
+              await AsyncStorage.multiRemove(keysToRemove);
+              
+              // Reset navigation stack
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to log out properly');
+            }
           },
         },
       ],
@@ -86,7 +145,6 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               <Text style={styles.employeeNoText}>{employeeNumber}</Text>
               <Text style={styles.employeeNameText}>{employeeName}</Text>
             </View>
-            <View style={styles.avatar} />
             <Image source={require('../../../asset/img/icon/a-avatar.png')} style={styles.avatarStyle}/>
           </View>
         </TouchableOpacity>
@@ -99,7 +157,6 @@ const EmployeeMenu = ({ route, navigation }: any) => {
             onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
           >
             <View style={styles.iconTextContainer}>
-              {/* Icon above text */}
               <Image source={require('../../../asset/img/icon/gongzidan.png')} style={styles.iconImage} />
               <Text style={styles.squareButtonText}>Payslip</Text>
             </View>
@@ -109,12 +166,12 @@ const EmployeeMenu = ({ route, navigation }: any) => {
             onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
           >
             <View style={styles.iconTextContainer}>
-              {/* Icon above text */}
               <Image source={require('../../../asset/img/icon/leave2.png')} style={styles.iconImage} />
               <Text style={styles.squareButtonText}>Leave</Text>
             </View>
           </TouchableOpacity>
         </View>
+
         {/* Other Button Rows */}
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.squareButton}>
@@ -129,21 +186,14 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           <TouchableOpacity style={styles.squareButton}>
             <Text style={styles.squareButtonText}>Button 5</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 6</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 7</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.squareButton, styles.logoutButtonStyle]}
             onPress={handleLogout}
           >
-            <Image source={require('../../../asset/img/icon/tuichu.png')} style={styles.iconImage} />
-            <Text style={styles.squareButtonText}>Log Out</Text>
+            <View style={styles.iconTextContainer}>
+              <Image source={require('../../../asset/img/icon/tuichu.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Log Out</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -154,97 +204,82 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#F5F5F5',
+    padding: 16,
   },
   viewDetailButton: {
     width: '100%',
-    backgroundColor: '#243a84',
-    borderRadius: 15,
-    paddingVertical: 40,
-    marginTop: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 28,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonContent: {
     flexDirection: 'row',
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 24,
   },
   textContainer: {
     flex: 1,
-    paddingLeft: 15,
   },
   employeeNoText: {
-    color: 'white',
-    fontSize: 20,
-    marginBottom: 5,
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
   },
   employeeNameText: {
-    color: 'white',
     fontSize: 24,
-    marginBottom: 5,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40, // Makes it circular
-    backgroundColor: '#FFFFFF',
-    position: 'absolute',
-    right: 15,
-    justifyContent: 'center', // Centers content
-    alignItems: 'center', // Centers content
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
   avatarStyle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30, // Make the image round
-    position: 'absolute',
-    top: '50%', // Centers the image vertically within the circle
-    left: '50%', // Centers the image horizontally within the circle
-    transform: [{ translateX: 100 }, { translateY: -30 }], // Offsets the image by half of its size to truly center it
-  },  
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
   buttonRow: {
     flexDirection: 'row',
-    width: '100%',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginBottom: 16,
   },
   squareButton: {
     width: '48%',
     aspectRatio: 1,
-    backgroundColor: '#243a84',
-    borderRadius: 10,
-    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   squareButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
   },
   iconTextContainer: {
-    flexDirection: 'column',  // Stack icon above text
-    alignItems: 'center',     // Center align the content horizontally
-    justifyContent: 'center', // Center align the content vertically
-  },  
-  icon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconImage: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
-    tintColor: 'white',
+    width: 40,
+    height: 40,
+    marginBottom: 8,
+    tintColor: '#007AFF',
   },
   logoutButtonStyle: {
-    backgroundColor: '#FF4C4C',
+    backgroundColor: '#FFF0F0', // Light red background
   },
 });
 

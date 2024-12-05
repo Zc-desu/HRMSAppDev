@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, View, Text, Button, StyleSheet } from 'react-native';
+import { Alert, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import QRCodeScanner from 'react-native-qrcode-scanner';
 import { RNCamera } from 'react-native-camera';
 import RNQRGenerator from 'rn-qr-generator';
@@ -17,9 +17,13 @@ const ScanQRScreen = ({ navigation, route }: any) => {
   // Check if QR code data exists in AsyncStorage on mount
   useEffect(() => {
     const fetchScannedData = async () => {
-      const storedData = await AsyncStorage.getItem('scannedData');
-      if (storedData) {
-        setQrData(storedData);
+      try {
+        const storedData = await AsyncStorage.getItem('scannedData');
+        if (storedData) {
+          setQrData(storedData);
+        }
+      } catch (error) {
+        console.error('Error fetching stored QR data:', error);
       }
     };
 
@@ -30,12 +34,20 @@ const ScanQRScreen = ({ navigation, route }: any) => {
   const onSuccess = async (e: any) => {
     setIsLoading(true); // Start loading animation
     const scannedData = e.data;
-    setQrData(scannedData);
+
+    if (!scannedData || !scannedData.includes('/apps/api')) {
+      Alert.alert('Error', 'Invalid QR Code format.');
+      setIsLoading(false); // Stop loading animation
+      return;
+    }
 
     try {
       await AsyncStorage.setItem('scannedData', scannedData);
       const baseUrl = scannedData.split('/apps/api')[0];
       await AsyncStorage.setItem('baseUrl', baseUrl);
+
+      console.log('Saved scannedData:', scannedData);
+      console.log('Saved baseUrl:', baseUrl);
 
       Alert.alert(
         'QR Code Scanned',
@@ -52,6 +64,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
       );
     } catch (error) {
       console.error('Error saving QR data:', error);
+      Alert.alert('Error', 'Failed to save scanned data. Please try again.');
       setIsLoading(false); // Stop loading animation
     }
   };
@@ -81,9 +94,20 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           .then(async (detectedQRCodes) => {
             const { values } = detectedQRCodes;
             if (values && values.length > 0) {
-              setQrData(values[0]);
-              const baseUrl = values[0].split('/apps/api')[0];
+              const detectedData = values[0];
+
+              if (!detectedData.includes('/apps/api')) {
+                setIsLoading(false);
+                Alert.alert('Error', 'Invalid QR Code format.');
+                return;
+              }
+
+              setQrData(detectedData);
+              const baseUrl = detectedData.split('/apps/api')[0];
+              await AsyncStorage.setItem('scannedData', detectedData);
               await AsyncStorage.setItem('baseUrl', baseUrl);
+
+              console.log('Saved detectedData from image:', detectedData);
 
               Alert.alert(
                 'QR Code Scanned',
@@ -93,7 +117,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
                     text: 'OK',
                     onPress: () => {
                       setIsLoading(false);
-                      navigation.navigate('Login', { scannedData: values[0], baseUrl });
+                      navigation.navigate('Login', { scannedData: detectedData, baseUrl });
                     },
                   },
                 ]
@@ -120,21 +144,53 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* QR Code Scanner */}
-      <QRCodeScanner
-        onRead={onSuccess}
-        flashMode={RNCamera.Constants.FlashMode.off}
-        topContent={<Text style={styles.centerText}>Scan a QR Code</Text>}
-        cameraStyle={styles.cameraStyle}
-      />
+      {/* Header Section */}
+      <View style={styles.headerCard}>
+        <Text style={styles.headerText}>Scan QR Code</Text>
+        <Text style={styles.subHeaderText}>
+          Please scan the QR code provided by your HR administrator
+        </Text>
+      </View>
 
-      {/* Displaying the decoded QR data */}
-      {qrData && <Text style={styles.qrData}>{qrData}</Text>}
+      {/* Scanner Section - Now Larger and Square */}
+      <View style={styles.scannerCard}>
+        <QRCodeScanner
+          onRead={onSuccess}
+          flashMode={RNCamera.Constants.FlashMode.off}
+          cameraStyle={styles.cameraStyle}
+          containerStyle={styles.cameraContainer}
+          reactivate={true}
+          reactivateTimeout={3000}
+        />
+      </View>
 
-      {/* Button for picking an image from the gallery */}
-      <Button title="Pick an image from gallery" onPress={openQRCodeFromGallery} />
+      {/* Action Buttons */}
+      <View style={styles.actionContainer}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={openQRCodeFromGallery}
+        >
+          <Image 
+            source={require('../../../asset/img/icon/gallery.png')}
+            style={styles.galleryIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.buttonText}>Select from Gallery</Text>
+        </TouchableOpacity>
 
-      {/* Loading Animation Overlay */}
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Image 
+            source={require('../../../asset/img/icon/a-d-arrow-left.png')}
+            style={styles.buttonIcon}
+          />
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Loading Overlay */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <LoadingAnimation />
@@ -147,25 +203,88 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+  },
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  subHeaderText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  scannerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 20,
+    aspectRatio: 1, // Makes it square
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cameraContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 0, // Removed padding to maximize camera view
   },
   cameraStyle: {
-    width: 300,
-    height: 300,
-    marginTop: -100,
+    height: '100%', // Takes full height of square container
+    width: '100%', // Takes full width of square container
     alignSelf: 'center',
   },
-  centerText: {
-    fontSize: 18,
-    padding: 10,
-    color: '#000',
+  actionContainer: {
+    gap: 12,
+    marginTop: 'auto',
+    marginBottom: 20,
   },
-  qrData: {
-    marginTop: 20,
+  actionButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
+    marginRight: 8,
+  },
+  galleryIcon: { // New style specifically for gallery icon
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
+    marginRight: 8,
+    resizeMode: 'contain', // Ensures the image fits within bounds
+  },
+  buttonText: {
     fontSize: 16,
-    color: 'green',
+    color: '#007AFF',
+    fontWeight: '600',
   },
   loadingOverlay: {
     position: 'absolute',
@@ -173,9 +292,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    alignItems: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.9)',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: 'center',
     zIndex: 1000,
   },
 });

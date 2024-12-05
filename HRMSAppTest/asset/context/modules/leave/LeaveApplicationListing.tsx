@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 
 interface Leave {
   id: number;
@@ -74,7 +74,15 @@ const LeaveApplicationListing = () => {
         if (data.success && data.data) {
           const applicationIds = data.data.map((leave: Leave) => leave.id);
           await AsyncStorage.setItem('applicationIds', JSON.stringify(applicationIds));
-          setLeaveData(data.data);
+          
+          // Sort the leave data by date in ascending order
+          const sortedData = data.data.sort((a: Leave, b: Leave) => {
+            const dateA = new Date(a.dateFrom);
+            const dateB = new Date(b.dateFrom);
+            return dateA.getTime() - dateB.getTime();
+          });
+          
+          setLeaveData(sortedData);
         } else {
           Alert.alert('Error', 'Failed to fetch leave data.');
         }
@@ -95,63 +103,88 @@ const LeaveApplicationListing = () => {
   };
   const formatDate = (dateTime: string) => {
     const date = new Date(dateTime);
-    return date.toLocaleDateString();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `${day} ${month} ${year}`;
   };
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Approved':
-        return 'green';
+        return '#34C759'; // iOS green
       case 'Cancelled':
-        return 'red';
+        return '#FF3B30'; // iOS red
       case 'Pending':
-        return 'orange';
+        return '#FF9500'; // iOS orange
       case 'PendingCancellation':
-        return 'orange';
+        return '#FF9500'; // iOS orange
       default:
-        return 'gray';
+        return '#8E8E93'; // iOS gray
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Leave Applications</Text>
-      <View style={styles.yearSelector}>
-        <TouchableOpacity onPress={decrementYear}>
-          <Image source={require('../../../../asset/img/icon/a-d-arrow-left.png')} style={styles.arrowIcon} />
-        </TouchableOpacity>
-        <Text style={styles.yearText}>{year}</Text>
-        <TouchableOpacity onPress={incrementYear}>
-          <Image source={require('../../../../asset/img/icon/a-d-arrow-right.png')} style={styles.arrowIcon} />
-        </TouchableOpacity>
+      <View style={styles.headerCard}>
+        <Text style={styles.title}>Leave Applications</Text>
+        <View style={styles.yearSelector}>
+          <TouchableOpacity onPress={decrementYear} style={styles.yearButton}>
+            <Image source={require('../../../../asset/img/icon/a-d-arrow-left.png')} style={styles.arrowIcon} />
+          </TouchableOpacity>
+          <Text style={styles.yearText}>{year}</Text>
+          <TouchableOpacity onPress={incrementYear} style={styles.yearButton}>
+            <Image source={require('../../../../asset/img/icon/a-d-arrow-right.png')} style={styles.arrowIcon} />
+          </TouchableOpacity>
+        </View>
       </View>
-      <ScrollView contentContainerStyle={styles.leaveList}>
-        {isLoading ? (
-          <Text style={styles.noDataText}>Loading leave data...</Text>
-        ) : leaveData.length > 0 ? (
-          leaveData.map((leave: Leave, index) => {
-            const fromDate = formatDate(leave.dateFrom);
-            const toDate = formatDate(leave.dateTo);
-            const displayStatus = leave.approvalStatusDisplay === 'PendingCancellation' ? 'Pending\nCancellation' : leave.approvalStatusDisplay;
-            return (
-              <TouchableOpacity key={index} style={styles.leaveItem} onPress={() => handleLeaveClick(leave)}>
-                <View style={styles.leaveRow}>
-                  <Text style={styles.leaveText}>
-                    <Text style={styles.bold}>{leave.leaveCodeDesc}</Text>
-                  </Text>
-                  <Text style={[styles.leaveStatus, { backgroundColor: getStatusColor(leave.approvalStatusDisplay) }]}>
-                    {displayStatus}
-                  </Text>
-                </View>
-                <Text style={styles.leaveText}>
-                  <Text style={styles.bold}>Date:</Text> {fromDate} - {toDate}
-                </Text>
-              </TouchableOpacity>
-            );
-          })
-        ) : (
-          <Text style={styles.noDataText}>No leave applications found for {year}.</Text>
-        )}
-      </ScrollView>
+
+      <View style={styles.contentContainer}>
+        <ScrollView contentContainerStyle={styles.leaveList}>
+          {isLoading ? (
+            <View style={styles.messageContainer}>
+              <Text style={styles.messageText}>Loading leave data...</Text>
+            </View>
+          ) : leaveData.length > 0 ? (
+            leaveData.map((leave: Leave, index) => {
+              const fromDate = formatDate(leave.dateFrom);
+              const toDate = formatDate(leave.dateTo);
+              const displayStatus = leave.approvalStatusDisplay === 'PendingCancellation' 
+                ? 'Pending\nCancellation' 
+                : leave.approvalStatusDisplay;
+              
+              return (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.leaveCard} 
+                  onPress={() => handleLeaveClick(leave)}
+                >
+                  <View style={styles.leaveHeader}>
+                    <Text style={styles.leaveType}>{leave.leaveCodeDesc}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(leave.approvalStatusDisplay) }]}>
+                      <Text style={styles.statusText}>{displayStatus}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.leaveDates}>
+                    <Text style={styles.dateLabel}>Duration:</Text>
+                    <Text style={styles.dateText}>{fromDate} - {toDate}</Text>
+                    <Text style={styles.daysText}>({leave.totalDays} {leave.totalDays > 1 ? 'days' : 'day'})</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.messageContainer}>
+              <Text style={styles.messageText}>No leave applications found for {year}.</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
     </View>
   );
 };
@@ -159,63 +192,111 @@ const LeaveApplicationListing = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F5F5',
     padding: 16,
-    backgroundColor: '#fff',
+  },
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
     marginBottom: 16,
   },
   yearSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+  },
+  yearButton: {
+    padding: 8,
   },
   yearText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginHorizontal: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 24,
   },
   arrowIcon: {
     width: 24,
     height: 24,
+    tintColor: '#007AFF',
   },
   leaveList: {
     paddingBottom: 20,
   },
-  leaveItem: {
-    padding: 15,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+  leaveCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  leaveRow: {
+  leaveHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  leaveText: {
-    fontSize: 16,
+  leaveType: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
   },
-  bold: {
-    fontWeight: 'bold',
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  leaveStatus: {
-    fontStyle: 'italic',
-    color: '#fff',
-    fontSize: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 4,
-  },
-  noDataText: {
+  statusText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
+  },
+  leaveDates: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  dateLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  dateText: {
     fontSize: 16,
-    color: '#888',
+    color: '#333',
+    fontWeight: '500',
+  },
+  daysText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  messageContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  contentContainer: {
+    flex: 1,
   },
 });
 

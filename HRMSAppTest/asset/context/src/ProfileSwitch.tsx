@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Button, Alert, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Alert, Text, StyleSheet, ScrollView, TouchableOpacity, Image, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationProp, ParamListBase } from '@react-navigation/native';
-import LoadingAnimation from '../../context/anim/loadingAnimation';  // Import the LoadingAnimation component
+import { useFocusEffect } from '@react-navigation/native';
+import LoadingAnimation from '../../context/anim/loadingAnimation';
 
 // Define the structure of the JWT payload (including the 'exp' property)
 interface JWTDecodedPayload {
@@ -17,6 +17,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   const [baseUrl, setBaseUrl] = useState<string | null>(routeBaseUrl || null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false); // Add loading state
+  const [loggedIn, setLoggedIn] = useState(true);
 
   useEffect(() => {
     const fetchAuthData = async () => {
@@ -111,6 +112,21 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
+  // Add back button handler
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        if (!loggedIn) {
+          return true; // Prevent going back if logged out
+        }
+        return false;
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [loggedIn])
+  );
+
   const handleLogout = () => {
     Alert.alert(
       'Log Out',
@@ -120,9 +136,32 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         { 
           text: 'OK', 
           onPress: async () => {
-            await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.removeItem('employeeId');
-            navigation.navigate('Login');
+            try {
+              setLoggedIn(false);
+              
+              // Store necessary data
+              const baseUrl = await AsyncStorage.getItem('baseUrl');
+              const scannedData = await AsyncStorage.getItem('scannedData');
+              
+              // Get all keys and filter out the ones we want to keep
+              const keys = await AsyncStorage.getAllKeys();
+              const keysToRemove = keys.filter(key => 
+                key !== 'baseUrl' && 
+                key !== 'scannedData'
+              );
+              
+              // Remove only auth-related items
+              await AsyncStorage.multiRemove(keysToRemove);
+              
+              // Reset navigation stack
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to log out properly');
+            }
           }
         }
       ],
@@ -131,7 +170,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   };
 
   const handleCompanySelect = async (companyId: number, userId: number) => {
-    setIsLoading(true);  // Show loading animation when button is clicked
+    setIsLoading(true);
 
     try {
       const response = await fetch(
@@ -167,9 +206,21 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         await AsyncStorage.setItem('userRole', role);
 
         if (role === 'Approval') {
-          navigation.navigate('ApprovalMenu', { userToken, baseUrl, companyId, employeeId, decodedToken });
+          navigation.reset({
+            index: 0,
+            routes: [{ 
+              name: 'ApprovalMenu', 
+              params: { userToken, baseUrl, companyId, employeeId, decodedToken }
+            }],
+          });
         } else if (role === 'Employee') {
-          navigation.navigate('EmployeeMenu', { userToken, baseUrl, companyId, employeeId, decodedToken });
+          navigation.reset({
+            index: 0,
+            routes: [{ 
+              name: 'EmployeeMenu', 
+              params: { userToken, baseUrl, companyId, employeeId, decodedToken }
+            }],
+          });
         } else {
           Alert.alert('Error', 'Unsupported user role.');
         }
@@ -179,9 +230,8 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     } catch (error) {
       console.error('Error during profile switch:', error);
       Alert.alert('Error', 'Something went wrong.');
-      navigation.navigate('Login');
     } finally {
-      setIsLoading(false);  // Hide loading animation after the process is complete
+      setIsLoading(false);
     }
   };
 
@@ -200,40 +250,64 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {isLoading ? (
-        <LoadingAnimation />  // Show loading animation when isLoading is true
+        <View style={styles.loadingContainer}>
+          <LoadingAnimation />
+        </View>
       ) : (
         <>
           {userProfile ? (
-            <>
-              <Text style={styles.welcomeText}>Welcome! {userProfile.description}</Text>
-
-              <View style={styles.userRoleContainer}>
-                <Text style={styles.userRole}>{userProfile.userRole}</Text>
-              </View>
-
-              <Text style={styles.instructions}>Please select a company below:</Text>
-
-              {userProfile.companies.map((company: any) => (
-                <View key={company.companyId} style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.companyButton}
-                    onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
-                  >
-                    <Text style={styles.buttonText}>{company.name}</Text>
-                  </TouchableOpacity>
+            <View style={styles.contentContainer}>
+              {/* Welcome Section */}
+              <View style={styles.welcomeCard}>
+                <Text style={styles.welcomeText}>Welcome!</Text>
+                <Text style={styles.userDescription}>{userProfile.description}</Text>
+                <View style={styles.roleContainer}>
+                  <Text style={styles.roleText}>{userProfile.userRole}</Text>
                 </View>
-              ))}
-
-              <View style={styles.logoutContainer}>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                  <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
               </View>
-            </>
+
+              {/* Company Selection Section */}
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Select Company:</Text>
+                <View style={styles.companiesContainer}>
+                  {userProfile.companies.map((company: any) => (
+                    <TouchableOpacity
+                      key={company.companyId}
+                      style={styles.companyCard}
+                      onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
+                    >
+                      <Text style={styles.companyName}>{company.name}</Text>
+                      <Image 
+                        source={require('../../../asset/img/icon/arrow-right.png')}
+                        style={styles.arrowIcon}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Logout Section */}
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+              >
+                <Image 
+                  source={require('../../../asset/img/icon/tuichu.png')}
+                  style={styles.logoutIcon}
+                />
+                <Text style={styles.logoutText}>Log Out</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <Text>Loading user profile...</Text>
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading user profile...</Text>
+            </View>
           )}
         </>
       )}
@@ -243,62 +317,124 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  scrollContent: {
     flexGrow: 1,
+    padding: 16,
+  },
+  contentContainer: {
+    flex: 1,
+    gap: 24,
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  welcomeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   welcomeText: {
     fontSize: 24,
-    marginBottom: 10,
-    fontWeight: 'bold',
-  },
-  userRoleContainer: {
-    backgroundColor: '#e0e0e0',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  userRole: {
-    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 8,
   },
-  instructions: {
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  buttonContainer: {
-    marginBottom: 15,
-  },
-  companyButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 15,
-    paddingHorizontal: 25,
-    borderRadius: 5,
-  },
-  buttonText: {
-    color: 'white',
+  userDescription: {
     fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
     textAlign: 'center',
   },
-  logoutContainer: {
+  roleContainer: {
+    backgroundColor: '#F0F0F0',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  roleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+  companiesContainer: {
+    gap: 12,
+  },
+  companyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    height: 60,  // Ensure consistent height
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  companyName: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  arrowIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
   },
   logoutButton: {
-    backgroundColor: '#FF5733',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#FF3B30',
+    marginRight: 8,
   },
   logoutText: {
-    color: 'white',
     fontSize: 16,
+    color: '#FF3B30',
+    fontWeight: '600',
   },
 });
 
