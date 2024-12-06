@@ -175,7 +175,10 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         {/* Other Button Rows */}
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 3</Text>
+            <View style={styles.iconTextContainer}>
+              <Image source={require('../../../asset/img/icon/noticeboard.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Notice Board</Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.squareButton}>
             <Text style={styles.squareButtonText}>Button 4</Text>

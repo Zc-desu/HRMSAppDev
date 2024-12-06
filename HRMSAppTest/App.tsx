@@ -20,8 +20,11 @@ import LeaveDetail from './asset/context/modules/leave/LeaveDetail';
 import CancelLeaveApplication from './asset/context/modules/leave/CancelLeaveApplication';
 import CreateLeaveApplication from './asset/context/modules/leave/CreateLeaveApplication';
 import LeaveEntitlementListing from './asset/context/modules/leave/LeaveEntitlementListing';
+import ApproveLeaveApplicationListing from './asset/context/modules/leave/ApproveLeaveApplicationListing';
+import ApproveLeaveDetail from './asset/context/modules/leave/ApproveLeaveDetail';
 // Import Setting
 import Settings from './asset/context/src/Settings';
+import ChangeTheme from './asset/context/modules/setting/ChangeTheme';
 
 const Stack = createStackNavigator();
 
@@ -176,6 +179,43 @@ const App = () => {
               color: '#333',
             },
             headerTitleAlign: 'center',
+          }}
+        />
+        <Stack.Screen
+          name="ApproveLeaveApplicationListing"
+          component={ApproveLeaveApplicationListing}
+          options={{ 
+            title: 'Approve Leave Application',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
+        />
+        <Stack.Screen
+          name="ApproveLeaveDetail"
+          component={ApproveLeaveDetail}
+          options={{ 
+            title: 'Approve Leave Application',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="ChangeTheme"
+          component={ChangeTheme}
+          options={{ 
+            title: 'Change Theme',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
           }}
         />
       </Stack.Navigator>

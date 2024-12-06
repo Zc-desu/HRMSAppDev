@@ -20,10 +20,21 @@ interface Entitlement {
 }
 
 const LeaveEntitlementListing = () => {
-  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
   const [entitlements, setEntitlements] = useState<Entitlement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handlePreviousYear = () => {
+    setSelectedYear(prev => prev - 1);
+  };
+
+  const handleNextYear = () => {
+    const currentYear = new Date().getFullYear();
+    if (selectedYear < currentYear) {
+      setSelectedYear(prev => prev + 1);
+    }
+  };
 
   const fetchLeaveEntitlements = async () => {
     try {
@@ -36,7 +47,7 @@ const LeaveEntitlementListing = () => {
         return;
       }
 
-      const url = `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/entitlements/year/${currentYear}`;
+      const url = `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/entitlements/year/${selectedYear}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -66,7 +77,7 @@ const LeaveEntitlementListing = () => {
 
   useEffect(() => {
     fetchLeaveEntitlements();
-  }, []);
+  }, [selectedYear]);
 
   if (loading) {
     return (
@@ -81,8 +92,35 @@ const LeaveEntitlementListing = () => {
       {/* Header Card */}
       <View style={styles.headerCard}>
         <Text style={styles.headerTitle}>Leave Entitlements</Text>
-        <View style={styles.yearBadge}>
-          <Text style={styles.yearText}>{currentYear}</Text>
+        <View style={styles.yearNavigation}>
+          <TouchableOpacity 
+            onPress={handlePreviousYear}
+            style={styles.yearButton}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+              style={styles.arrowIcon}
+            />
+          </TouchableOpacity>
+          
+          <Text style={styles.yearText}>{selectedYear}</Text>
+          
+          <TouchableOpacity 
+            onPress={handleNextYear}
+            style={[
+              styles.yearButton,
+              selectedYear === new Date().getFullYear() && styles.yearButtonDisabled
+            ]}
+            disabled={selectedYear === new Date().getFullYear()}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+              style={[
+                styles.arrowIcon,
+                selectedYear === new Date().getFullYear() && styles.arrowIconDisabled
+              ]}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -174,9 +212,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 16,
     borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -187,17 +222,37 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  yearBadge: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  yearNavigation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 8,
+  },
+  yearButton: {
+    padding: 8,
     borderRadius: 8,
   },
+  yearButtonDisabled: {
+    opacity: 0.5,
+  },
   yearText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#333',
+    marginHorizontal: 24,
+  },
+  arrowIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
+  },
+  arrowIconDisabled: {
+    tintColor: '#999',
   },
   employeeCard: {
     backgroundColor: '#FFFFFF',

@@ -1,12 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomAlert from '../setting/CustomAlert';
+
+interface AlertButton {
+  text: string;
+  style?: 'default' | 'cancel' | 'destructive';
+  onPress?: () => void;
+}
 
 const CancelLeaveApplication = ({ route, navigation }: any) => {
   const { applicationId } = route.params;
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState('');
   const [leaveDetail, setLeaveDetail] = useState<any>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    title: string;
+    message: string;
+    buttons: AlertButton[];
+  }>({
+    title: '',
+    message: '',
+    buttons: [],
+  });
 
   useEffect(() => {
     const getLeaveDetail = async () => {
@@ -32,9 +49,31 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
     return `${day} ${month} ${year}`;
   };
 
+  const showCustomAlert = (title: string, message: string, buttons: AlertButton[] = []) => {
+    setAlertConfig({
+      title,
+      message,
+      buttons: buttons.map(btn => ({
+        ...btn,
+        onPress: () => {
+          setAlertVisible(false);
+          btn.onPress?.();
+        },
+      })),
+    });
+    setAlertVisible(true);
+  };
+
   const cancelLeave = async () => {
     if (!reason.trim()) {
-      Alert.alert('Required', 'Please provide a reason for cancellation.');
+      showCustomAlert(
+        'Required',
+        'Please provide a reason for cancellation.',
+        [{ 
+          text: 'OK',
+          style: 'default'
+        }]
+      );
       return;
     }
 
@@ -57,21 +96,57 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
         
         const data = await response.json();
         if (data.success) {
-          Alert.alert(
+          showCustomAlert(
             'Success',
             'Leave has been cancelled successfully.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
+            [{ 
+              text: 'OK',
+              style: 'default',
+              onPress: () => navigation.goBack()
+            }]
           );
         } else {
-          Alert.alert('Error', data.message || 'Failed to cancel the leave.');
+          showCustomAlert(
+            'Error',
+            data.message || 'Failed to cancel the leave.',
+            [{ 
+              text: 'OK',
+              style: 'default'
+            }]
+          );
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while cancelling the leave.');
+      showCustomAlert(
+        'Error',
+        'An error occurred while cancelling the leave.',
+        [{ 
+          text: 'OK',
+          style: 'default'
+        }]
+      );
       console.error('Cancel Leave Error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelPress = () => {
+    showCustomAlert(
+      'Confirm Cancellation',
+      'Are you sure you want to cancel this leave application?',
+      [
+        {
+          text: 'No',
+          style: 'cancel'
+        },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: cancelLeave
+        }
+      ]
+    );
   };
 
   if (loading) {
@@ -91,56 +166,66 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.contentContainer}>
-        <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>Cancel Leave Application</Text>
-          <Text style={styles.warningText}>
-            Are you sure you want to cancel this leave application?
-          </Text>
-        </View>
+    <>
+      <ScrollView style={styles.container}>
+        <View style={styles.contentContainer}>
+          <View style={styles.warningCard}>
+            <Text style={styles.warningTitle}>Cancel Leave Application</Text>
+            <Text style={styles.warningText}>
+              Are you sure you want to cancel this leave application?
+            </Text>
+          </View>
 
-        <View style={styles.detailsCard}>
-          <DetailItem label="Leave Type" value={leaveDetail.leaveCodeDesc} />
-          <DetailItem label="Status" value={leaveDetail.approvalStatusDisplay} />
-          <DetailItem label="Applied On" value={formatDate(leaveDetail.createdDate)} />
-          <DetailItem label="Start Date" value={formatDate(leaveDetail.dateFrom)} />
-          <DetailItem label="End Date" value={formatDate(leaveDetail.dateTo)} />
-          <DetailItem label="Duration" value={`${leaveDetail.totalDays} day(s)`} />
-          <DetailItem label="Reason" value={leaveDetail.reason || '--'} />
-          <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} />
-        </View>
+          <View style={styles.detailsCard}>
+            <DetailItem label="Leave Type" value={leaveDetail.leaveCodeDesc} />
+            <DetailItem label="Status" value={leaveDetail.approvalStatusDisplay} />
+            <DetailItem label="Applied On" value={formatDate(leaveDetail.createdDate)} />
+            <DetailItem label="Start Date" value={formatDate(leaveDetail.dateFrom)} />
+            <DetailItem label="End Date" value={formatDate(leaveDetail.dateTo)} />
+            <DetailItem label="Duration" value={`${leaveDetail.totalDays} day(s)`} />
+            <DetailItem label="Reason" value={leaveDetail.reason || '--'} />
+            <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} />
+          </View>
 
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Cancellation Reason</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your reason for cancellation"
-            value={reason}
-            onChangeText={setReason}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-        </View>
+          <View style={styles.inputCard}>
+            <Text style={styles.inputLabel}>Cancellation Reason</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your reason for cancellation"
+              value={reason}
+              onChangeText={setReason}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={styles.cancelButton}
-            onPress={cancelLeave}
-          >
-            <Text style={styles.cancelButtonText}>Confirm Cancellation</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={handleCancelPress}
+            >
+              <Text style={styles.cancelButtonText}>Confirm Cancellation</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.backButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertVisible(false)}
+      />
+    </>
   );
 };
 

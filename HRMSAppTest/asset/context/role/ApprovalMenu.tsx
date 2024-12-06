@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const ApprovalMenu = ({ route, navigation }: any) => {
   const { companyId, baseUrl, decodedToken } = route.params;
   const [loggedIn, setLoggedIn] = useState(true);
+  const employeeId = decodedToken?.decodedPayload?.employee_id;
 
   // Destructure employee details from the decoded token
   const employeeName = decodedToken?.decodedPayload?.employee_name;
@@ -35,55 +36,77 @@ const ApprovalMenu = ({ route, navigation }: any) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity style={styles.viewDetailButton} 
-        onPress={() => navigation.navigate('ViewEmployeeDetail', 
-        { employeeId: decodedToken.decodedPayload.employee_id })}
+      <View>
+        <TouchableOpacity 
+          style={styles.viewDetailButton}
+          onPress={() => navigation.navigate('ViewEmployeeDetail', 
+            { employeeId: decodedToken.decodedPayload.employee_id })}
         >
-        <View style={styles.buttonContent}>
-          <View style={styles.textContainer}>
-            {/* Display employee number and name from the decoded token */}
-            <Text style={styles.employeeNoText}>{employeeNumber}</Text>
-            <Text style={styles.employeeNameText}>{employeeName}</Text>
+          <View style={styles.buttonContent}>
+            <View style={styles.textContainer}>
+              <Text style={styles.employeeNoText}>{employeeNumber}</Text>
+              <Text style={styles.employeeNameText}>{employeeName}</Text>
+            </View>
+            <Image 
+              source={require('../../img/icon/a-avatar.png')} 
+              style={styles.avatarStyle}
+            />
           </View>
-          <View style={styles.avatar} />
+        </TouchableOpacity>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            style={styles.squareButton}
+            onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
+          >
+            <View style={styles.iconTextContainer}>
+              <Image source={require('../../img/icon/gongzidan.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Payslip</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.squareButton}
+            onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
+          >
+            <View style={styles.iconTextContainer}>
+              <Image source={require('../../img/icon/leave2.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Leave</Text>
+            </View>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 1</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 2</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 3</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 4</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 3</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 4</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 5</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 6</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 5</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 6</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.squareButton}>
-          <Text style={styles.squareButtonText}>Button 7</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.squareButton, styles.logoutButtonStyle]} onPress={handleLogout}>
-          <Image source={require('../../img/icon/tuichu.png')} style={styles.logoutImage} />
-          <Text style={styles.logoutTextStyle}>Log Out</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.squareButton}>
+            <Text style={styles.squareButtonText}>Button 7</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.squareButton, styles.logoutButtonStyle]} 
+            onPress={handleLogout}
+          >
+            <View style={styles.iconTextContainer}>
+              <Image source={require('../../img/icon/tuichu.png')} style={styles.iconImage} />
+              <Text style={styles.squareButtonText}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -92,79 +115,82 @@ const ApprovalMenu = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#F5F5F5',
+    padding: 16,
   },
   viewDetailButton: {
     width: '100%',
-    backgroundColor: '#243a84',
-    borderRadius: 15,
-    paddingVertical: 40,
-    marginTop: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 28,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonContent: {
     flexDirection: 'row',
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 24,
   },
   textContainer: {
     flex: 1,
-    paddingLeft: 15,
   },
   employeeNoText: {
-    color: 'white',
-    fontSize: 20,
-    marginBottom: 5,
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
   },
   employeeNameText: {
-    color: 'white',
     fontSize: 24,
-    marginBottom: 5,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFFFFF',
-    position: 'absolute',
-    right: 15,
+  avatarStyle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   buttonRow: {
     flexDirection: 'row',
-    width: '100%',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginBottom: 16,
   },
   squareButton: {
     width: '48%',
     aspectRatio: 1,
-    backgroundColor: '#243a84',
-    borderRadius: 10,
-    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   squareButtonText: {
-    color: 'white',
+    color: '#333',
     fontSize: 16,
+    fontWeight: '600',
   },
-  logoutButtonStyle: {
-    backgroundColor: '#FF4C4C',
+  iconTextContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutImage: {
+  iconImage: {
     width: 40,
     height: 40,
-    marginBottom: 10,
+    marginBottom: 8,
+    tintColor: '#007AFF',
   },
-  logoutTextStyle: {
-    color: 'black',
-    fontSize: 16,
-    textAlign: 'center',
+  logoutButtonStyle: {
+    backgroundColor: '#FFF0F0',
   },
 });
 

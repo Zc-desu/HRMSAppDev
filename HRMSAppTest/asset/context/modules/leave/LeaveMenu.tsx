@@ -2,16 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LeaveMenu = ({ navigation }: any) => {
+const LeaveMenu = ({ navigation, route }: any) => {
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasApprovalRole, setHasApprovalRole] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         const storedEmployeeId = await AsyncStorage.getItem('employeeId');
+        const userRole = await AsyncStorage.getItem('userRole');
+
+        if (userRole === 'Approval') {
+          setHasApprovalRole(true);
+        }
 
         if (storedBaseUrl) {
           setBaseUrl(storedBaseUrl);
@@ -42,7 +48,7 @@ const LeaveMenu = ({ navigation }: any) => {
     );
   }
 
-  const menuItems = [
+  const baseMenuItems = [
     {
       title: 'View Leave Application',
       screen: 'LeaveApplicationListing',
@@ -59,6 +65,15 @@ const LeaveMenu = ({ navigation }: any) => {
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
   ];
+
+  const menuItems = hasApprovalRole ? [
+    ...baseMenuItems,
+    {
+      title: 'Approve Leave Application',
+      screen: 'ApproveLeaveApplicationListing',
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    }
+  ] : baseMenuItems;
 
   return (
     <View style={styles.container}>
