@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import ReactNativePdf from 'react-native-pdf';
-import FileViewer from 'react-native-file-viewer';
+import Pdf from 'react-native-pdf';
+import RNFetchBlob from 'react-native-blob-util';
 
 export type RootStackParamList = {
   ViewPayslip: {
@@ -19,12 +28,12 @@ const ViewPayslip = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'ViewPayslip'>>();
   const { baseUrl, employeeId, payrollType, payrollDate } = route.params;
 
-  const [loading, setLoading] = useState(true); // Start with loading state
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [userToken, setUserToken] = useState<string>('');
 
   const fileName = `payslip_${employeeId}_${payrollDate}.pdf`;
-  const localPath = `${RNFS.DocumentDirectoryPath}/${fileName}`; // Temporary storage for the PDF
 
   // Format payrollDate into 'Month YYYY'
   const formatDate = (date: string) => {
@@ -34,78 +43,75 @@ const ViewPayslip = () => {
 
   const payslipTitle = formatDate(payrollDate);
 
-  // Function to fetch and display the PDF automatically
+  // Function to fetch and display the PDF
   const fetchPdf = async () => {
     setLoading(true);
     setError(null);
 
-    const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
-
     try {
-      const userToken = await AsyncStorage.getItem('userToken');
-      if (!userToken) throw new Error('User token is missing');
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) throw new Error('User token is missing');
+      setUserToken(token);
 
-      const download = await RNFS.downloadFile({
-        fromUrl: fileUrl,
-        toFile: localPath,
-        headers: { Authorization: `Bearer ${userToken}` },
+      const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
+      const tempPath = `${RNFetchBlob.fs.dirs.CacheDir}/temp_${fileName}`;
+
+      // Download PDF file
+      const response = await RNFetchBlob.config({
+        fileCache: true,
+        path: tempPath,
+        appendExt: 'pdf',
+      }).fetch('GET', fileUrl, {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/pdf',
       });
 
-      const result = await download.promise;
-
-      if (result.statusCode === 200) {
-        setPdfUri(localPath); // Set the URI to display the PDF
+      if (response.info().status === 200) {
+        const path = Platform.OS === 'ios'
+          ? `file://${response.path()}`
+          : response.path();
+        setPdfUri(path);
       } else {
-        throw new Error('Failed to download PDF.');
+        throw new Error('Failed to download payslip');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Payslip fetch error:', err);
       setError('Error fetching payslip.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Check if the file already exists locally
+  // Initial load
   useEffect(() => {
-    const checkFileExists = async () => {
-      try {
-        const exists = await RNFS.exists(localPath);
-        if (exists) {
-          setPdfUri(localPath); // Automatically set the PDF URI if the file exists
-        } else {
-          fetchPdf(); // Fetch PDF if not found locally
-        }
-      } catch (err) {
-        console.error('Error checking file existence:', err);
-        setError('Error checking file existence.');
+    fetchPdf();
+    // Cleanup on unmount
+    return () => {
+      if (pdfUri?.startsWith('file://')) {
+        RNFetchBlob.fs.unlink(pdfUri.replace('file://', ''))
+          .catch(err => console.error('Error cleaning up temp file:', err));
       }
     };
-
-    checkFileExists();
   }, []);
 
-  // Download button handler (for manual download)
+  // Download button handler
   const handleDownload = async () => {
-    const downloadPath = `${RNFS.ExternalStorageDirectoryPath}/Download/${fileName}`;
-
     try {
-      await RNFS.copyFile(localPath, downloadPath); // Copy file from temp to download folder
+      if (!pdfUri) throw new Error('PDF not loaded');
+
+      const downloadPath = Platform.OS === 'ios'
+        ? `${RNFetchBlob.fs.dirs.DocumentDir}/${fileName}`
+        : `${RNFetchBlob.fs.dirs.DownloadDir}/${fileName}`;
+
+      await RNFetchBlob.fs.cp(pdfUri.replace('file://', ''), downloadPath);
+
       Alert.alert(
         'Download Complete',
-        `Payslip downloaded successfully.\nFile location: ${downloadPath}`,
+        `Payslip downloaded successfully to Downloads folder`,
         [{ text: 'OK' }]
       );
-
-      // Optionally open the file automatically
-      FileViewer.open(downloadPath)
-        .then(() => console.log('File opened successfully'))
-        .catch((error) => {
-          console.error('Error opening file:', error);
-          setError('Error opening file.');
-        });
     } catch (err) {
-      console.error(err);
+      console.error('Download error:', err);
       Alert.alert('Download Failed', 'Unable to save the file.');
     }
   };
@@ -115,54 +121,83 @@ const ViewPayslip = () => {
       <Text style={styles.header}>{payslipTitle}</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : pdfUri ? (
         <View style={styles.pdfContainer}>
-          <ReactNativePdf
+          <Pdf
+            trustAllCerts={false}
             source={{ uri: pdfUri, cache: true }}
-            onLoadComplete={(numberOfPages, filePath) => {
-              console.log(`Number of pages: ${numberOfPages}`);
-            }}
-            onPageChanged={(page, numberOfPages) => {
-              console.log(`Current page: ${page}`);
+            style={styles.pdf}
+            onLoadComplete={(numberOfPages) => {
+              console.log(`Loaded ${numberOfPages} pages`);
             }}
             onError={(error) => {
-              setError('Error opening PDF');
               console.error('PDF Error:', error);
+              setError('Error opening PDF');
             }}
-            style={styles.pdf}
+            enablePaging={true}
+            renderActivityIndicator={() => (
+              <ActivityIndicator size="large" color="#007AFF" />
+            )}
           />
         </View>
       ) : (
         <Text style={styles.errorText}>No PDF to display</Text>
       )}
 
-      {/* Download Button */}
-      <TouchableOpacity onPress={handleDownload} style={styles.downloadButton}>
-        <Image
-          source={require('../../../../asset/img/icon/a-download.png')}
-          style={styles.downloadIcon}
-        />
-        <Text style={styles.downloadButtonText}>Download Payslip</Text>
-      </TouchableOpacity>
+      {pdfUri && (
+        <TouchableOpacity onPress={handleDownload} style={styles.downloadButton}>
+          <Image
+            source={require('../../../../asset/img/icon/a-download.png')}
+            style={styles.downloadIcon}
+          />
+          <Text style={styles.downloadButtonText}>Download Payslip</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  pdfContainer: { flex: 1, width: '100%', marginTop: 20 },
-  pdf: { flex: 1, width: '100%' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 20,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pdfContainer: {
+    flex: 1,
+    width: '100%',
+    marginBottom: 20,
+  },
+  pdf: {
+    flex: 1,
+    width: Dimensions.get('window').width - 40,
+    backgroundColor: '#F5F5F5',
+  },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#007bff',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 20,
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
   },
   downloadIcon: {
     width: 20,
@@ -170,8 +205,16 @@ const styles = StyleSheet.create({
     tintColor: 'white',
     marginRight: 10,
   },
-  downloadButtonText: { color: 'white', fontSize: 18 },
-  errorText: { color: 'red', marginTop: 20 },
+  downloadButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 20,
+  },
 });
 
 export default ViewPayslip;

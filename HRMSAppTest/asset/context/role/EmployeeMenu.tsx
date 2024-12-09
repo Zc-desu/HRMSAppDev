@@ -174,7 +174,23 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
         {/* Other Button Rows */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.squareButton}>
+          <TouchableOpacity 
+            style={styles.squareButton}
+            onPress={() => {
+              const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
+              
+              if (!companyIdToUse) {
+                Alert.alert('Error', 'Company ID is not available');
+                return;
+              }
+
+              navigation.navigate('NBGetList', {
+                employeeId: employeeId,
+                companyId: companyIdToUse,
+                baseUrl: baseUrl
+              });
+            }}
+          >
             <View style={styles.iconTextContainer}>
               <Image source={require('../../../asset/img/icon/noticeboard.png')} style={styles.iconImage} />
               <Text style={styles.squareButtonText}>Notice Board</Text>

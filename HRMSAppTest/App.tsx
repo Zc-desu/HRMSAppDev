@@ -22,6 +22,10 @@ import CreateLeaveApplication from './asset/context/modules/leave/CreateLeaveApp
 import LeaveEntitlementListing from './asset/context/modules/leave/LeaveEntitlementListing';
 import ApproveLeaveApplicationListing from './asset/context/modules/leave/ApproveLeaveApplicationListing';
 import ApproveLeaveDetail from './asset/context/modules/leave/ApproveLeaveDetail';
+// Import Noticeboard Module
+import NBGetList from './asset/context/modules/noticeboard/NBGetList';
+import NBDetails from './asset/context/modules/noticeboard/NBDetails';
+import NBGetFileAttachment from './asset/context/modules/noticeboard/NBGetFileAttachment';
 // Import Setting
 import Settings from './asset/context/src/Settings';
 import ChangeTheme from './asset/context/modules/setting/ChangeTheme';
@@ -204,6 +208,7 @@ const App = () => {
               fontWeight: '600',
               color: '#333',
             },
+            headerTitleAlign: 'center',
           }}
         />
         <Stack.Screen
@@ -216,6 +221,46 @@ const App = () => {
               fontWeight: '600',
               color: '#333',
             },
+          }}
+        />
+        <Stack.Screen
+          name="NBGetList"
+          component={NBGetList}
+          options={{ 
+            title: 'Notice Board',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
+        />
+        <Stack.Screen
+          name="NBDetails"
+          component={NBDetails}
+          options={{
+            title: 'Notice Details',
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
+          }}
+        />  
+        <Stack.Screen 
+          name="NBGetFileAttachment" 
+          component={NBGetFileAttachment}
+          options={{
+            title: 'File Viewer',
+            headerShown: true,
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333',
+            },
+            headerTitleAlign: 'center',
           }}
         />
       </Stack.Navigator>
