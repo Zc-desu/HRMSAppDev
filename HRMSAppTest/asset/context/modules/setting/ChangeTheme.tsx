@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomAlert from './CustomAlert';
+import { useTheme } from './ThemeContext';
 
 // Define theme types
 type ThemeType = 'light' | 'dark' | 'system';
@@ -59,8 +60,7 @@ export const darkTheme = {
 };
 
 const ChangeTheme = ({ navigation }: any) => {
-  const systemTheme = useColorScheme();
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('system');
+  const { theme, currentTheme, setCurrentTheme } = useTheme();
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     title: string;
@@ -71,21 +71,6 @@ const ChangeTheme = ({ navigation }: any) => {
     message: '',
     buttons: [],
   });
-
-  useEffect(() => {
-    loadThemePreference();
-  }, []);
-
-  const loadThemePreference = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem('themePreference');
-      if (savedTheme) {
-        setCurrentTheme(savedTheme as ThemeType);
-      }
-    } catch (error) {
-      console.error('Error loading theme preference:', error);
-    }
-  };
 
   const showCustomAlert = (title: string, message: string, buttons: AlertButton[] = []) => {
     setAlertConfig({
@@ -103,39 +88,17 @@ const ChangeTheme = ({ navigation }: any) => {
     setAlertVisible(true);
   };
 
-  const handleThemeChange = async (theme: ThemeType) => {
-    try {
-      await AsyncStorage.setItem('themePreference', theme);
-      setCurrentTheme(theme);
-      showCustomAlert(
-        'Theme Updated',
-        `Theme has been changed to ${theme === 'system' ? 'system default' : theme} mode.`,
-        [{
-          text: 'OK',
-          style: 'default',
-        }]
-      );
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-      showCustomAlert(
-        'Error',
-        'Failed to save theme preference.',
-        [{
-          text: 'OK',
-          style: 'default',
-        }]
-      );
-    }
+  const handleThemeChange = async (newTheme: ThemeType) => {
+    await setCurrentTheme(newTheme);
+    showCustomAlert(
+      'Theme Updated',
+      `Theme has been changed to ${newTheme === 'system' ? 'system default' : newTheme} mode.`,
+      [{
+        text: 'OK',
+        style: 'default',
+      }]
+    );
   };
-
-  const getActiveTheme = () => {
-    if (currentTheme === 'system') {
-      return systemTheme === 'dark' ? darkTheme : lightTheme;
-    }
-    return currentTheme === 'dark' ? darkTheme : lightTheme;
-  };
-
-  const theme = getActiveTheme();
 
   // Add header styling based on theme
   useLayoutEffect(() => {
@@ -151,7 +114,7 @@ const ChangeTheme = ({ navigation }: any) => {
       },
       headerShadowVisible: false, // iOS
     });
-  }, [currentTheme, systemTheme]);
+  }, [currentTheme, theme]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

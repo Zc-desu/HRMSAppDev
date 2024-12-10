@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, ImageStyle } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
+import CustomAlert from '../setting/CustomAlert';
 
 interface Leave {
   id: number;
@@ -19,13 +22,120 @@ type NavigationParams = {
   LeaveDetail: { applicationId: number };
 };
 
+type TranslationKey = 'leaveApplications' | 'error' | 'failedFetch' | 'ok' | 'leaveOverview' | 'duration' | 'days' | 'day' | 'approved' | 'rejected' | 'cancelled' | 'pending' | 'pendingCancellation' | 'loading' | 'noApplications';
+
+interface Translations {
+  [key: string]: {
+    [K in TranslationKey]: string;
+  };
+}
+
 const LeaveApplicationListing = () => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const [year, setYear] = useState(new Date().getFullYear());
   const [leaveData, setLeaveData] = useState<Leave[]>([]);
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [] as Array<{text: string, onPress: () => void}>,
+  });
   const navigation = useNavigation<NavigationProp<NavigationParams>>(); // Initialize navigation
+
+  const translations: Translations = {
+    en: {
+      leaveOverview: 'Leave Overview',
+      leaveApplications: 'Leave Applications',
+      error: 'Error',
+      failedFetch: 'Failed to fetch leave data',
+      ok: 'OK',
+      duration: 'Duration',
+      days: 'days',
+      day: 'day',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      cancelled: 'Cancelled',
+      pending: 'Pending',
+      pendingCancellation: 'Pending Cancellation',
+      loading: 'Loading...',
+      noApplications: 'No leave applications for',
+    },
+    ms: {
+      leaveOverview: 'Gambaran Cuti',
+      leaveApplications: 'Permohonan Cuti',
+      error: 'Ralat',
+      failedFetch: 'Gagal mendapatkan data cuti',
+      ok: 'OK',
+      duration: 'Tempoh',
+      days: 'hari',
+      day: 'hari',
+      approved: 'Diluluskan',
+      rejected: 'Ditolak',
+      cancelled: 'Dibatalkan',
+      pending: 'Tertunda',
+      pendingCancellation: 'Pembatalan Tertunda',
+      loading: 'Memuatkan...',
+      noApplications: 'Tiada permohonan cuti untuk',
+    },
+    'zh-Hans': {
+      leaveOverview: '请假概览',
+      leaveApplications: '请假申请',
+      error: '错误',
+      failedFetch: '获取请假数据失败',
+      ok: '确定',
+      duration: '时段',
+      days: '天',
+      day: '天',
+      approved: '已批准',
+      rejected: '已拒绝',
+      cancelled: '已取消',
+      pending: '待审批',
+      pendingCancellation: '待取消',
+      loading: '加载中...',
+      noApplications: '没有请假申请',
+    },
+    'zh-Hant': {
+      leaveOverview: '請假概覽',
+      leaveApplications: '請假申請',
+      error: '錯誤',
+      failedFetch: '獲取請假數據失敗',
+      ok: '確定',
+      duration: '時段',
+      days: '天',
+      day: '天',
+      approved: '已批准',
+      rejected: '已拒絕',
+      cancelled: '已取消',
+      pending: '待審批',
+      pendingCancellation: '待取消',
+      loading: '加載中...',
+      noApplications: '沒有請假申請',
+    },
+  };
+
+  const getLocalizedText = (key: TranslationKey) => {
+    return translations[language][key];
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: getLocalizedText('leaveOverview'),
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme, language]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,18 +143,18 @@ const LeaveApplicationListing = () => {
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         const storedEmployeeId = await AsyncStorage.getItem('employeeId');
         if (!storedBaseUrl || !storedEmployeeId) {
-          Alert.alert('Error', 'Base URL or Employee ID is missing');
+          showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
           return;
         }
         setBaseUrl(storedBaseUrl);
         setEmployeeId(storedEmployeeId);
         fetchLeaveData(storedBaseUrl, storedEmployeeId, year);
       } catch (error) {
-        Alert.alert('Error', 'Failed to fetch stored data.');
+        showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
       }
     };
     fetchData();
-  }, []);
+  }, [year]);
 
   useFocusEffect(
     useCallback(() => {
@@ -59,7 +169,7 @@ const LeaveApplicationListing = () => {
       setIsLoading(true);
       const userToken = await AsyncStorage.getItem('userToken');
       if (!userToken) {
-        Alert.alert('Error', 'User token is missing');
+        showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
         return;
       }
       const url = `${urlBase}/apps/api/v1/employees/${empId}/leaves?Year=${year}`;
@@ -84,16 +194,27 @@ const LeaveApplicationListing = () => {
           
           setLeaveData(sortedData);
         } else {
-          Alert.alert('Error', 'Failed to fetch leave data.');
+          showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
         }
       } else {
-        Alert.alert('Error', 'Failed to fetch leave data.');
+        showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch leave data.');
+      showAlert(getLocalizedText('error'), getLocalizedText('failedFetch'));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const showAlert = (title: string, message: string) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: [
+        { text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }
+      ],
+    });
   };
 
   const incrementYear = () => setYear((prevYear) => prevYear + 1);
@@ -115,31 +236,57 @@ const LeaveApplicationListing = () => {
     return `${day} ${month} ${year}`;
   };
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Approved':
-        return '#34C759'; // iOS green
-      case 'Cancelled':
-        return '#FF3B30'; // iOS red
-      case 'Pending':
-        return '#FF9500'; // iOS orange
-      case 'PendingCancellation':
-        return '#FF9500'; // iOS orange
-      default:
-        return '#8E8E93'; // iOS gray
-    }
+    const statusColors = {
+      [getLocalizedText('approved')]: {
+        backgroundColor: '#34C759',  // Green
+        textColor: '#FFFFFF'
+      },
+      [getLocalizedText('rejected')]: {
+        backgroundColor: '#FF3B30',  // Red
+        textColor: '#FFFFFF'
+      },
+      [getLocalizedText('cancelled')]: {
+        backgroundColor: '#FF9500',  // Orange
+        textColor: '#FFFFFF'
+      },
+      [getLocalizedText('pending')]: {
+        backgroundColor: '#FFD60A',  // Yellow
+        textColor: '#000000'
+      },
+      [getLocalizedText('pendingCancellation')]: {
+        backgroundColor: '#FFD60A',  // Yellow
+        textColor: '#000000'
+      }
+    };
+
+    return statusColors[status] || {
+      backgroundColor: theme.subText,
+      textColor: theme.text
+    };
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerCard}>
-        <Text style={styles.title}>Leave Applications</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.headerCard, { 
+        backgroundColor: theme.card,
+        shadowColor: theme.shadowColor,
+      }]}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {getLocalizedText('leaveApplications')}
+        </Text>
         <View style={styles.yearSelector}>
           <TouchableOpacity onPress={decrementYear} style={styles.yearButton}>
-            <Image source={require('../../../../asset/img/icon/a-d-arrow-left.png')} style={styles.arrowIcon} />
+            <Image 
+              source={require('../../../../asset/img/icon/a-d-arrow-left.png')} 
+              style={styles.arrowIcon as ImageStyle}
+            />
           </TouchableOpacity>
-          <Text style={styles.yearText}>{year}</Text>
+          <Text style={[styles.yearText, { color: theme.text }]}>{year}</Text>
           <TouchableOpacity onPress={incrementYear} style={styles.yearButton}>
-            <Image source={require('../../../../asset/img/icon/a-d-arrow-right.png')} style={styles.arrowIcon} />
+            <Image 
+              source={require('../../../../asset/img/icon/a-d-arrow-right.png')} 
+              style={[styles.arrowIcon as ImageStyle, { tintColor: theme.primary }]} 
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -148,43 +295,69 @@ const LeaveApplicationListing = () => {
         <ScrollView contentContainerStyle={styles.leaveList}>
           {isLoading ? (
             <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>Loading leave data...</Text>
+              <Text style={[styles.messageText, { color: theme.subText }]}>
+                {getLocalizedText('loading')}
+              </Text>
             </View>
           ) : leaveData.length > 0 ? (
             leaveData.map((leave: Leave, index) => {
               const fromDate = formatDate(leave.dateFrom);
               const toDate = formatDate(leave.dateTo);
               const displayStatus = leave.approvalStatusDisplay === 'PendingCancellation' 
-                ? 'Pending\nCancellation' 
-                : leave.approvalStatusDisplay;
+                ? getLocalizedText('pendingCancellation') 
+                : getLocalizedText(leave.approvalStatusDisplay.toLowerCase() as TranslationKey);
               
               return (
                 <TouchableOpacity 
                   key={index} 
-                  style={styles.leaveCard} 
+                  style={[styles.leaveCard, { 
+                    backgroundColor: theme.card,
+                    shadowColor: theme.shadowColor,
+                  }]} 
                   onPress={() => handleLeaveClick(leave)}
                 >
                   <View style={styles.leaveHeader}>
-                    <Text style={styles.leaveType}>{leave.leaveCodeDesc}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(leave.approvalStatusDisplay) }]}>
-                      <Text style={styles.statusText}>{displayStatus}</Text>
+                    <Text style={[styles.leaveType, { color: theme.text }]}>
+                      {leave.leaveCodeDesc}
+                    </Text>
+                    <View style={[styles.statusBadge, { 
+                      backgroundColor: getStatusColor(displayStatus).backgroundColor 
+                    }]}>
+                      <Text style={[styles.statusText, {
+                        color: getStatusColor(displayStatus).textColor
+                      }]}>{displayStatus}</Text>
                     </View>
                   </View>
                   <View style={styles.leaveDates}>
-                    <Text style={styles.dateLabel}>Duration:</Text>
-                    <Text style={styles.dateText}>{fromDate} - {toDate}</Text>
-                    <Text style={styles.daysText}>({leave.totalDays} {leave.totalDays > 1 ? 'days' : 'day'})</Text>
+                    <Text style={[styles.dateLabel, { color: theme.subText }]}>
+                      {getLocalizedText('duration')}:
+                    </Text>
+                    <Text style={[styles.dateText, { color: theme.text }]}>
+                      {fromDate} - {toDate}
+                    </Text>
+                    <Text style={[styles.daysText, { color: theme.subText }]}>
+                      ({leave.totalDays} {leave.totalDays > 1 ? getLocalizedText('days') : getLocalizedText('day')})
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
             })
           ) : (
             <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>No leave applications found for {year}.</Text>
+              <Text style={[styles.messageText, { color: theme.subText }]}>
+                {getLocalizedText('noApplications')} {year}.
+              </Text>
             </View>
           )}
         </ScrollView>
       </View>
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -192,15 +365,12 @@ const LeaveApplicationListing = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     padding: 16,
   },
   headerCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -261,12 +431,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
   },
   statusText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
   },
   leaveDates: {
     flexDirection: 'column',

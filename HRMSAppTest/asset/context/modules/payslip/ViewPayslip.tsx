@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,9 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Pdf from 'react-native-pdf';
 import RNFetchBlob from 'react-native-blob-util';
+import { useTheme } from '../../modules/setting/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
+import { useLanguage } from '../../modules/setting/LanguageContext';
 
 export type RootStackParamList = {
   ViewPayslip: {
@@ -24,7 +27,25 @@ export type RootStackParamList = {
   };
 };
 
+// Add translations interface
+interface Translation {
+  downloadPayslip: string;
+  downloadComplete: string;
+  downloadSuccess: string;
+  downloadFailed: string;
+  unableToSave: string;
+  ok: string;
+  loading: string;
+  noPdf: string;
+  error: string;
+  pdfError: string;
+  viewPayslip: string;
+}
+
 const ViewPayslip = () => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'ViewPayslip'>>();
   const { baseUrl, employeeId, payrollType, payrollDate } = route.params;
 
@@ -35,13 +56,86 @@ const ViewPayslip = () => {
 
   const fileName = `payslip_${employeeId}_${payrollDate}.pdf`;
 
-  // Format payrollDate into 'Month YYYY'
-  const formatDate = (date: string) => {
-    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long' };
-    return new Intl.DateTimeFormat('en-US', options).format(new Date(date));
+  const getLocalizedText = (key: keyof Translation): string => {
+    switch (language) {
+      case 'ms':
+        return {
+          downloadPayslip: 'Muat Turun Slip Gaji',
+          downloadComplete: 'Muat Turun Selesai',
+          downloadSuccess: 'Slip gaji berjaya dimuat turun ke folder Muat Turun',
+          downloadFailed: 'Muat Turun Gagal',
+          unableToSave: 'Tidak dapat menyimpan fail.',
+          ok: 'OK',
+          loading: 'Memuatkan',
+          noPdf: 'Tiada PDF untuk dipaparkan',
+          error: 'Ralat',
+          pdfError: 'Ralat membuka PDF',
+          viewPayslip: 'Lihat Slip Gaji',
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          downloadPayslip: '下载工资单',
+          downloadComplete: '下载完成',
+          downloadSuccess: '工资单已成功下载到下载文件夹',
+          downloadFailed: '下载失败',
+          unableToSave: '无法保存文件。',
+          ok: '确定',
+          loading: '加载中',
+          noPdf: '没有可显示的PDF',
+          error: '错误',
+          pdfError: '打开PDF时出错',
+          viewPayslip: '查看工资单',
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          downloadPayslip: '下載工資單',
+          downloadComplete: '下載完成',
+          downloadSuccess: '工資單已成功下載到下載文件夾',
+          downloadFailed: '下載失敗',
+          unableToSave: '無法保存文件。',
+          ok: '確定',
+          loading: '加載中',
+          noPdf: '沒有可顯示的PDF',
+          error: '錯誤',
+          pdfError: '打開PDF時出錯',
+          viewPayslip: '查看工資單',
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          downloadPayslip: 'Download Payslip',
+          downloadComplete: 'Download Complete',
+          downloadSuccess: 'Payslip downloaded successfully to Downloads folder',
+          downloadFailed: 'Download Failed',
+          unableToSave: 'Unable to save the file.',
+          ok: 'OK',
+          loading: 'Loading',
+          noPdf: 'No PDF to display',
+          error: 'Error',
+          pdfError: 'Error opening PDF',
+          viewPayslip: 'View Payslip',
+        }[key] || key;
+    }
   };
 
-  const payslipTitle = formatDate(payrollDate);
+  // Update formatDate function
+  const formatDate = (date: string) => {
+    const formattedDate = new Date(date);
+    const year = formattedDate.getFullYear();
+    const month = formattedDate.getMonth() + 1;
+
+    switch (language) {
+      case 'zh-Hans':
+        return `${year}年${month}月`;
+      case 'zh-Hant':
+        return `${year}年${month}月`;
+      default:
+        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long' };
+        return new Intl.DateTimeFormat('en-US', options).format(formattedDate);
+    }
+  };
 
   // Function to fetch and display the PDF
   const fetchPdf = async () => {
@@ -106,32 +200,52 @@ const ViewPayslip = () => {
       await RNFetchBlob.fs.cp(pdfUri.replace('file://', ''), downloadPath);
 
       Alert.alert(
-        'Download Complete',
-        `Payslip downloaded successfully to Downloads folder`,
-        [{ text: 'OK' }]
+        getLocalizedText('downloadComplete'),
+        getLocalizedText('downloadSuccess'),
+        [{ text: getLocalizedText('ok') }]
       );
     } catch (err) {
       console.error('Download error:', err);
-      Alert.alert('Download Failed', 'Unable to save the file.');
+      Alert.alert(
+        getLocalizedText('downloadFailed'), 
+        getLocalizedText('unableToSave')
+      );
     }
   };
 
+  // Add header styling
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: getLocalizedText('viewPayslip'),
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme, language]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>{payslipTitle}</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.header, { color: theme.text }]}>{formatDate(payrollDate)}</Text>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
       ) : pdfUri ? (
-        <View style={styles.pdfContainer}>
+        <View style={[styles.pdfContainer, { backgroundColor: theme.background }]}>
           <Pdf
             trustAllCerts={false}
             source={{ uri: pdfUri, cache: true }}
-            style={styles.pdf}
+            style={[styles.pdf, { backgroundColor: theme.background }]}
             onLoadComplete={(numberOfPages) => {
               console.log(`Loaded ${numberOfPages} pages`);
             }}
@@ -141,21 +255,31 @@ const ViewPayslip = () => {
             }}
             enablePaging={true}
             renderActivityIndicator={() => (
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={theme.primary} />
             )}
           />
         </View>
       ) : (
-        <Text style={styles.errorText}>No PDF to display</Text>
+        <Text style={[styles.errorText, { color: theme.error }]}>
+          {getLocalizedText('noPdf')}
+        </Text>
       )}
 
       {pdfUri && (
-        <TouchableOpacity onPress={handleDownload} style={styles.downloadButton}>
+        <TouchableOpacity 
+          onPress={handleDownload} 
+          style={[styles.downloadButton, { 
+            backgroundColor: theme.primary,
+            shadowColor: theme.shadowColor,
+          }]}
+        >
           <Image
             source={require('../../../../asset/img/icon/a-download.png')}
-            style={styles.downloadIcon}
+            style={[styles.downloadIcon, { tintColor: theme.card }]}
           />
-          <Text style={styles.downloadButtonText}>Download Payslip</Text>
+          <Text style={[styles.downloadButtonText, { color: theme.card }]}>
+            {getLocalizedText('downloadPayslip')}
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -165,14 +289,12 @@ const ViewPayslip = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     padding: 20,
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#333',
     textAlign: 'center',
   },
   loadingContainer: {
@@ -184,34 +306,35 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     marginBottom: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   pdf: {
     flex: 1,
     width: Dimensions.get('window').width - 40,
-    backgroundColor: '#F5F5F5',
   },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007AFF',
     padding: 15,
     borderRadius: 10,
     marginTop: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   downloadIcon: {
     width: 20,
     height: 20,
-    tintColor: 'white',
     marginRight: 10,
   },
   downloadButtonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
   errorText: {
-    color: 'red',
     textAlign: 'center',
     marginTop: 20,
   },

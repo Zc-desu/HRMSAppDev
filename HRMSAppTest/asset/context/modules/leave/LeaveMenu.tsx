@@ -1,12 +1,105 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
+
+interface Translation {
+  leaveManagement: string;
+  leave: string;
+  viewLeaveApplication: string;
+  createLeaveApplication: string;
+  viewLeaveEntitlements: string;
+  approveLeaveApplication: string;
+  error: string;
+  baseUrlError: string;
+  employeeIdError: string;
+  fetchDataError: string;
+}
 
 const LeaveMenu = ({ navigation, route }: any) => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasApprovalRole, setHasApprovalRole] = useState(false);
+
+  const getLocalizedText = (key: keyof Translation): string => {
+    switch (language) {
+      case 'ms':
+        return {
+          leaveManagement: 'Pengurusan Cuti',
+          leave: 'Cuti',
+          viewLeaveApplication: 'Lihat Permohonan Cuti',
+          createLeaveApplication: 'Buat Permohonan Cuti',
+          viewLeaveEntitlements: 'Lihat Hak Cuti',
+          approveLeaveApplication: 'Luluskan Permohonan Cuti',
+          error: 'Ralat',
+          baseUrlError: 'URL asas tidak tersedia',
+          employeeIdError: 'ID pekerja tidak tersedia',
+          fetchDataError: 'Gagal mendapatkan data dari AsyncStorage',
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          leaveManagement: '请假管理',
+          leave: '请假',
+          viewLeaveApplication: '查看请假申请',
+          createLeaveApplication: '创建请假申请',
+          viewLeaveEntitlements: '查看请假权利',
+          approveLeaveApplication: '批准请假申请',
+          error: '错误',
+          baseUrlError: '基本URL不可用',
+          employeeIdError: '员工ID不可用',
+          fetchDataError: '从AsyncStorage获取数据失败',
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          leaveManagement: '請假管理',
+          leave: '請假',
+          viewLeaveApplication: '查看請假申請',
+          createLeaveApplication: '創建請假申請',
+          viewLeaveEntitlements: '查看請假權利',
+          approveLeaveApplication: '批准請假申請',
+          error: '錯誤',
+          baseUrlError: '基本URL不可用',
+          employeeIdError: '員工ID不可用',
+          fetchDataError: '從AsyncStorage獲取數據失敗',
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          leaveManagement: 'Leave Management',
+          leave: 'Leave',
+          viewLeaveApplication: 'View Leave Application',
+          createLeaveApplication: 'Create Leave Application',
+          viewLeaveEntitlements: 'View Leave Entitlements',
+          approveLeaveApplication: 'Approve Leave Application',
+          error: 'Error',
+          baseUrlError: 'Base URL is not available',
+          employeeIdError: 'Employee ID is not available',
+          fetchDataError: 'Failed to fetch data from AsyncStorage',
+        }[key] || key;
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: getLocalizedText('leave'),
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme, language]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -22,16 +115,16 @@ const LeaveMenu = ({ navigation, route }: any) => {
         if (storedBaseUrl) {
           setBaseUrl(storedBaseUrl);
         } else {
-          Alert.alert('Error', 'Base URL is not available');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('baseUrlError'));
         }
 
         if (storedEmployeeId) {
           setEmployeeId(storedEmployeeId);
         } else {
-          Alert.alert('Error', 'Employee ID is not available');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('employeeIdError'));
         }
       } catch (error) {
-        Alert.alert('Error', 'Failed to fetch data from AsyncStorage');
+        Alert.alert(getLocalizedText('error'), getLocalizedText('fetchDataError'));
       } finally {
         setLoading(false);
       }
@@ -42,25 +135,25 @@ const LeaveMenu = ({ navigation, route }: any) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   const baseMenuItems = [
     {
-      title: 'View Leave Application',
+      title: getLocalizedText('viewLeaveApplication'),
       screen: 'LeaveApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
     {
-      title: 'Create Leave Application',
+      title: getLocalizedText('createLeaveApplication'),
       screen: 'CreateLeaveApplication',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
     {
-      title: 'View Leave Entitlements',
+      title: getLocalizedText('viewLeaveEntitlements'),
       screen: 'LeaveEntitlementListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
@@ -69,27 +162,33 @@ const LeaveMenu = ({ navigation, route }: any) => {
   const menuItems = hasApprovalRole ? [
     ...baseMenuItems,
     {
-      title: 'Approve Leave Application',
+      title: getLocalizedText('approveLeaveApplication'),
       screen: 'ApproveLeaveApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     }
   ] : baseMenuItems;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Leave Management</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.header, { color: theme.text }]}>{getLocalizedText('leaveManagement')}</Text>
       <View style={styles.menuContainer}>
         {menuItems.map((item, index) => (
           <TouchableOpacity
             key={index}
-            style={styles.menuCard}
+            style={[
+              styles.menuCard, 
+              { 
+                backgroundColor: theme.card,
+                shadowColor: theme.shadowColor,
+              }
+            ]}
             onPress={() => navigation.navigate(item.screen, { baseUrl, employeeId })}
           >
             <View style={styles.menuContent}>
-              <Text style={styles.menuText}>{item.title}</Text>
+              <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>
               <Image
                 source={item.icon}
-                style={styles.icon}
+                style={[styles.icon, { tintColor: theme.primary }]}
               />
             </View>
           </TouchableOpacity>
@@ -102,19 +201,16 @@ const LeaveMenu = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 20,
     marginTop: 10,
   },
@@ -123,9 +219,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -139,13 +233,11 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
   },
   icon: {
     width: 20,
     height: 20,
-    tintColor: '#007AFF',
   },
 });
 

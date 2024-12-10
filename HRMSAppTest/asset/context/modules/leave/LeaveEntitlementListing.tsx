@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 
 interface EmployeeData {
   name: string;
@@ -19,7 +21,29 @@ interface Entitlement {
   carryForwardDays: number;
 }
 
+interface Theme {
+  primary: string;
+  background: string;
+  card: string;
+  text: string;
+  subText: string;
+  border: string;
+  success: string;
+  error: string;
+  warning: string;
+  buttonBackground: string;
+  buttonText: string;
+  shadowColor: string;
+  headerBackground: string;
+  divider: string;
+  headerText: string;
+  statusBarStyle: string;
+  isDark?: boolean;
+}
+
 const LeaveEntitlementListing = () => {
+  const navigation = useNavigation();
+  const { theme } = useTheme() as { theme: Theme };
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
   const [entitlements, setEntitlements] = useState<Entitlement[]>([]);
@@ -79,37 +103,62 @@ const LeaveEntitlementListing = () => {
     fetchLeaveEntitlements();
   }, [selectedYear]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+      title: 'Leave Entitlement',
+    });
+  }, [navigation, theme]);
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Card */}
-      <View style={styles.headerCard}>
-        <Text style={styles.headerTitle}>Leave Entitlements</Text>
-        <View style={styles.yearNavigation}>
-          <TouchableOpacity 
-            onPress={handlePreviousYear}
-            style={styles.yearButton}
-          >
+      <View style={[styles.headerCard, { 
+        backgroundColor: theme.card,
+        borderColor: theme.border,
+        borderWidth: 1,
+      }]}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          Leave Entitlements
+        </Text>
+        <View style={[styles.yearNavigation, { 
+          backgroundColor: theme.buttonBackground,
+        }]}>
+          <TouchableOpacity onPress={handlePreviousYear} style={styles.yearButton}>
             <Image
               source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
-              style={styles.arrowIcon}
+              style={[styles.arrowIcon, { tintColor: theme.primary }]}
             />
           </TouchableOpacity>
           
-          <Text style={styles.yearText}>{selectedYear}</Text>
+          <Text style={[styles.yearText, { color: theme.text }]}>
+            {selectedYear}
+          </Text>
           
           <TouchableOpacity 
             onPress={handleNextYear}
             style={[
               styles.yearButton,
-              selectedYear === new Date().getFullYear() && styles.yearButtonDisabled
+              selectedYear === new Date().getFullYear() && { opacity: 0.5 }
             ]}
             disabled={selectedYear === new Date().getFullYear()}
           >
@@ -117,7 +166,8 @@ const LeaveEntitlementListing = () => {
               source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
               style={[
                 styles.arrowIcon,
-                selectedYear === new Date().getFullYear() && styles.arrowIconDisabled
+                { tintColor: theme.primary },
+                selectedYear === new Date().getFullYear() && { opacity: 0.5 }
               ]}
             />
           </TouchableOpacity>
@@ -126,23 +176,43 @@ const LeaveEntitlementListing = () => {
 
       {/* Employee Info Card */}
       {employeeData && (
-        <View style={styles.employeeCard}>
-          <View style={styles.employeeHeader}>
-            <Text style={styles.employeeName}>{employeeData.name}</Text>
-            <Text style={styles.employeeId}>ID: {employeeData.employeeNumber}</Text>
+        <View style={[styles.employeeCard, { 
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          borderWidth: 1,
+        }]}>
+          <View style={[styles.employeeHeader, { 
+            borderBottomColor: theme.divider
+          }]}>
+            <Text style={[styles.employeeName, { color: theme.text }]}>
+              {employeeData.name}
+            </Text>
+            <Text style={[styles.employeeId, { color: theme.subText }]}>
+              ID: {employeeData.employeeNumber}
+            </Text>
           </View>
           <View style={styles.employeeDetails}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Department</Text>
-              <Text style={styles.detailValue}>{employeeData.departmentDesc}</Text>
+              <Text style={[styles.detailLabel, { color: theme.subText }]}>
+                Department
+              </Text>
+              <Text style={[styles.detailValue, { color: theme.text }]}>
+                {employeeData.departmentDesc}
+              </Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Position</Text>
-              <Text style={styles.detailValue}>{employeeData.jobTitleDesc}</Text>
+              <Text style={[styles.detailLabel, { color: theme.subText }]}>
+                Position
+              </Text>
+              <Text style={[styles.detailValue, { color: theme.text }]}>
+                {employeeData.jobTitleDesc}
+              </Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Join Date</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: theme.subText }]}>
+                Join Date
+              </Text>
+              <Text style={[styles.detailValue, { color: theme.text }]}>
                 {new Date(employeeData.dateJoin).toLocaleDateString('en-US', {
                   day: 'numeric',
                   month: 'long',
@@ -157,38 +227,59 @@ const LeaveEntitlementListing = () => {
       {/* Entitlements Section */}
       <View style={styles.entitlementsContainer}>
         {entitlements.map((item, index) => (
-          <View key={index} style={styles.entitlementCard}>
-            <View style={styles.leaveTypeHeader}>
-              <Text style={styles.leaveType}>{item.leaveCodeDesc}</Text>
-              <Text style={styles.leaveCode}>{item.leaveCode}</Text>
+          <View key={index} style={[styles.entitlementCard, { 
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            borderWidth: 1,
+          }]}>
+            <View style={[styles.leaveTypeHeader, { 
+              borderBottomColor: theme.divider
+            }]}>
+              <Text style={[styles.leaveType, { color: theme.text }]}>
+                {item.leaveCodeDesc}
+              </Text>
+              <Text style={[styles.leaveCode, { 
+                color: theme.subText,
+                backgroundColor: theme.buttonBackground,
+              }]}>
+                {item.leaveCode}
+              </Text>
             </View>
             
             <View style={styles.leaveDetails}>
               <View style={styles.detailBox}>
-                <Text style={styles.detailBoxLabel}>Available</Text>
-                <Text style={[styles.detailBoxValue, { color: '#34C759' }]}>
+                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                  Available
+                </Text>
+                <Text style={[styles.detailBoxValue, { color: theme.success }]}>
                   {item.balanceDays.toFixed(1)}
                 </Text>
               </View>
               
               <View style={styles.detailBox}>
-                <Text style={styles.detailBoxLabel}>Taken</Text>
-                <Text style={[styles.detailBoxValue, { color: '#FF9500' }]}>
+                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                  Taken
+                </Text>
+                <Text style={[styles.detailBoxValue, { color: theme.warning }]}>
                   {item.takenDays.toFixed(1)}
                 </Text>
               </View>
               
               <View style={styles.detailBox}>
-                <Text style={styles.detailBoxLabel}>Total</Text>
-                <Text style={[styles.detailBoxValue, { color: '#007AFF' }]}>
+                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                  Total
+                </Text>
+                <Text style={[styles.detailBoxValue, { color: theme.primary }]}>
                   {item.earnedDays.toFixed(1)}
                 </Text>
               </View>
               
               {item.carryForwardDays > 0 && (
                 <View style={styles.detailBox}>
-                  <Text style={styles.detailBoxLabel}>C/F</Text>
-                  <Text style={[styles.detailBoxValue, { color: '#5856D6' }]}>
+                  <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                    C/F
+                  </Text>
+                  <Text style={[styles.detailBoxValue, { color: theme.buttonText }]}>
                     {item.carryForwardDays.toFixed(1)}
                   </Text>
                 </View>
@@ -358,7 +449,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 
 interface NoticeBoard {
   id: number;
@@ -18,9 +21,28 @@ interface NoticeBoard {
 }
 
 const NBGetList = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
   const [notices, setNotices] = useState<NoticeBoard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { employeeId, companyId, baseUrl: passedBaseUrl } = route.params;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+      title: 'Notice Board',
+    });
+  }, [navigation, theme]);
 
   const fetchNotices = async () => {
     try {
@@ -79,36 +101,59 @@ const NBGetList = ({ route, navigation }: any) => {
     });
   };
 
+  const handleNoticePress = (notice: NoticeBoard) => {
+    navigation.navigate('NBDetails', { 
+      noticeId: notice.id,
+      employeeId: employeeId,
+      companyId: companyId
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
   const renderNoticeItem = ({ item }: { item: NoticeBoard }) => (
     <TouchableOpacity
-      style={[styles.noticeCard, item.importantNotice && styles.importantNoticeCard]}
-      onPress={() => navigation.navigate('NBDetails', { 
-        noticeId: item.id,
-        employeeId: employeeId,
-        companyId: companyId
-      })}
+      style={[
+        styles.noticeCard,
+        { 
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          borderWidth: 1,
+        },
+        item.importantNotice && styles.importantNoticeCard
+      ]}
+      onPress={() => handleNoticePress(item)}
     >
       <View style={styles.noticeContent}>
-        <Text style={styles.noticeTitle} numberOfLines={2}>
-          {item.noticeTitle}
-        </Text>
-        <Text style={styles.noticeDate}>
+        <View style={styles.headerRow}>
+          {item.importantNotice && (
+            <Image
+              source={require('../../../../asset/img/icon/a-warning-filled.png')}
+              style={[styles.warningIcon, { tintColor: theme.error }]}
+            />
+          )}
+          <Text style={[
+            styles.noticeTitle,
+            { color: theme.text },
+          ]} numberOfLines={2}>
+            {item.noticeTitle}
+          </Text>
+        </View>
+        <Text style={[styles.noticeDate, { color: theme.subText }]}>
           {formatDate(item.effectiveDateFrom)}
         </Text>
       </View>
     </TouchableOpacity>
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={notices}
         renderItem={renderNoticeItem}
@@ -123,19 +168,16 @@ const NBGetList = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   listContainer: {
     padding: 16,
   },
   noticeCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -144,24 +186,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    position: 'relative',
   },
   importantNoticeCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#FF3B30',
+    borderLeftColor: '#FF453A',
   },
   noticeContent: {
     flex: 1,
   },
   noticeTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
     lineHeight: 24,
   },
   noticeDate: {
     fontSize: 14,
-    color: '#666',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  warningIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
   },
 });
 

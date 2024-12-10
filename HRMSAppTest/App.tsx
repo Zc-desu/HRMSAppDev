@@ -29,242 +29,249 @@ import NBGetFileAttachment from './asset/context/modules/noticeboard/NBGetFileAt
 // Import Setting
 import Settings from './asset/context/src/Settings';
 import ChangeTheme from './asset/context/modules/setting/ChangeTheme';
-
+import { ThemeProvider } from './asset/context/modules/setting/ThemeContext';
+import { LanguageProvider } from './asset/context/modules/setting/LanguageContext';
+import LanguageSelector from './asset/context/modules/setting/LanguageSelector';
 const Stack = createStackNavigator();
 
 const App = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ 
-            headerLeft: () => null,
-            headerShown: false  
-          }}
-        />
-        <Stack.Screen name="ScanQR" component={ScanQRScreen} />
-        <Stack.Screen
-          name="ProfileSwitch"
-          component={ProfileSwitch}
-          options={{ 
-            headerLeft: () => null,
-            headerShown: false  
-          }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={Settings}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
-        />
-        {/* Add ApprovalMenu and EmployeeMenu */}
-        <Stack.Screen
-          name="ApprovalMenu"
-          component={ApprovalMenu}
-          options={{ 
-            headerLeft: () => null,
-            headerShown: false 
-          }}
-        />
-        <Stack.Screen
-          name="EmployeeMenu"
-          component={EmployeeMenu}
-          options={{ 
-            headerLeft: () => null,
-            headerShown: false 
-          }}
-        />
-        <Stack.Screen
-          name="ViewEmployeeDetail"
-          component={ViewEmployeeDetail}
-          //options={{ 
-            //headerLeft: () => null,
-            //headerShown: false 
-          //}}
-        />
-        <Stack.Screen
-          name="Payslip"
-          component={Payslip}
-          options={{ 
-            title: 'Payslip',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="ViewPayslip"
-          component={ViewPayslip}
-          // //options={{ 
-          //   //headerLeft: () => null,
-          //   //headerShown: false 
-          // //}}
-        />
-        <Stack.Screen
-          name="LeaveMenu"
-          component={LeaveMenu}
-          options={{ 
-            title: 'Leave',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="LeaveApplicationListing"
-          component={LeaveApplicationListing}
-          options={{ 
-            title: 'List of Leave Application',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="LeaveDetail"
-          component={LeaveDetail}
-          options={{ 
-            title: 'Detail',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="CancelLeaveApplication"
-          component={CancelLeaveApplication}
-          options={{ 
-            title: 'Cancel Leave Application',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="CreateLeaveApplication"
-          component={CreateLeaveApplication}
-          options={{ 
-            title: 'Create Leave Application',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="LeaveEntitlementListing"
-          component={LeaveEntitlementListing}
-          options={{ 
-            title: 'Leave Entitlement',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="ApproveLeaveApplicationListing"
-          component={ApproveLeaveApplicationListing}
-          options={{ 
-            title: 'Approve Leave Application',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="ApproveLeaveDetail"
-          component={ApproveLeaveDetail}
-          options={{ 
-            title: 'Approve Leave Application',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="ChangeTheme"
-          component={ChangeTheme}
-          options={{ 
-            title: 'Change Theme',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-          }}
-        />
-        <Stack.Screen
-          name="NBGetList"
-          component={NBGetList}
-          options={{ 
-            title: 'Notice Board',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-        <Stack.Screen
-          name="NBDetails"
-          component={NBDetails}
-          options={{
-            title: 'Notice Details',
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />  
-        <Stack.Screen 
-          name="NBGetFileAttachment" 
-          component={NBGetFileAttachment}
-          options={{
-            title: 'File Viewer',
-            headerShown: true,
-            headerTitleStyle: {
-              fontSize: 20,
-              fontWeight: '600',
-              color: '#333',
-            },
-            headerTitleAlign: 'center',
-          }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <LanguageProvider>
+      <ThemeProvider>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName="Login">
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ 
+                headerLeft: () => null,
+                headerShown: false  
+              }}
+            />
+            <Stack.Screen name="ScanQR" component={ScanQRScreen} />
+            <Stack.Screen
+              name="ProfileSwitch"
+              component={ProfileSwitch}
+              options={{ 
+                headerLeft: () => null,
+                headerShown: false  
+              }}
+            />
+            <Stack.Screen
+              name="Settings"
+              component={Settings}
+            />
+            <Stack.Screen
+              name="ApprovalMenu"
+              component={ApprovalMenu}
+              options={{ 
+                headerLeft: () => null,
+                headerShown: false 
+              }}
+            />
+            <Stack.Screen
+              name="EmployeeMenu"
+              component={EmployeeMenu}
+              options={{ 
+                headerLeft: () => null,
+                headerShown: false 
+              }}
+            />
+            <Stack.Screen
+              name="ViewEmployeeDetail"
+              component={ViewEmployeeDetail}
+            />
+            <Stack.Screen
+              name="Payslip"
+              component={Payslip}
+              options={{ 
+                title: 'Payslip',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ViewPayslip"
+              component={ViewPayslip}
+            />
+            <Stack.Screen
+              name="LeaveMenu"
+              component={LeaveMenu}
+              options={{ 
+                title: 'Leave',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="LeaveApplicationListing"
+              component={LeaveApplicationListing}
+              options={{ 
+                title: 'List of Leave Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="LeaveDetail"
+              component={LeaveDetail}
+              options={{ 
+                title: 'Detail',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="CancelLeaveApplication"
+              component={CancelLeaveApplication}
+              options={{ 
+                title: 'Cancel Leave Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="CreateLeaveApplication"
+              component={CreateLeaveApplication}
+              options={{ 
+                title: 'Create Leave Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="LeaveEntitlementListing"
+              component={LeaveEntitlementListing}
+              options={{ 
+                title: 'Leave Entitlement',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ApproveLeaveApplicationListing"
+              component={ApproveLeaveApplicationListing}
+              options={{ 
+                title: 'Approve Leave Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ApproveLeaveDetail"
+              component={ApproveLeaveDetail}
+              options={{ 
+                title: 'Approve Leave Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ChangeTheme"
+              component={ChangeTheme}
+              options={{ 
+                title: 'Change Theme',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="NBGetList"
+              component={NBGetList}
+              options={{ 
+                title: 'Notice Board',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="NBDetails"
+              component={NBDetails}
+              options={{
+                title: 'Notice Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />  
+            <Stack.Screen 
+              name="NBGetFileAttachment" 
+              component={NBGetFileAttachment}
+              options={{
+                title: 'File Viewer',
+                headerShown: true,
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="LanguageSelector"
+              component={LanguageSelector}
+              options={{
+                title: 'Language',
+                headerTitleStyle: {
+                  fontSize: 17,
+                  fontWeight: '600',
+                },
+                headerTitleAlign: 'center',
+                headerShadowVisible: false,
+              }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 };
 

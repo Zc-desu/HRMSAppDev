@@ -1,13 +1,153 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, Alert, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../modules/setting/ThemeContext';
+import { useLanguage } from '../../modules/setting/LanguageContext';
+import CustomAlert from '../../modules/setting/CustomAlert';
+
+// Add interfaces for alert config
+interface CustomAlertButton {
+  text: string;
+  onPress: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+}
+
+interface AlertConfig {
+  visible: boolean;
+  title: string;
+  message: string;
+  buttons: CustomAlertButton[];
+}
 
 const ViewEmployeeDetail = ({ navigation }: any) => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const [userToken, setUserToken] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [employeeDetails, setEmployeeDetails] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
 
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          employeeDetails: 'Butiran Pekerja',
+          error: 'Ralat',
+          ok: 'OK',
+          noToken: 'Tiada token pengguna atau URL asas. Sila log masuk semula.',
+          unableToFetch: 'Tidak dapat mengambil token pengguna atau URL asas.',
+          employeeIdNotFound: 'ID pekerja tidak dijumpai.',
+          fetchError: 'Gagal mengambil butiran pekerja.',
+          noDetails: 'Tiada butiran pekerja.',
+          employeeNumber: 'Nombor Pekerja',
+          name: 'Nama',
+          title: 'Jawatan',
+          nationality: 'Kewarganegaraan',
+          nric: 'No. KP',
+          dateOfBirth: 'Tarikh Lahir',
+          age: 'Umur',
+          gender: 'Jantina',
+          residentStatus: 'Status Pemastautin',
+          maritalStatus: 'Status Perkahwinan',
+          religion: 'Agama',
+          ethnic: 'Etnik',
+          smoker: 'Perokok',
+          yes: 'Ya',
+          no: 'Tidak',
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          employeeDetails: '员工详情',
+          error: '错误',
+          ok: '确定',
+          noToken: '未找到用户令牌或基本URL。请重新登录。',
+          unableToFetch: '无法获取用户令牌或基本URL。',
+          employeeIdNotFound: '未找到员工ID。',
+          fetchError: '获取员工详情失败。',
+          noDetails: '没有员工详情。',
+          employeeNumber: '员工编号',
+          name: '姓名',
+          title: '职位',
+          nationality: '国籍',
+          nric: '身份证号',
+          dateOfBirth: '出生日期',
+          age: '年龄',
+          gender: '性别',
+          residentStatus: '居民状态',
+          maritalStatus: '婚姻状况',
+          religion: '宗教',
+          ethnic: '种族',
+          smoker: '吸烟者',
+          yes: '是',
+          no: '否',
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          employeeDetails: 'Employee Details',
+          error: 'Error',
+          ok: 'OK',
+          noToken: 'No user token or base URL found. Please log in again.',
+          unableToFetch: 'Unable to fetch user token or base URL.',
+          employeeIdNotFound: 'Employee ID not found.',
+          fetchError: 'Failed to fetch employee details.',
+          noDetails: 'No employee details available.',
+          employeeNumber: 'Employee Number',
+          name: 'Name',
+          title: 'Title',
+          nationality: 'Nationality',
+          nric: 'NRIC',
+          dateOfBirth: 'Date of Birth',
+          age: 'Age',
+          gender: 'Gender',
+          residentStatus: 'Resident Status',
+          maritalStatus: 'Marital Status',
+          religion: 'Religion',
+          ethnic: 'Ethnic',
+          smoker: 'Smoker',
+          yes: 'Yes',
+          no: 'No',
+        }[key] || key;
+    }
+  };
+
+  // Update header title
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: getLocalizedText('employeeDetails'),
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme, language]);
+
+  // Update alert calls
+  const showAlert = (title: string, message: string, buttons: CustomAlertButton[] = []) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length > 0 ? buttons : [
+        { text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }
+      ],
+    });
+  };
+
+  // Update alerts in useEffect
   useEffect(() => {
     const fetchAuthData = async () => {
       try {
@@ -19,19 +159,14 @@ const ViewEmployeeDetail = ({ navigation }: any) => {
           const extractedBaseUrl = storedBaseUrl.split('/apps/api')[0];
           setBaseUrl(extractedBaseUrl);
         } else {
-          Alert.alert('Error', 'No user token or base URL found. Please log in again.', [
-            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          showAlert(getLocalizedText('error'), getLocalizedText('noToken'), [
+            { text: getLocalizedText('ok'), onPress: () => navigation.navigate('Login') }
           ]);
         }
       } catch (error) {
         console.error('Error retrieving user token or base URL:', error);
-        Alert.alert('Error', 'Unable to fetch user token or base URL.', [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.goBack();
-            },
-          },
+        showAlert(getLocalizedText('error'), getLocalizedText('unableToFetch'), [
+          { text: getLocalizedText('ok'), onPress: () => navigation.goBack() }
         ]);
       }
     };
@@ -94,74 +229,138 @@ const ViewEmployeeDetail = ({ navigation }: any) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (!employeeDetails) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>No employee details available.</Text>
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.subText }]}>
+          No employee details available.
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.contentContainer}>
-        {/* Header Section */}
-        <View style={styles.headerCard}>
-          <Text style={styles.headerText}>Employee Details</Text>
+        <View style={[styles.headerCard, { backgroundColor: theme.card }]}>
+          <Text style={[styles.headerText, { color: theme.text }]}>
+            {getLocalizedText('employeeDetails')}
+          </Text>
         </View>
 
-        {/* Details Section */}
-        <View style={styles.detailsCard}>
-          <DetailItem label="Employee Number" value={employeeDetails.employeeNumber} />
-          <DetailItem label="Name" value={employeeDetails.name} />
-          <DetailItem label="Title" value={employeeDetails.title} />
-          <DetailItem label="Nationality" value={employeeDetails.nationality} />
-          <DetailItem label="NRIC" value={employeeDetails.nric} />
+        <View style={[styles.detailsCard, { backgroundColor: theme.card }]}>
           <DetailItem 
-            label="Date of Birth" 
-            value={formatDate(employeeDetails.dateOfBirth)} 
+            label={getLocalizedText('employeeNumber')}
+            value={employeeDetails?.employeeNumber}
+            theme={theme}
           />
-          <DetailItem label="Age" value={employeeDetails.age?.toString()} />
-          <DetailItem label="Gender" value={employeeDetails.gender} />
-          <DetailItem label="Resident Status" value={employeeDetails.resident} />
-          <DetailItem label="Marital Status" value={employeeDetails.maritalStatus} />
-          <DetailItem label="Religion" value={employeeDetails.religion} />
-          <DetailItem label="Ethnic" value={employeeDetails.ethnic} />
-          <DetailItem label="Smoker" value={employeeDetails.smoker ? 'Yes' : 'No'} />
+          <DetailItem 
+            label={getLocalizedText('name')}
+            value={employeeDetails?.name}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('title')}
+            value={employeeDetails?.title}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('nationality')}
+            value={employeeDetails?.nationality}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('nric')}
+            value={employeeDetails?.nric}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('dateOfBirth')}
+            value={formatDate(employeeDetails?.dateOfBirth)}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('age')}
+            value={employeeDetails?.age?.toString()}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('gender')}
+            value={employeeDetails?.gender}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('residentStatus')}
+            value={employeeDetails?.resident}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('maritalStatus')}
+            value={employeeDetails?.maritalStatus}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('religion')}
+            value={employeeDetails?.religion}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('ethnic')}
+            value={employeeDetails?.ethnic}
+            theme={theme}
+          />
+          <DetailItem 
+            label={getLocalizedText('smoker')}
+            value={employeeDetails?.smoker ? getLocalizedText('yes') : getLocalizedText('no')}
+            theme={theme}
+          />
         </View>
       </View>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 };
 
-// Helper component for detail items
-const DetailItem = ({ label, value }: { label: string; value: string | undefined }) => (
-  <View style={styles.detailRow}>
-    <Text style={styles.labelText}>{label}</Text>
-    <Text style={styles.valueText}>{value || '-'}</Text>
+// Update DetailItem to accept theme
+const DetailItem = ({ 
+  label, 
+  value, 
+  theme 
+}: { 
+  label: string; 
+  value: string | undefined;
+  theme: any;
+}) => (
+  <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+    <Text style={[styles.labelText, { color: theme.subText }]}>{label}</Text>
+    <Text style={[styles.valueText, { color: theme.text }]}>{value || '-'}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   contentContainer: {
     padding: 16,
   },
   headerCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -170,14 +369,11 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     textAlign: 'center',
   },
   detailsCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -188,16 +384,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   labelText: {
     fontSize: 16,
-    color: '#666',
     flex: 1,
   },
   valueText: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
@@ -206,18 +399,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     padding: 20,
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
 });

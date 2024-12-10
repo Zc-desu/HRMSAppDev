@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomAlert from '../setting/CustomAlert';
+import { useTheme } from '../setting/ThemeContext';
 
 interface AlertButton {
   text: string;
@@ -9,7 +10,28 @@ interface AlertButton {
   onPress?: () => void;
 }
 
+interface Theme {
+  primary: string;
+  background: string;
+  card: string;
+  text: string;
+  subText: string;
+  border: string;
+  success: string;
+  error: string;
+  warning: string;
+  buttonBackground: string;
+  buttonText: string;
+  shadowColor: string;
+  headerBackground: string;
+  divider: string;
+  headerText: string;
+  statusBarStyle: string;
+  isDark?: boolean;
+}
+
 const CancelLeaveApplication = ({ route, navigation }: any) => {
+  const { theme } = useTheme() as { theme: Theme };
   const { applicationId } = route.params;
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState('');
@@ -34,6 +56,21 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
     };
     getLeaveDetail();
   }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
 
   const formatDate = (dateString: string) => {
     const months = [
@@ -151,46 +188,101 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (!leaveDetail) {
     return (
-      <View style={styles.messageContainer}>
-        <Text style={styles.messageText}>Leave details not found.</Text>
+      <View style={[styles.messageContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.messageText, { color: theme.subText }]}>
+          Leave details not found.
+        </Text>
       </View>
     );
   }
 
   return (
     <>
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { backgroundColor: '#000000' }]}>
         <View style={styles.contentContainer}>
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Cancel Leave Application</Text>
-            <Text style={styles.warningText}>
+          <View style={[styles.warningCard, {
+            backgroundColor: 'rgba(255, 59, 48, 0.1)',
+            borderColor: 'rgba(255, 59, 48, 0.2)',
+            borderWidth: 1,
+          }]}>
+            <Text style={[styles.warningTitle, { color: '#FF453A' }]}>
+              Cancel Leave Application
+            </Text>
+            <Text style={[styles.warningText, { color: '#FF453A' }]}>
               Are you sure you want to cancel this leave application?
             </Text>
           </View>
 
-          <View style={styles.detailsCard}>
-            <DetailItem label="Leave Type" value={leaveDetail.leaveCodeDesc} />
-            <DetailItem label="Status" value={leaveDetail.approvalStatusDisplay} />
-            <DetailItem label="Applied On" value={formatDate(leaveDetail.createdDate)} />
-            <DetailItem label="Start Date" value={formatDate(leaveDetail.dateFrom)} />
-            <DetailItem label="End Date" value={formatDate(leaveDetail.dateTo)} />
-            <DetailItem label="Duration" value={`${leaveDetail.totalDays} day(s)`} />
-            <DetailItem label="Reason" value={leaveDetail.reason || '--'} />
-            <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} />
+          <View style={[styles.detailsCard, { 
+            backgroundColor: '#1C1C1E',
+            borderColor: '#2C2C2E',
+            borderWidth: 1,
+          }]}>
+            <DetailItem 
+              label="Leave Type" 
+              value={leaveDetail.leaveCodeDesc}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Status" 
+              value={leaveDetail.approvalStatusDisplay}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Applied On" 
+              value={formatDate(leaveDetail.createdDate)}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Start Date" 
+              value={formatDate(leaveDetail.dateFrom)}
+              theme={theme}
+            />
+            <DetailItem 
+              label="End Date" 
+              value={formatDate(leaveDetail.dateTo)}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Duration" 
+              value={`${leaveDetail.totalDays} day(s)`}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Reason" 
+              value={leaveDetail.reason || '--'}
+              theme={theme}
+            />
+            <DetailItem 
+              label="Backup Person" 
+              value={leaveDetail.backupPersonEmployeeName || '--'}
+              theme={theme}
+            />
           </View>
 
-          <View style={styles.inputCard}>
-            <Text style={styles.inputLabel}>Cancellation Reason</Text>
+          <View style={[styles.inputCard, { 
+            backgroundColor: '#1C1C1E',
+            borderColor: '#2C2C2E',
+            borderWidth: 1,
+          }]}>
+            <Text style={[styles.inputLabel, { color: '#FFFFFF' }]}>
+              Cancellation Reason
+            </Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, {
+                backgroundColor: '#2C2C2E',
+                borderColor: '#3A3A3C',
+                color: '#FFFFFF',
+              }]}
+              placeholderTextColor="#8E8E93"
               placeholder="Enter your reason for cancellation"
               value={reason}
               onChangeText={setReason}
@@ -202,17 +294,25 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
-              style={styles.cancelButton}
+              style={[styles.cancelButton, { 
+                backgroundColor: '#FF453A',
+              }]}
               onPress={handleCancelPress}
             >
-              <Text style={styles.cancelButtonText}>Confirm Cancellation</Text>
+              <Text style={[styles.cancelButtonText, { color: '#FFFFFF' }]}>
+                Confirm Cancellation
+              </Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.backButton}
+              style={[styles.backButton, { 
+                backgroundColor: '#3A3A3C',
+              }]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backButtonText}>Go Back</Text>
+              <Text style={[styles.backButtonText, { color: '#FFFFFF' }]}>
+                Go Back
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -229,39 +329,36 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
   );
 };
 
-const DetailItem = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>{label}</Text>
-    <Text style={styles.detailValue}>{value}</Text>
+const DetailItem = ({ label, value, theme }: { label: string; value: string; theme: Theme }) => (
+  <View style={[styles.detailRow, { 
+    borderBottomColor: '#2C2C2E'
+  }]}>
+    <Text style={[styles.detailLabel, { color: '#8E8E93' }]}>{label}</Text>
+    <Text style={[styles.detailValue, { color: '#FFFFFF' }]}>{value}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   contentContainer: {
     padding: 16,
   },
   warningCard: {
-    backgroundColor: '#FFF3F3',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FFE5E5',
   },
   warningTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FF3B30',
     marginBottom: 8,
     textAlign: 'center',
   },
   warningText: {
     fontSize: 16,
-    color: '#FF3B30',
     textAlign: 'center',
   },
   detailsCard: {

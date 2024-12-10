@@ -1,143 +1,243 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Switch, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity,
+  Image,
+  useColorScheme,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { lightTheme, darkTheme } from '../modules/setting/ChangeTheme';
+import { useLanguage } from '../modules/setting/LanguageContext';
 
 const Settings = ({ navigation }: any) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isAutoLogin, setIsAutoLogin] = useState(false);
-  const [isNotificationsOn, setIsNotificationsOn] = useState(true);
-  const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
+  const systemTheme = useColorScheme();
+  const [currentTheme, setCurrentTheme] = useState<string>('system');
+  const { language } = useLanguage();
 
-  // Example language options
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  useEffect(() => {
+    loadThemePreference();
+    // Add listener for when screen comes into focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadThemePreference();
+    });
 
-  const handleThemeChange = () => {
-    setIsDarkMode(!isDarkMode);
-    // You can implement logic to save the theme setting here
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadThemePreference = async () => {
+    try {
+      const savedTheme = await AsyncStorage.getItem('themePreference');
+      if (savedTheme) {
+        setCurrentTheme(savedTheme);
+      }
+    } catch (error) {
+      console.error('Error loading theme preference:', error);
+    }
   };
 
-  const handleAutoLoginChange = () => {
-    setIsAutoLogin(!isAutoLogin);
-    AsyncStorage.setItem('autoLogin', JSON.stringify(!isAutoLogin));
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          theme: 'Tema',
+          language: 'Bahasa',
+          system: 'Sistem',
+          light: 'Cerah',
+          dark: 'Gelap'
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          theme: '主题',
+          language: '语言',
+          system: '系统',
+          light: '浅色',
+          dark: '深色'
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          theme: '主題',
+          language: '語言',
+          system: '系統',
+          light: '淺色',
+          dark: '深色'
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          theme: 'Theme',
+          language: 'Language',
+          system: 'System',
+          light: 'Light',
+          dark: 'Dark'
+        }[key] || key;
+    }
   };
 
-  const handleNotificationsChange = () => {
-    setIsNotificationsOn(!isNotificationsOn);
-    // Implement logic for notification preferences here
+  const getThemeText = () => {
+    switch (currentTheme) {
+      case 'light':
+        return getLocalizedText('light');
+      case 'dark':
+        return getLocalizedText('dark');
+      default:
+        return getLocalizedText('system');
+    }
   };
 
-  const handleTwoFactorChange = () => {
-    setIsTwoFactorEnabled(!isTwoFactorEnabled);
-    // Implement 2FA setup or settings here
+  const getActiveTheme = () => {
+    if (currentTheme === 'system') {
+      return systemTheme === 'dark' ? darkTheme : lightTheme;
+    }
+    return currentTheme === 'dark' ? darkTheme : lightTheme;
   };
 
-  const handleLanguageChange = (language: string) => {
-    setSelectedLanguage(language);
-    // You can implement language switcher logic here
-  };
+  const theme = getActiveTheme();
 
-  const handleClearCache = () => {
-    console.log('Clear cache clicked');
-  };
+  // Update navigation header based on theme and language
+  useEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+      // Translate the Settings title
+      title: language === 'zh-Hans' ? '设置' :
+             language === 'zh-Hant' ? '設置' :
+             language === 'ms' ? 'Tetapan' :
+             'Settings'
+    });
+  }, [currentTheme, systemTheme, language]);
 
-  const handleChangeTheme = () => {
-    console.log('Change theme clicked');
+  const getLanguageText = () => {
+    switch (language) {
+      case 'en':
+        return 'English';
+      case 'ms':
+        return 'Bahasa Melayu';
+      case 'zh-Hans':
+        return '简体中文';
+      case 'zh-Hant':
+        return '繁體中文';
+      default:
+        return 'English';
+    }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Clear Cache */}
-      <TouchableOpacity style={styles.settingItem} onPress={handleClearCache}>
-        <Text style={styles.settingText}>Clear Cache</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.section, { 
+        backgroundColor: theme.card,
+        shadowColor: theme.shadowColor,
+      }]}>
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => navigation.navigate('ChangeTheme')}
+        >
+          <View style={styles.settingLeft}>
+            <Image
+              source={require('../../../asset/img/icon/theme.png')}
+              style={[styles.icon, { tintColor: theme.text }]}
+            />
+            <Text style={[styles.settingText, { color: theme.text }]}>
+              {getLocalizedText('theme')}
+            </Text>
+          </View>
+          <View style={styles.settingRight}>
+            <Text style={[styles.themeText, { color: theme.subText }]}>
+              {getThemeText()}
+            </Text>
+            <Image
+              source={require('../../../asset/img/icon/arrow-right.png')}
+              style={[styles.arrowIcon, { tintColor: theme.subText }]}
+            />
+          </View>
+        </TouchableOpacity>
 
-      {/* Change Theme */}
-      <TouchableOpacity style={styles.settingItem} onPress={handleChangeTheme}>
-        <Text style={styles.settingText}>Change Theme ({isDarkMode ? 'Dark' : 'Light'})</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      {/* Language Setting */}
-      <TouchableOpacity style={styles.settingItem} onPress={() => handleLanguageChange('Spanish')}>
-        <Text style={styles.settingText}>Language ({selectedLanguage})</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      {/* Notifications Preferences */}
-      <TouchableOpacity style={styles.settingItem} onPress={handleNotificationsChange}>
-        <Text style={styles.settingText}>Notifications Preferences</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      {/* Profile Settings */}
-      <TouchableOpacity style={styles.settingItem} onPress={() => {}}>
-        <Text style={styles.settingText}>Profile Settings</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      {/* Security Settings */}
-      <TouchableOpacity style={styles.settingItem} onPress={handleTwoFactorChange}>
-        <Text style={styles.settingText}>Security Settings (2FA)</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      {/* Auto-Login */}
-      <TouchableOpacity style={styles.settingItem} onPress={handleAutoLoginChange}>
-        <Text style={styles.settingText}>Auto-Login (Remember Me)</Text>
-        <Image source={require('../../img/icon/arrow-right.png')} style={styles.arrowIcon} />
-      </TouchableOpacity>
-
-      <View style={styles.separator}></View>
-
-      {/* Toggle Switches */}
-      <View style={styles.switchContainer}>
-        <Text style={styles.switchLabel}>Enable Auto-Login</Text>
-        <Switch
-          value={isAutoLogin}
-          onValueChange={handleAutoLoginChange}
-        />
+        <TouchableOpacity 
+          style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: theme.divider }]}
+          onPress={() => navigation.navigate('LanguageSelector')}
+        >
+          <View style={styles.settingLeft}>
+            <Image
+              source={require('../../../asset/img/icon/translate.png')}
+              style={[styles.icon, { tintColor: theme.text }]}
+            />
+            <Text style={[styles.settingText, { color: theme.text }]}>
+              {getLocalizedText('language')}
+            </Text>
+          </View>
+          <View style={styles.settingRight}>
+            <Text style={[styles.themeText, { color: theme.subText }]}>
+              {getLanguageText()}
+            </Text>
+            <Image
+              source={require('../../../asset/img/icon/arrow-right.png')}
+              style={[styles.arrowIcon, { tintColor: theme.subText }]}
+            />
+          </View>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.switchContainer}>
-        <Text style={styles.switchLabel}>Enable 2FA</Text>
-        <Switch
-          value={isTwoFactorEnabled}
-          onValueChange={handleTwoFactorChange}
-        />
-      </View>
-
-      <View style={styles.switchContainer}>
-        <Text style={styles.switchLabel}>Enable Notifications</Text>
-        <Switch
-          value={isNotificationsOn}
-          onValueChange={handleNotificationsChange}
-        />
-      </View>
-
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  section: {
+    borderRadius: 10,
+    padding: 15,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    paddingVertical: 12,
   },
-  settingText: { fontSize: 16 },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  icon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+  },
   arrowIcon: {
     width: 20,
     height: 20,
-    resizeMode: 'contain',
+    marginLeft: 8,
   },
-  separator: { height: 20 },
-  switchContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 },
-  switchLabel: { fontSize: 16 },
+  settingText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  themeText: {
+    fontSize: 16,
+  },
 });
 
 export default Settings;

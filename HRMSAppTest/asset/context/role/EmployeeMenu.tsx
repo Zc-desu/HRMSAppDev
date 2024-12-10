@@ -1,9 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, BackHandler } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../modules/setting/ThemeContext';
+import { useLanguage } from '../modules/setting/LanguageContext';
+import CustomAlert from '../modules/setting/CustomAlert';
+
+// Add interfaces for alert config
+interface CustomAlertButton {
+  text: string;
+  onPress: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+}
+
+interface AlertConfig {
+  visible: boolean;
+  title: string;
+  message: string;
+  buttons: CustomAlertButton[];
+}
 
 const EmployeeMenu = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const showAlert = (title: string, message: string, buttons: CustomAlertButton[] = []) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length > 0 ? buttons : [
+        { text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }
+      ],
+    });
+  };
+
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          error: 'Ralat',
+          baseUrlUnavailable: 'URL asas tidak tersedia',
+          employeeIdUnavailable: 'ID pekerja tidak tersedia',
+          logOut: 'Log Keluar',
+          logOutConfirm: 'Adakah anda pasti mahu log keluar?',
+          cancel: 'Batal',
+          ok: 'OK',
+          payslip: 'Slip Gaji',
+          leave: 'Cuti',
+          noticeBoard: 'Papan Notis',
+          failedLogout: 'Gagal log keluar',
+          companyIdUnavailable: 'ID syarikat tidak tersedia'
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          error: '错误',
+          baseUrlUnavailable: '基本URL不可用',
+          employeeIdUnavailable: '员工ID不可用',
+          logOut: '登出',
+          logOutConfirm: '您确定要登出吗？',
+          cancel: '取消',
+          ok: '确定',
+          payslip: '工资单',
+          leave: '请假',
+          noticeBoard: '公告板',
+          failedLogout: '登出失败',
+          companyIdUnavailable: '公司ID不可用'
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          error: '錯誤',
+          baseUrlUnavailable: '基本URL不可用',
+          employeeIdUnavailable: '員工ID不可用',
+          logOut: '登出',
+          logOutConfirm: '您確定要登出嗎？',
+          cancel: '取消',
+          ok: '確定',
+          payslip: '工資單',
+          leave: '請假',
+          noticeBoard: '公告板',
+          failedLogout: '登出失敗',
+          companyIdUnavailable: '公司ID不可用'
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          error: 'Error',
+          baseUrlUnavailable: 'Base URL is not available',
+          employeeIdUnavailable: 'Employee ID is not available',
+          logOut: 'Log Out',
+          logOutConfirm: 'Are you sure you want to log out?',
+          cancel: 'Cancel',
+          ok: 'OK',
+          payslip: 'Payslip',
+          leave: 'Leave',
+          noticeBoard: 'Notice Board',
+          failedLogout: 'Failed to log out',
+          companyIdUnavailable: 'Company ID is not available'
+        }[key] || key;
+    }
+  };
+
   // Extract companyId, baseUrl, and decodedToken from route params
   const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
   const [loggedIn, setLoggedIn] = useState(true);
@@ -17,27 +123,24 @@ const EmployeeMenu = ({ route, navigation }: any) => {
   // Ensure baseUrl and employeeId are set properly
   useEffect(() => {
     const getBaseUrlAndEmployeeId = async () => {
-      // First, check if baseUrl is passed in route params
       if (passedBaseUrl) {
         setBaseUrl(passedBaseUrl);
       } else {
-        // If not, attempt to fetch it from AsyncStorage
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         if (storedBaseUrl) {
           setBaseUrl(storedBaseUrl);
         } else {
-          Alert.alert('Error', 'Base URL is not available');
+          showAlert(getLocalizedText('error'), getLocalizedText('baseUrlUnavailable'));
         }
       }
 
-      // Check if employeeId is available in the decoded token or AsyncStorage
       const storedEmployeeId = decodedToken?.decodedPayload?.employee_id
         || await AsyncStorage.getItem('employeeId');
 
       if (storedEmployeeId) {
         setEmployeeId(storedEmployeeId);
       } else {
-        Alert.alert('Error', 'Employee ID is not available');
+        showAlert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
       }
     };
 
@@ -80,34 +183,68 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     }, [loggedIn])
   );
 
+  // Add header styling
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
+
   // Modified handleLogout
   const handleLogout = async () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
+    showAlert(
+      getLocalizedText('logOut'),
+      getLocalizedText('logOutConfirm'),
       [
         {
-          text: 'Cancel',
+          text: getLocalizedText('cancel'),
           style: 'cancel',
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })),
         },
         {
-          text: 'OK',
+          text: getLocalizedText('ok'),
           onPress: async () => {
             try {
+              setIsLoading(true);
+              const userToken = await AsyncStorage.getItem('userToken');
+              const refreshToken = await AsyncStorage.getItem('refreshToken');
+              const baseUrl = await AsyncStorage.getItem('baseUrl');
+
+              // Call logout API
+              const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${userToken}`
+                },
+                body: JSON.stringify({ refreshToken })
+              });
+
+              // Proceed with logout regardless of API response
               setLoggedIn(false);
               
-              // Store necessary data temporarily
-              const baseUrl = await AsyncStorage.getItem('baseUrl');
+              // Store necessary data
               const scannedData = await AsyncStorage.getItem('scannedData');
+              const themePreference = await AsyncStorage.getItem('themePreference');
               
               // Get all keys and filter out the ones we want to keep
               const keys = await AsyncStorage.getAllKeys();
               const keysToRemove = keys.filter(key => 
                 key !== 'baseUrl' && 
-                key !== 'scannedData'
+                key !== 'scannedData' &&
+                key !== 'themePreference'
               );
               
-              // Remove only the authentication-related items
+              // Remove auth-related items
               await AsyncStorage.multiRemove(keysToRemove);
               
               // Reset navigation stack
@@ -117,73 +254,83 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               });
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to log out properly');
+              showAlert(getLocalizedText('error'), getLocalizedText('failedLogout'));
+            } finally {
+              setIsLoading(false);
             }
-          },
-        },
-      ],
-      { cancelable: false }
+          }
+        }
+      ]
     );
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Wrapper View */}
+    <ScrollView 
+      contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}
+    >
       <View>
         <TouchableOpacity
-          style={styles.viewDetailButton}
+          style={[styles.viewDetailButton, { backgroundColor: theme.card }]}
           onPress={() => {
             if (employeeId) {
               navigation.navigate('ViewEmployeeDetail', { employeeId });
             } else {
-              Alert.alert('Error', 'Employee ID is unavailable');
+              showAlert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
             }
           }}
         >
           <View style={styles.buttonContent}>
             <View style={styles.textContainer}>
-              <Text style={styles.employeeNoText}>{employeeNumber}</Text>
-              <Text style={styles.employeeNameText}>{employeeName}</Text>
+              <Text style={[styles.employeeNoText, { color: theme.subText }]}>{employeeNumber}</Text>
+              <Text style={[styles.employeeNameText, { color: theme.text }]}>{employeeName}</Text>
             </View>
-            <Image source={require('../../../asset/img/icon/a-avatar.png')} style={styles.avatarStyle}/>
+            <Image 
+              source={require('../../../asset/img/icon/a-avatar.png')} 
+              style={[
+                styles.avatarStyle,
+                { tintColor: theme.background === '#000000' ? '#FFFFFF' : undefined }
+              ]}
+            />
           </View>
         </TouchableOpacity>
 
-        {/* Button Rows */}
         <View style={styles.buttonRow}>
-          {/* Payslip Button with Icon */}
           <TouchableOpacity
-            style={styles.squareButton}
+            style={[styles.squareButton, { backgroundColor: theme.card }]}
             onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
           >
             <View style={styles.iconTextContainer}>
-              <Image source={require('../../../asset/img/icon/gongzidan.png')} style={styles.iconImage} />
-              <Text style={styles.squareButtonText}>Payslip</Text>
+              <Image 
+                source={require('../../../asset/img/icon/gongzidan.png')} 
+                style={[styles.iconImage, { tintColor: theme.primary }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('payslip')}</Text>
             </View>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.squareButton}
+            style={[styles.squareButton, { backgroundColor: theme.card }]}
             onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
           >
             <View style={styles.iconTextContainer}>
-              <Image source={require('../../../asset/img/icon/leave2.png')} style={styles.iconImage} />
-              <Text style={styles.squareButtonText}>Leave</Text>
+              <Image 
+                source={require('../../../asset/img/icon/leave2.png')} 
+                style={[styles.iconImage, { tintColor: theme.primary }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('leave')}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Other Button Rows */}
         <View style={styles.buttonRow}>
           <TouchableOpacity 
-            style={styles.squareButton}
+            style={[styles.squareButton, { backgroundColor: theme.card }]}
             onPress={() => {
               const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
-              
               if (!companyIdToUse) {
-                Alert.alert('Error', 'Company ID is not available');
+                showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
                 return;
               }
-
               navigation.navigate('NBGetList', {
                 employeeId: employeeId,
                 companyId: companyIdToUse,
@@ -192,30 +339,46 @@ const EmployeeMenu = ({ route, navigation }: any) => {
             }}
           >
             <View style={styles.iconTextContainer}>
-              <Image source={require('../../../asset/img/icon/noticeboard.png')} style={styles.iconImage} />
-              <Text style={styles.squareButtonText}>Notice Board</Text>
+              <Image 
+                source={require('../../../asset/img/icon/noticeboard.png')} 
+                style={[styles.iconImage, { tintColor: theme.primary }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                {getLocalizedText('noticeBoard')}
+              </Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 4</Text>
+          <TouchableOpacity style={[styles.squareButton, { backgroundColor: theme.card }]}>
+            <Text style={[styles.squareButtonText, { color: theme.text }]}>Button 4</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.squareButton}>
-            <Text style={styles.squareButtonText}>Button 5</Text>
+          <TouchableOpacity style={[styles.squareButton, { backgroundColor: theme.card }]}>
+            <Text style={[styles.squareButtonText, { color: theme.text }]}>Button 5</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.squareButton, styles.logoutButtonStyle]}
+            style={[styles.squareButton, styles.logoutButtonStyle, { backgroundColor: theme.card }]}
             onPress={handleLogout}
           >
             <View style={styles.iconTextContainer}>
-              <Image source={require('../../../asset/img/icon/tuichu.png')} style={styles.iconImage} />
-              <Text style={styles.squareButtonText}>Log Out</Text>
+              <Image 
+                source={require('../../../asset/img/icon/tuichu.png')} 
+                style={[styles.iconImage, { tintColor: theme.error }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.error }]}>{getLocalizedText('logOut')}</Text>
             </View>
           </TouchableOpacity>
         </View>
       </View>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 };
@@ -288,8 +451,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   iconTextContainer: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    height: '100%',
   },
   iconImage: {
     width: 40,

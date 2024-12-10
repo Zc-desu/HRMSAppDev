@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../setting/ThemeContext';
 
 interface LeaveDate {
   date: string;
@@ -33,6 +34,7 @@ type NavigationParams = {
 };
 
 const ApproveLeaveApplicationListing = () => {
+  const { theme } = useTheme();
   const [pendingLeaves, setPendingLeaves] = useState<PendingLeave[]>([]);
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -139,54 +141,61 @@ const ApproveLeaveApplicationListing = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerCard}>
-        <Text style={styles.title}>Pending Approvals</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.headerCard, { backgroundColor: theme.card }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Pending Approvals</Text>
       </View>
 
       <View style={styles.contentContainer}>
         <ScrollView contentContainerStyle={styles.leaveList}>
           {isLoading ? (
             <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>Loading pending approvals...</Text>
+              <Text style={[styles.messageText, { color: theme.subText }]}>
+                Loading pending approvals...
+              </Text>
             </View>
           ) : pendingLeaves.length > 0 ? (
             pendingLeaves.map((leave: PendingLeave, index) => (
               <TouchableOpacity 
                 key={index} 
-                style={styles.leaveCard} 
+                style={[styles.leaveCard, { backgroundColor: theme.card }]} 
                 onPress={() => handleLeaveClick(leave)}
               >
                 <View style={styles.leaveHeader}>
-                  <Text style={styles.leaveType}>{leave.leaveDescription}</Text>
+                  <Text style={[styles.leaveType, { color: theme.text }]}>
+                    {leave.leaveDescription}
+                  </Text>
                   <View style={styles.employeeInfo}>
-                    <Text style={styles.employeeNo}>{leave.employeeNo}</Text>
+                    <Text style={[styles.employeeNo, { color: theme.subText }]}>
+                      {leave.employeeNo}
+                    </Text>
                   </View>
                 </View>
 
-                <Text style={styles.employeeName}>{leave.employeeName}</Text>
-
                 <View style={styles.leaveDates}>
-                  <Text style={styles.dateLabel}>Duration:</Text>
-                  <Text style={styles.dateText}>
+                  <Text style={[styles.dateText, { color: theme.text }]}>
                     {formatDate(leave.dateFrom)} - {formatDate(leave.dateTo)}
-                  </Text>
-                  <Text style={styles.daysText}>
                     ({leave.totalDay} {leave.totalDay > 1 ? 'days' : 'day'})
                   </Text>
                 </View>
 
                 {leave.reason && (
                   <View style={styles.reasonContainer}>
-                    <Text style={styles.reasonLabel}>Reason:</Text>
-                    <Text style={styles.reasonText}>{leave.reason}</Text>
+                    <Text style={[styles.reasonLabel, { color: theme.subText }]}>
+                      Reason:
+                    </Text>
+                    <Text style={[styles.reasonText, { color: theme.text }]}>
+                      {leave.reason}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
             ))
           ) : (
             <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>No pending approvals found.</Text>
+              <Text style={[styles.messageText, { color: theme.subText }]}>
+                No pending approvals found.
+              </Text>
             </View>
           )}
         </ScrollView>
@@ -198,11 +207,9 @@ const ApproveLeaveApplicationListing = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     padding: 16,
   },
   headerCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,

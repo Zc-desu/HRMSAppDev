@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
 
 const LeaveDetail = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
   const { applicationId } = route.params;
   const [leaveDetail, setLeaveDetail] = useState<any>(null);
   const [approvalDetails, setApprovalDetails] = useState<any>(null);
@@ -51,17 +53,34 @@ const LeaveDetail = ({ route, navigation }: any) => {
     fetchLeaveDetails();
   }, [applicationId]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Approved':
-        return '#34C759'; // iOS green
+        return '#34C759';  // Bright green
+      case 'Rejected':
+        return '#FF453A';  // Bright red
       case 'Cancelled':
-        return '#FF3B30'; // iOS red
+        return '#FF9500';  // Orange
       case 'Pending':
       case 'PendingCancellation':
-        return '#FF9500'; // iOS orange
+        return '#FFD60A';  // Yellow
       default:
-        return '#8E8E93'; // iOS gray
+        return theme.subText;
     }
   };
 
@@ -139,63 +158,99 @@ const LeaveDetail = ({ route, navigation }: any) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (!leaveDetail) {
     return (
-      <View style={styles.messageContainer}>
-        <Text style={styles.messageText}>Leave details not found.</Text>
+      <View style={[styles.messageContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.messageText, { color: theme.subText }]}>
+          Leave details not found.
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.headerCard}>
+        <View style={[styles.headerCard, { 
+          backgroundColor: theme.card,
+          shadowColor: theme.shadowColor,
+        }]}>
           <View style={styles.row}>
-            <Text style={styles.title}>{leaveDetail.leaveCodeDesc}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(leaveDetail.approvalStatusDisplay) }]}>
-              <Text style={styles.statusText}>{leaveDetail.approvalStatusDisplay}</Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              {leaveDetail.leaveCodeDesc}
+            </Text>
+            <View style={[styles.statusBadge, { 
+              backgroundColor: getStatusColor(leaveDetail.approvalStatusDisplay)
+            }]}>
+              <Text style={[styles.statusText, { 
+                color: leaveDetail.approvalStatusDisplay === 'Pending' || 
+                       leaveDetail.approvalStatusDisplay === 'PendingCancellation' 
+                       ? '#000000' : '#FFFFFF'
+              }]}>
+                {leaveDetail.approvalStatusDisplay}
+              </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.detailsCard}>
-          <DetailItem label="Applied On" value={formatDate(leaveDetail.createdDate)} />
-          <DetailItem label="Department" value={leaveDetail.departmentDesc} />
-          <DetailItem label="Position" value={leaveDetail.jobTitleDesc} />
-          <DetailItem label="Total Days" value={`${leaveDetail.totalDays} day(s)`} />
-          <DetailItem label="Reason" value={leaveDetail.reason || '--'} />
-          <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} />
+        <View style={[styles.detailsCard, { 
+          backgroundColor: theme.card,
+          shadowColor: theme.shadowColor,
+        }]}>
+          <DetailItem 
+            label="Applied On" 
+            value={formatDate(leaveDetail.createdDate)}
+            theme={theme}
+          />
+          <DetailItem label="Department" value={leaveDetail.departmentDesc} theme={theme} />
+          <DetailItem label="Position" value={leaveDetail.jobTitleDesc} theme={theme} />
+          <DetailItem label="Total Days" value={`${leaveDetail.totalDays} day(s)`} theme={theme} />
+          <DetailItem label="Reason" value={leaveDetail.reason || '--'} theme={theme} />
+          <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} theme={theme} />
         </View>
 
-        <View style={styles.sessionCard}>
-          <Text style={styles.sectionTitle}>Leave Sessions</Text>
+        <View style={[styles.sessionCard, { 
+          backgroundColor: theme.card,
+          shadowColor: theme.shadowColor,
+        }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Leave Sessions
+          </Text>
           {leaveDetail.leaveDates && leaveDetail.leaveDates.length > 0 ? (
             renderLeaveSession(leaveDetail.leaveDates)
           ) : (
-            <Text style={styles.messageText}>No session details available.</Text>
+            <Text style={[styles.messageText, { color: theme.subText }]}>
+              No session details available.
+            </Text>
           )}
         </View>
 
-        <View style={styles.approvalCard}>
-          <Text style={styles.sectionTitle}>Approval Details</Text>
+        <View style={[styles.approvalCard, { 
+          backgroundColor: theme.card,
+          shadowColor: theme.shadowColor,
+        }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Approval Details
+          </Text>
           {approvalDetails && approvalDetails.length > 0 ? (
             approvalDetails.map((approval: any, index: number) => (
               <View key={index} style={styles.approvalItem}>
-                <DetailItem label="Approver" value={approval.approval} />
-                <DetailItem label="Decision" value={mapApprovalDecision(approval.approvalDecision)} />
-                <DetailItem label="Respond Date" value={formatDate(approval.respondDate)} />
-                <DetailItem label="Reason" value={approval.reason || '--'} />
+                <DetailItem label="Approver" value={approval.approval} theme={theme} />
+                <DetailItem label="Decision" value={mapApprovalDecision(approval.approvalDecision)} theme={theme} />
+                <DetailItem label="Respond Date" value={formatDate(approval.respondDate)} theme={theme} />
+                <DetailItem label="Reason" value={approval.reason || '--'} theme={theme} />
               </View>
             ))
           ) : (
-            <Text style={styles.messageText}>No approval details available.</Text>
+            <Text style={[styles.messageText, { color: theme.subText }]}>
+              No approval details available.
+            </Text>
           )}
         </View>
       </ScrollView>
@@ -203,9 +258,12 @@ const LeaveDetail = ({ route, navigation }: any) => {
       {(leaveDetail.approvalStatusDisplay === 'Approved' || 
         leaveDetail.approvalStatusDisplay === 'Pending' ||
         leaveDetail.approvalStatusDisplay === 'PendingCancellation') && (
-        <View style={styles.buttonContainer}>
+        <View style={[styles.buttonContainer, { 
+          backgroundColor: theme.background,
+          borderTopColor: theme.border,
+        }]}>
           <TouchableOpacity 
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { backgroundColor: theme.error }]}
             onPress={handleCancelLeave}
           >
             <Text style={styles.cancelButtonText}>Cancel Leave</Text>
@@ -216,18 +274,17 @@ const LeaveDetail = ({ route, navigation }: any) => {
   );
 };
 
-// Helper component for detail items
-const DetailItem = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>{label}</Text>
-    <Text style={styles.detailValue}>{value}</Text>
+// Update DetailItem component to use theme
+const DetailItem = ({ label, value, theme }: { label: string; value: string; theme: any }) => (
+  <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+    <Text style={[styles.detailLabel, { color: theme.subText }]}>{label}</Text>
+    <Text style={[styles.detailValue, { color: theme.text }]}>{value}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   scrollViewContent: {
     padding: 16,

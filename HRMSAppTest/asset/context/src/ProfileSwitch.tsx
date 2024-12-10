@@ -3,12 +3,26 @@ import { View, Alert, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Bac
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import LoadingAnimation from '../../context/anim/loadingAnimation';
+import { useTheme } from '../modules/setting/ThemeContext';
+import { useLanguage } from '../modules/setting/LanguageContext';
+import CustomAlert from '../modules/setting/CustomAlert';
 
 // Define the structure of the JWT payload (including the 'exp' property)
 interface JWTDecodedPayload {
   exp: number;  // The expiration timestamp in Unix format
   employee_id: string;  // Include the employee_id from the payload
   [key: string]: any; // Other dynamic fields in the JWT payload
+}
+
+interface AlertConfig {
+  visible: boolean;
+  title?: string;
+  message?: string;
+  buttons?: Array<{
+    text: string;
+    style?: "default" | "cancel" | "destructive";
+    onPress?: () => void;
+  }>;
 }
 
 const ProfileSwitch = ({ route, navigation }: any) => {
@@ -18,6 +32,102 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false); // Add loading state
   const [loggedIn, setLoggedIn] = useState(true);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({ visible: false });
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+
+  const showAlert = (title: string, message: string, buttons: Array<any>) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          welcome: 'Selamat datang!',
+          selectCompany: 'Pilih Syarikat:',
+          logOut: 'Log Keluar',
+          logOutConfirm: 'Adakah anda pasti mahu log keluar?',
+          cancel: 'Batal',
+          ok: 'OK',
+          error: 'Ralat',
+          sessionExpired: 'Sesi anda telah tamat. Sila log masuk semula.',
+          unsupportedRole: 'Peranan pengguna tidak disokong.',
+          somethingWrong: 'Sesuatu tidak kena.',
+          loadingProfile: 'Memuat profil pengguna...',
+          failedLogout: 'Gagal log keluar dengan betul',
+          failedFetchProfile: 'Gagal mendapatkan profil pengguna.',
+          failedUserToken: 'Gagal mendapatkan token pengguna.',
+          Employee: 'Pekerja',
+          Approval: 'Kelulusan',
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          welcome: '欢迎！',
+          selectCompany: '选择公司：',
+          logOut: '登出',
+          logOutConfirm: '您确定要登出吗？',
+          cancel: '取消',
+          ok: '确定',
+          error: '错误',
+          sessionExpired: '您的会话已过期。请重新登录。',
+          unsupportedRole: '不支持的用户角色。',
+          somethingWrong: '出现错误。',
+          loadingProfile: '加载用户资料...',
+          failedLogout: '登出失败',
+          failedFetchProfile: '获取用户资料失败。',
+          failedUserToken: '获取用户令牌失败。',
+          Employee: '员工',
+          Approval: '审批',
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          welcome: '歡迎！',
+          selectCompany: '選擇公司：',
+          logOut: '登出',
+          logOutConfirm: '您確定要登出嗎？',
+          cancel: '取消',
+          ok: '確定',
+          error: '錯誤',
+          sessionExpired: '您的會話已過期。請重新登錄。',
+          unsupportedRole: '不支持的用戶角色。',
+          somethingWrong: '出現錯誤。',
+          loadingProfile: '加載用戶資料...',
+          failedLogout: '登出失敗',
+          failedFetchProfile: '獲取用戶資料失敗。',
+          failedUserToken: '獲取用戶令牌失敗。',
+          Employee: '員工',
+          Approval: '審批',
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          welcome: 'Welcome!',
+          selectCompany: 'Select Company:',
+          logOut: 'Log Out',
+          logOutConfirm: 'Are you sure you want to log out?',
+          cancel: 'Cancel',
+          ok: 'OK',
+          error: 'Error',
+          sessionExpired: 'Your session has expired. Please log in again.',
+          unsupportedRole: 'Unsupported user role.',
+          somethingWrong: 'Something went wrong.',
+          loadingProfile: 'Loading user profile...',
+          failedLogout: 'Failed to log out properly',
+          failedFetchProfile: 'Failed to fetch user profile.',
+          failedUserToken: 'Failed to fetch user token.',
+          Employee: 'Employee',
+          Approval: 'Approval',
+        }[key] || key;
+    }
+  };
 
   useEffect(() => {
     const fetchAuthData = async () => {
@@ -70,11 +180,11 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           } else {
             console.error('Error fetching user profile:', data.message);
             Alert.alert(
-              'Error',
-              'Failed to fetch user profile.',
+              getLocalizedText('error'),
+              getLocalizedText('failedFetchProfile'),
               [
                 {
-                  text: 'OK',
+                  text: getLocalizedText('ok'),
                   onPress: () => {
                     navigation.navigate('Login');
                   },
@@ -86,11 +196,11 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         } catch (error) {
           console.error('Error during API call:', error);
           Alert.alert(
-            'Error',
-            'There was an issue fetching the user profile.',
+            getLocalizedText('error'),
+            getLocalizedText('failedFetchProfile'),
             [
               {
-                text: 'OK',
+                text: getLocalizedText('ok'),
                 onPress: () => {
                   navigation.navigate('Login');
                 },
@@ -108,9 +218,19 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   }, [accessToken, baseUrl]);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerTitle: "" });
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShown: false,
+    });
+  }, [navigation, theme]);
 
   // Add back button handler
   useFocusEffect(
@@ -128,44 +248,69 @@ const ProfileSwitch = ({ route, navigation }: any) => {
   );
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
+    showAlert(
+      getLocalizedText('logOut'),
+      getLocalizedText('logOutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'OK', 
+        {
+          text: getLocalizedText('cancel'),
+          style: 'cancel',
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+        },
+        {
+          text: getLocalizedText('ok'),
+          style: 'default',
           onPress: async () => {
             try {
               setLoggedIn(false);
+              setIsLoading(true);
               
-              // Store necessary data
+              const refreshToken = await AsyncStorage.getItem('refreshToken');
+              const accessToken = await AsyncStorage.getItem('accessToken');
               const baseUrl = await AsyncStorage.getItem('baseUrl');
-              const scannedData = await AsyncStorage.getItem('scannedData');
+
+              if (baseUrl && accessToken && refreshToken) {
+                const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                  },
+                  body: JSON.stringify({ refreshToken })
+                });
+
+                if (!response.ok) {
+                  console.warn('Logout API call failed:', await response.text());
+                }
+              }
               
-              // Get all keys and filter out the ones we want to keep
+              const scannedData = await AsyncStorage.getItem('scannedData');
+              const themePreference = await AsyncStorage.getItem('themePreference');
+              
               const keys = await AsyncStorage.getAllKeys();
               const keysToRemove = keys.filter(key => 
                 key !== 'baseUrl' && 
-                key !== 'scannedData'
+                key !== 'scannedData' &&
+                key !== 'themePreference'
               );
               
-              // Remove only auth-related items
               await AsyncStorage.multiRemove(keysToRemove);
               
-              // Reset navigation stack
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to log out properly');
+              showAlert(getLocalizedText('error'), getLocalizedText('failedLogout'), [
+                { text: getLocalizedText('ok'), style: 'default' }
+              ]);
+            } finally {
+              setIsLoading(false);
             }
           }
         }
-      ],
-      { cancelable: false }
+      ]
     );
   };
 
@@ -196,8 +341,11 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           await AsyncStorage.setItem('employeeId', employeeId.toString());
         }
 
+        // Get refresh token to pass to menu
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
+
         if (decodedToken?.decodedPayload?.exp && Date.now() >= decodedToken.decodedPayload.exp * 1000) {
-          Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('sessionExpired'));
           handleLogout();
           return;
         }
@@ -210,7 +358,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             index: 0,
             routes: [{ 
               name: 'ApprovalMenu', 
-              params: { userToken, baseUrl, companyId, employeeId, decodedToken }
+              params: { userToken, baseUrl, companyId, employeeId, decodedToken, refreshToken }
             }],
           });
         } else if (role === 'Employee') {
@@ -218,18 +366,18 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             index: 0,
             routes: [{ 
               name: 'EmployeeMenu', 
-              params: { userToken, baseUrl, companyId, employeeId, decodedToken }
+              params: { userToken, baseUrl, companyId, employeeId, decodedToken, refreshToken }
             }],
           });
         } else {
-          Alert.alert('Error', 'Unsupported user role.');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('unsupportedRole'));
         }
       } else {
-        Alert.alert('Error', data.message || 'Failed to fetch user token.');
+        Alert.alert(getLocalizedText('error'), data.message || getLocalizedText('failedUserToken'));
       }
     } catch (error) {
       console.error('Error during profile switch:', error);
-      Alert.alert('Error', 'Something went wrong.');
+      Alert.alert(getLocalizedText('error'), getLocalizedText('somethingWrong'));
     } finally {
       setIsLoading(false);
     }
@@ -251,66 +399,91 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
   return (
     <ScrollView 
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <LoadingAnimation />
         </View>
       ) : (
         <>
           {userProfile ? (
             <View style={styles.contentContainer}>
-              {/* Welcome Section */}
-              <View style={styles.welcomeCard}>
-                <Text style={styles.welcomeText}>Welcome!</Text>
-                <Text style={styles.userDescription}>{userProfile.description}</Text>
-                <View style={styles.roleContainer}>
-                  <Text style={styles.roleText}>{userProfile.userRole}</Text>
+              <View style={[styles.welcomeCard, { backgroundColor: theme.card }]}>
+                <Text style={[styles.welcomeText, { color: theme.text }]}>
+                  {getLocalizedText('welcome')}
+                </Text>
+                <Text style={[styles.userDescription, { color: theme.subText }]}>
+                  {userProfile.description}
+                </Text>
+                <View style={[styles.roleContainer, { backgroundColor: theme.divider }]}>
+                  <Text style={[styles.roleText, { color: theme.text }]}>
+                    {getLocalizedText(userProfile.userRole)}
+                  </Text>
                 </View>
               </View>
 
-              {/* Company Selection Section */}
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionTitle}>Select Company:</Text>
+              <View style={[styles.sectionCard, { backgroundColor: theme.card }]}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  {getLocalizedText('selectCompany')}
+                </Text>
                 <View style={styles.companiesContainer}>
                   {userProfile.companies.map((company: any) => (
                     <TouchableOpacity
                       key={company.companyId}
-                      style={styles.companyCard}
+                      style={[
+                        styles.companyCard, 
+                        { 
+                          backgroundColor: theme.card,
+                          borderColor: theme.border 
+                        }
+                      ]}
                       onPress={() => handleCompanySelect(company.companyId, userProfile.userId)}
                     >
-                      <Text style={styles.companyName}>{company.name}</Text>
+                      <Text style={[styles.companyName, { color: theme.primary }]}>
+                        {company.name}
+                      </Text>
                       <Image 
                         source={require('../../../asset/img/icon/arrow-right.png')}
-                        style={styles.arrowIcon}
+                        style={[styles.arrowIcon, { tintColor: theme.primary }]}
                       />
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
 
-              {/* Logout Section */}
               <TouchableOpacity
-                style={styles.logoutButton}
+                style={[styles.logoutButton, { backgroundColor: theme.card }]}
                 onPress={handleLogout}
               >
                 <Image 
                   source={require('../../../asset/img/icon/tuichu.png')}
-                  style={styles.logoutIcon}
+                  style={[styles.logoutIcon, { tintColor: theme.error }]}
                 />
-                <Text style={styles.logoutText}>Log Out</Text>
+                <Text style={[styles.logoutText, { color: theme.error }]}>
+                  {getLocalizedText('logOut')}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading user profile...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+              <Text style={[styles.loadingText, { color: theme.subText }]}>
+                {getLocalizedText('loadingProfile')}
+              </Text>
             </View>
           )}
         </>
       )}
+      
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title || ''}
+        message={alertConfig.message || ''}
+        buttons={alertConfig.buttons || []}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 };

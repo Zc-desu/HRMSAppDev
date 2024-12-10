@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
 
 interface Attachment {
   id: number;
@@ -28,6 +29,7 @@ interface NoticeDetail {
 }
 
 const NBDetails = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
   const [notice, setNotice] = useState<NoticeDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -36,6 +38,23 @@ const NBDetails = ({ route, navigation }: any) => {
   useEffect(() => {
     fetchNoticeDetails();
   }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
 
   const fetchNoticeDetails = async () => {
     try {
@@ -123,15 +142,15 @@ const NBDetails = ({ route, navigation }: any) => {
   const renderAttachment = (attachment: Attachment) => (
     <TouchableOpacity
       key={attachment.id}
-      style={styles.attachmentItem}
+      style={[styles.attachmentItem, { backgroundColor: theme.buttonBackground }]}
       onPress={() => handleAttachmentPress(attachment)}
     >
-      <View style={styles.fileTypeLabel}>
+      <View style={[styles.fileTypeLabel, { backgroundColor: theme.primary }]}>
         <Text style={styles.fileTypeLabelText}>
           {getFileTypeLabel(attachment.mimeType)}
         </Text>
       </View>
-      <Text style={styles.attachmentFileName} numberOfLines={1}>
+      <Text style={[styles.attachmentFileName, { color: theme.primary }]}>
         {attachment.fileName}
       </Text>
     </TouchableOpacity>
@@ -139,47 +158,48 @@ const NBDetails = ({ route, navigation }: any) => {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (!notice) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Notice not found</Text>
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.subText }]}>Notice not found</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.scrollView}>
         <View style={[
           styles.headerCard,
+          { backgroundColor: theme.card, borderBottomColor: theme.border },
           notice.importantNotice && styles.importantHeaderCard
         ]}>
-          <Text style={styles.noticeTitle}>
+          <Text style={[styles.noticeTitle, { color: theme.text }]}>
             {notice.noticeTitle}
           </Text>
-          <Text style={styles.noticeDate}>
+          <Text style={[styles.noticeDate, { color: theme.subText }]}>
             {formatDate(notice.effectiveDateFrom)}
           </Text>
         </View>
 
-        <View style={styles.contentCard}>
-          <Text style={styles.messageTitle}>Notice Content</Text>
-          <Text style={styles.noticeMessage}>
+        <View style={[styles.contentCard, { backgroundColor: theme.card }]}>
+          <Text style={[styles.messageTitle, { color: theme.text }]}>Notice Content</Text>
+          <Text style={[styles.noticeMessage, { color: theme.text }]}>
             {notice.message}
           </Text>
         </View>
 
         {notice.attachments && notice.attachments.length > 0 && (
-          <View style={styles.contentCard}>
-            <Text style={styles.sectionTitle}>Attachments</Text>
+          <View style={[styles.contentCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Attachments</Text>
             {isDownloading && (
-              <ActivityIndicator style={styles.downloadingIndicator} color="#007AFF" />
+              <ActivityIndicator style={styles.downloadingIndicator} color={theme.primary} />
             )}
             {notice.attachments.map(renderAttachment)}
           </View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,8 +11,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Pdf from 'react-native-pdf';
 import RNFetchBlob from 'react-native-blob-util';
+import { useTheme } from '../setting/ThemeContext';
 
-const NBGetFileAttachment = ({ route }: any) => {
+const NBGetFileAttachment = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
   const [fileUrl, setFileUrl] = useState<string>('');
   const [userToken, setUserToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +34,23 @@ const NBGetFileAttachment = ({ route }: any) => {
       }
     };
   }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
 
   const loadFile = async () => {
     try {
@@ -110,11 +129,8 @@ const NBGetFileAttachment = ({ route }: any) => {
       return (
         <Pdf
           trustAllCerts={false}
-          source={{
-            uri: fileUrl,
-            cache: true,
-          }}
-          style={styles.pdf}
+          source={{ uri: fileUrl, cache: true }}
+          style={[styles.pdf, { backgroundColor: theme.background }]}
           onLoadComplete={(numberOfPages, filePath) => {
             console.log(`PDF loaded with ${numberOfPages} pages`);
           }}
@@ -124,7 +140,7 @@ const NBGetFileAttachment = ({ route }: any) => {
           }}
           enablePaging={true}
           renderActivityIndicator={() => (
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={theme.primary} />
           )}
         />
       );
@@ -133,14 +149,14 @@ const NBGetFileAttachment = ({ route }: any) => {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderContent()}
     </View>
   );
