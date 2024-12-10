@@ -57,7 +57,8 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           leave: 'Cuti',
           noticeBoard: 'Papan Notis',
           failedLogout: 'Gagal log keluar',
-          companyIdUnavailable: 'ID syarikat tidak tersedia'
+          companyIdUnavailable: 'ID syarikat tidak tersedia',
+          attendance: 'Kehadiran',
         }[key] || key;
       
       case 'zh-Hans':
@@ -73,7 +74,8 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           leave: '请假',
           noticeBoard: '公告板',
           failedLogout: '登出失败',
-          companyIdUnavailable: '公司ID不可用'
+          companyIdUnavailable: '公司ID不可用',
+          attendance: '考勤',
         }[key] || key;
       
       case 'zh-Hant':
@@ -89,7 +91,8 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           leave: '請假',
           noticeBoard: '公告板',
           failedLogout: '登出失敗',
-          companyIdUnavailable: '公司ID不可用'
+          companyIdUnavailable: '公司ID不可用',
+          attendance: '考勤',
         }[key] || key;
       
       default: // 'en'
@@ -105,7 +108,8 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           leave: 'Leave',
           noticeBoard: 'Notice Board',
           failedLogout: 'Failed to log out',
-          companyIdUnavailable: 'Company ID is not available'
+          companyIdUnavailable: 'Company ID is not available',
+          attendance: 'Attendance',
         }[key] || key;
     }
   };
@@ -348,8 +352,30 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               </Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.squareButton, { backgroundColor: theme.card }]}>
-            <Text style={[styles.squareButtonText, { color: theme.text }]}>Button 4</Text>
+          <TouchableOpacity 
+            style={[styles.squareButton, { backgroundColor: theme.card }]}
+            onPress={() => {
+              const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
+              if (!companyIdToUse) {
+                showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
+                return;
+              }
+              navigation.navigate('ATMenu', {
+                employeeId: employeeId,
+                companyId: companyIdToUse,
+                baseUrl: baseUrl
+              });
+            }}
+          >
+            <View style={styles.iconTextContainer}>
+              <Image 
+                source={require('../../../asset/img/icon/attendance.png')} 
+                style={[styles.iconImage, { tintColor: theme.primary }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                {getLocalizedText('attendance')}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 

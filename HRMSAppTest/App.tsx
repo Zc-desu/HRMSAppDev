@@ -26,6 +26,11 @@ import ApproveLeaveDetail from './asset/context/modules/leave/ApproveLeaveDetail
 import NBGetList from './asset/context/modules/noticeboard/NBGetList';
 import NBDetails from './asset/context/modules/noticeboard/NBDetails';
 import NBGetFileAttachment from './asset/context/modules/noticeboard/NBGetFileAttachment';
+// Import Attendance Module
+import ATMenu from './asset/context/modules/attendance/ATMenu';
+import ATShowMap from './asset/context/modules/attendance/ATShowMap';
+import ATPhotoCapture from './asset/context/modules/attendance/ATPhotoCapture';
+
 // Import Setting
 import Settings from './asset/context/src/Settings';
 import ChangeTheme from './asset/context/modules/setting/ChangeTheme';
@@ -247,6 +252,45 @@ const App = () => {
               options={{
                 title: 'File Viewer',
                 headerShown: true,
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATMenu"
+              component={ATMenu}
+              options={{ 
+                title: 'Attendance',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATShowMap"
+              component={ATShowMap}
+              options={{
+                title: 'Show Map',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATPhotoCapture"
+              component={ATPhotoCapture}
+              options={{
+                title: 'Photo Capture',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',
