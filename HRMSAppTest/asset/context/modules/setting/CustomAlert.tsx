@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { useLanguage } from './LanguageContext';
+import { useTheme } from './ThemeContext';
 
 interface CustomAlertButton {
   text: string;
@@ -23,6 +25,26 @@ interface CustomAlertProps {
 }
 
 const CustomAlert = ({ visible, title, message, buttons = [], onDismiss }: CustomAlertProps) => {
+  const { language } = useLanguage();
+  const { theme } = useTheme();
+
+  const getLocalizedText = (text: string) => {
+    // Handle "OK" translation specifically
+    if (text === 'OK') {
+      switch (language) {
+        case 'ms':
+          return 'OK';
+        case 'zh-Hans':
+          return '确定';
+        case 'zh-Hant':
+          return '確定';
+        default: // 'en'
+          return 'OK';
+      }
+    }
+    return text;
+  };
+
   return (
     <Modal
       visible={visible}
@@ -35,22 +57,27 @@ const CustomAlert = ({ visible, title, message, buttons = [], onDismiss }: Custo
         activeOpacity={1} 
         onPress={onDismiss}
       >
-        <View style={styles.alertContainer}>
+        <View style={[styles.alertContainer, { backgroundColor: theme.card }]}>
           <View style={styles.contentContainer}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.message}>{message}</Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              {title}
+            </Text>
+            <Text style={[styles.message, { color: theme.subText }]}>
+              {message}
+            </Text>
           </View>
           
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, { borderTopColor: theme.border }]}>
             {buttons.map((button, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.button,
-                  index > 0 && styles.buttonBorder,
+                  index > 0 && [styles.buttonBorder, { borderLeftColor: theme.border }],
                   button.style === 'destructive' && styles.destructiveButton,
-                  buttons.length === 1 && styles.lastButton,
-                  buttons.length === 2 && index === 0 && styles.lastButton,
+                  buttons.length === 1 && styles.singleButton,
+                  buttons.length === 2 && index === 0 && styles.leftButton,
+                  buttons.length === 2 && index === 1 && styles.rightButton,
                 ]}
                 onPress={() => {
                   button.onPress?.();
@@ -59,11 +86,12 @@ const CustomAlert = ({ visible, title, message, buttons = [], onDismiss }: Custo
                 <Text
                   style={[
                     styles.buttonText,
+                    { color: theme.primary },
                     button.style === 'destructive' && styles.destructiveText,
-                    button.style === 'cancel' && styles.cancelText,
+                    button.style === 'cancel' && [styles.cancelText, { color: theme.subText }],
                   ]}
                 >
-                  {button.text}
+                  {getLocalizedText(button.text)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -82,7 +110,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   alertContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     width: Dimensions.get('window').width * 0.8,
     maxWidth: 340,
@@ -101,19 +128,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   buttonContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
     flexDirection: 'row',
   },
   button: {
@@ -124,16 +148,13 @@ const styles = StyleSheet.create({
   },
   buttonBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: '#E5E5EA',
   },
   buttonText: {
     fontSize: 17,
     fontWeight: '500',
-    color: '#007AFF',
   },
   destructiveButton: {
     backgroundColor: '#FF3B30',
-    borderBottomRightRadius: 14,
   },
   destructiveText: {
     color: '#FFFFFF',
@@ -141,10 +162,16 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontWeight: '500',
-    color: '#666',
   },
-  lastButton: {
+  singleButton: {
     borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
+  leftButton: {
+    borderBottomLeftRadius: 14,
+  },
+  rightButton: {
+    borderBottomRightRadius: 14,
   },
 });
 

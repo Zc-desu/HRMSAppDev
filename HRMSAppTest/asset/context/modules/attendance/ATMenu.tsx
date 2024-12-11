@@ -1,6 +1,5 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
 
@@ -33,48 +32,61 @@ const ATMenu = ({ route, navigation }: any) => {
         return {
           attendance: 'Kehadiran',
           clockInOut: 'Masuk/Keluar',
+          attendanceManagement: 'Pengurusan Kehadiran'
         }[key] || key;
       
       case 'zh-Hans':
         return {
           attendance: '考勤',
           clockInOut: '打卡',
+          attendanceManagement: '考勤管理'
         }[key] || key;
       
       case 'zh-Hant':
         return {
           attendance: '考勤',
           clockInOut: '打卡',
+          attendanceManagement: '考勤管理'
         }[key] || key;
       
       default: // 'en'
         return {
           attendance: 'Attendance',
           clockInOut: 'Clock In/Out',
+          attendanceManagement: 'Attendance Management'
         }[key] || key;
     }
   };
 
+  const handleClockInOut = () => {
+    navigation.navigate('ATShowMap', {
+      employeeId,
+      companyId,
+      baseUrl
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <TouchableOpacity
-        style={[styles.menuItem, { backgroundColor: theme.card }]}
-        onPress={() => navigation.navigate('ATShowMap', {
-          employeeId: employeeId,
-          companyId: companyId,
-          baseUrl: baseUrl
-        })}
-      >
-        <View style={styles.menuContent}>
-          <Text style={[styles.menuText, { color: theme.text }]}>
-            {getLocalizedText('clockInOut')}
-          </Text>
-          <Image
-            source={require('../../../../asset/img/icon/arrow-right.png')}
-            style={[styles.arrowIcon, { tintColor: theme.primary }]}
-          />
-        </View>
-      </TouchableOpacity>
+      <Text style={[styles.header, { color: theme.text }]}>
+        {getLocalizedText('attendanceManagement')}
+      </Text>
+      <View style={styles.menuContainer}>
+        <TouchableOpacity
+          style={[styles.menuCard, { backgroundColor: theme.card }]}
+          onPress={handleClockInOut}
+        >
+          <View style={styles.menuContent}>
+            <Text style={[styles.menuText, { color: theme.text }]}>
+              {getLocalizedText('clockInOut')}
+            </Text>
+            <Image
+              source={require('../../../../asset/img/icon/arrow-right.png')}
+              style={[styles.icon, { tintColor: theme.primary }]}
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -84,11 +96,18 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  menuItem: {
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  menuContainer: {
+    flex: 1,
+    gap: 12,
+  },
+  menuCard: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -96,14 +115,15 @@ const styles = StyleSheet.create({
   },
   menuContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
   },
   menuText: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  arrowIcon: {
+  icon: {
     width: 20,
     height: 20,
   },

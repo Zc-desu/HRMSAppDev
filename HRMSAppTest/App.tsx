@@ -277,7 +277,7 @@ const App = () => {
               name="ATShowMap"
               component={ATShowMap}
               options={{
-                title: 'Show Map',
+                title: 'GPS Location',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

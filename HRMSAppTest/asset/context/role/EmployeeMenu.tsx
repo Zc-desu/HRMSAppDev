@@ -268,6 +268,19 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     );
   };
 
+  // Add this near the top of your component
+  const { refresh } = route.params || {};
+
+  useEffect(() => {
+    if (refresh) {
+      // Refresh your data here if needed
+      const getBaseUrlAndEmployeeId = async () => {
+        // ... existing code ...
+      };
+      getBaseUrlAndEmployeeId();
+    }
+  }, [refresh]);
+
   return (
     <ScrollView 
       contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}

@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,23 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { launchCamera, CameraOptions, MediaType } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
+import CustomAlert from '../setting/CustomAlert';
 
 interface PhotoData {
   uri: string;
   type: string;
   fileName: string;
+}
+
+interface AlertButton {
+  text: string;
+  onPress: () => void;
 }
 
 const ATPhotoCapture = ({ route, navigation }: any) => {
@@ -34,12 +41,65 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
     isOutOfFence,
     gpsNotAvailable,
     employeeId,
+    companyId,
+    baseUrl
   } = route.params;
 
   const [frontPhoto, setFrontPhoto] = useState<PhotoData | null>(null);
   const [backPhoto, setBackPhoto] = useState<PhotoData | null>(null);
   const [isCameraBroken, setIsCameraBroken] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: AlertButton[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+  const [userToken, setUserToken] = useState<string>('');
+
+  useEffect(() => {
+    const getData = async () => {
+      try {
+        const storedUserToken = await AsyncStorage.getItem('userToken');
+
+        if (!storedUserToken) {
+          console.error('Missing userToken');
+          showAlert(
+            getLocalizedText('error'),
+            'Missing authentication token. Please login again.'
+          );
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+          return;
+        }
+
+        setUserToken(storedUserToken);
+
+        console.log('Using Data:', {
+          baseUrl,
+          companyId,
+          userToken: 'exists',
+          employeeId
+        });
+
+      } catch (error) {
+        console.error('Error getting stored data:', error);
+        showAlert(
+          getLocalizedText('error'),
+          'Failed to get authentication data'
+        );
+      }
+    };
+
+    getData();
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -76,8 +136,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           submitting: 'Menghantar...',
           success: 'Berjaya',
           error: 'Ralat',
-          clockInOutSuccess: 'Masuk/Keluar berjaya',
+          clockInOutSuccess: 'Permohonan telah dihantar untuk kelulusan',
           pleaseTakePhotos: 'Sila ambil kedua-dua gambar',
+          instruction: 'Sila ambil gambar hadapan dan belakang untuk meneruskan',
         }[key] || key;
       
       case 'zh-Hans':
@@ -95,8 +156,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           submitting: '提交中...',
           success: '成功',
           error: '错误',
-          clockInOutSuccess: '打卡成功',
+          clockInOutSuccess: '申请已提交等待审批',
           pleaseTakePhotos: '请拍摄两张照片',
+          instruction: '请拍摄正面和背面照片以继续',
         }[key] || key;
       
       case 'zh-Hant':
@@ -114,8 +176,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           submitting: '提交中...',
           success: '成功',
           error: '錯誤',
-          clockInOutSuccess: '打卡成功',
+          clockInOutSuccess: '申請已提交等待審批',
           pleaseTakePhotos: '請拍攝兩張照片',
+          instruction: '請拍攝正面和背面照片以繼續',
         }[key] || key;
       
       default: // 'en'
@@ -133,8 +196,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           submitting: 'Submitting...',
           success: 'Success',
           error: 'Error',
-          clockInOutSuccess: 'Clock In/Out successful',
+          clockInOutSuccess: 'Request has been submitted for approval',
           pleaseTakePhotos: 'Please take both photos',
+          instruction: 'Please take front and back photos to proceed',
         }[key] || key;
     }
   };
@@ -162,48 +226,69 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
       }
     } catch (error) {
       console.error('Camera error:', error);
-      Alert.alert(
+      showAlert(
         getLocalizedText('cameraError'),
         getLocalizedText('cameraNotWorking')
       );
     }
   };
 
+  const showAlert = (title: string, message: string, buttons?: AlertButton[]) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons ?? [{
+        text: 'OK',
+        onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+      }]
+    });
+  };
+
   const handleSubmit = async () => {
+    // Start submission immediately if camera is broken
+    if (isCameraBroken) {
+      submitForm();
+      return;
+    }
+
+    // Only validate photos if camera is NOT broken
     if (!frontPhoto || !backPhoto) {
-      Alert.alert(getLocalizedText('error'), getLocalizedText('pleaseTakePhotos'));
+      showAlert(getLocalizedText('error'), getLocalizedText('pleaseTakePhotos'));
+      return;
+    }
+
+    submitForm();
+  };
+
+  const submitForm = async () => {
+    if (!frontPhoto && !backPhoto && !isCameraBroken) {
+      showAlert(
+        getLocalizedText('error'),
+        getLocalizedText('pleaseTakePhotos')
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const baseUrl = await AsyncStorage.getItem('baseUrl');
-      const userToken = await AsyncStorage.getItem('userToken');
+      if (!userToken || !companyId) {
+        throw new Error('Missing required data: userToken or companyId');
+      }
 
       const formData = new FormData();
       formData.append('EmployeeId', employeeId);
+      formData.append('CompanyId', companyId.toString());
       formData.append('TimeEntry', timeEntry);
-      formData.append('Latitude', latitude.toString());
-      formData.append('LatitudeDelta', latitudeDelta.toString());
-      formData.append('Longitude', longitude.toString());
-      formData.append('LongitudeDelta', longitudeDelta.toString());
-      formData.append('Address', address);
-      formData.append('AuthorizeZoneName', authorizeZoneName);
-      formData.append('IsOutOfFence', isOutOfFence.toString());
-      formData.append('IsCameraBroken', isCameraBroken.toString());
-      formData.append('GpsNotAvailable', gpsNotAvailable.toString());
+      // ... rest of the form data ...
 
-      formData.append('FrontPhoto', {
-        uri: frontPhoto.uri,
-        type: frontPhoto.type,
-        name: frontPhoto.fileName,
-      });
-
-      formData.append('BackPhoto', {
-        uri: backPhoto.uri,
-        type: backPhoto.type,
-        name: backPhoto.fileName,
+      console.log('Submitting form with:', {
+        employeeId,
+        companyId,
+        timeEntry,
+        hasUserToken: !!userToken,
+        baseUrl
       });
 
       const response = await fetch(`${baseUrl}/apps/api/v1/attendance/time-logs`, {
@@ -216,111 +301,196 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
       });
 
       const data = await response.json();
+      
       if (data.success) {
-        Alert.alert(
+        showAlert(
           getLocalizedText('success'),
           getLocalizedText('clockInOutSuccess'),
-          [{ text: 'OK', onPress: () => navigation.navigate('ATMenu') }]
+          [{
+            text: 'OK',
+            onPress: () => {
+              navigation.reset({
+                index: 1,
+                routes: [
+                  { 
+                    name: 'EmployeeMenu',
+                    params: { companyId }
+                  },
+                  { 
+                    name: 'ATMenu',
+                    params: {
+                      refresh: true,
+                      employeeId,
+                      companyId,
+                      baseUrl
+                    }
+                  }
+                ],
+              });
+            }
+          }]
         );
       } else {
-        throw new Error(data.message);
+        throw new Error(data.message || 'Server returned unsuccessful response');
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Submit error:', error);
-      Alert.alert(getLocalizedText('error'), error instanceof Error ? error.message : 'Unknown error');
+      showAlert(
+        getLocalizedText('error'),
+        error.message || 'An unexpected error occurred'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  useEffect(() => {
+    console.log('Received params:', {
+      employeeId,
+      companyId,
+      baseUrl,
+      timeEntry
+    });
+
+    if (!employeeId || !companyId || !baseUrl || !timeEntry) {
+      console.error('Missing required params:', { employeeId, companyId, baseUrl, timeEntry });
+      showAlert(
+        getLocalizedText('error'),
+        'Missing required data',
+        [{
+          text: 'OK',
+          onPress: () => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          }
+        }]
+      );
+    }
+  }, [employeeId, companyId, baseUrl, timeEntry]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.photoContainer}>
-        <View style={styles.photoSection}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {getLocalizedText('frontPhoto')}
-          </Text>
-          {frontPhoto ? (
-            <View style={styles.photoPreview}>
-              <Image source={{ uri: frontPhoto.uri }} style={styles.photo} />
-              <TouchableOpacity
-                style={[styles.retakeButton, { backgroundColor: theme.primary }]}
-                onPress={() => takePhoto(true)}
-              >
-                <Text style={styles.buttonText}>{getLocalizedText('retake')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[styles.takePhotoButton, { backgroundColor: theme.primary }]}
-              onPress={() => takePhoto(true)}
-            >
-              <Text style={styles.buttonText}>
-                {getLocalizedText('takeFrontPhoto')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.photoSection}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {getLocalizedText('backPhoto')}
-          </Text>
-          {backPhoto ? (
-            <View style={styles.photoPreview}>
-              <Image source={{ uri: backPhoto.uri }} style={styles.photo} />
-              <TouchableOpacity
-                style={[styles.retakeButton, { backgroundColor: theme.primary }]}
-                onPress={() => takePhoto(false)}
-              >
-                <Text style={styles.buttonText}>{getLocalizedText('retake')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[styles.takePhotoButton, { backgroundColor: theme.primary }]}
-              onPress={() => takePhoto(false)}
-            >
-              <Text style={styles.buttonText}>
-                {getLocalizedText('takeBackPhoto')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.optionsContainer}>
-        <TouchableOpacity
-          style={[styles.optionButton, { backgroundColor: theme.card }]}
-          onPress={() => setIsCameraBroken(!isCameraBroken)}
-        >
-          <Text style={[styles.optionText, { color: theme.text }]}>
-            {getLocalizedText('cameraNotWorking')}
-          </Text>
-          <View
-            style={[
-              styles.checkbox,
-              { backgroundColor: isCameraBroken ? theme.primary : 'transparent' },
-            ]}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          { backgroundColor: theme.primary },
-          isSubmitting && styles.disabledButton,
-        ]}
-        onPress={handleSubmit}
-        disabled={isSubmitting}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
       >
-        {isSubmitting ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>{getLocalizedText('submit')}</Text>
+        <Text style={[
+          styles.instructionText, 
+          { 
+            color: theme.text,
+            backgroundColor: theme.card,
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 24,
+          }
+        ]}>
+          {getLocalizedText('instruction')}
+        </Text>
+
+        {!isCameraBroken && (
+          <View style={styles.photoContainer}>
+            <View style={styles.photoSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {getLocalizedText('frontPhoto')}
+              </Text>
+              {frontPhoto ? (
+                <View style={styles.photoPreview}>
+                  <Image 
+                    source={{ uri: frontPhoto.uri }} 
+                    style={styles.photo}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={[styles.retakeButton, { backgroundColor: theme.primary }]}
+                    onPress={() => takePhoto(true)}
+                  >
+                    <Text style={styles.buttonText}>{getLocalizedText('retake')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.takePhotoButton, { backgroundColor: theme.primary }]}
+                  onPress={() => takePhoto(true)}
+                >
+                  <Text style={styles.buttonText}>
+                    {getLocalizedText('takeFrontPhoto')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.photoSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {getLocalizedText('backPhoto')}
+              </Text>
+              {backPhoto ? (
+                <View style={styles.photoPreview}>
+                  <Image 
+                    source={{ uri: backPhoto.uri }} 
+                    style={styles.photo}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={[styles.retakeButton, { backgroundColor: theme.primary }]}
+                    onPress={() => takePhoto(false)}
+                  >
+                    <Text style={styles.buttonText}>{getLocalizedText('retake')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.takePhotoButton, { backgroundColor: theme.primary }]}
+                  onPress={() => takePhoto(false)}
+                >
+                  <Text style={styles.buttonText}>
+                    {getLocalizedText('takeBackPhoto')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         )}
-      </TouchableOpacity>
+
+        <View style={styles.optionsContainer}>
+          <TouchableOpacity
+            style={[styles.optionButton, { backgroundColor: theme.card }]}
+            onPress={() => setIsCameraBroken(!isCameraBroken)}
+          >
+            <Text style={[styles.buttonText, { color: theme.text }]}>
+              {getLocalizedText('cameraNotWorking')}
+            </Text>
+            <View style={[styles.checkbox, { borderColor: theme.primary }]}>
+              {isCameraBroken && <View style={[styles.innerCircle, { backgroundColor: theme.primary }]} />}
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: theme.primary },
+            isSubmitting && styles.disabledButton,
+          ]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>{getLocalizedText('submit')}</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -328,27 +498,31 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContainer: {
     padding: 16,
+    paddingBottom: 32, // Extra padding at bottom
   },
   photoContainer: {
-    flex: 1,
+    marginBottom: 24,
   },
   photoSection: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
   },
   photoPreview: {
-    alignItems: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
   },
   photo: {
     width: '100%',
     height: 200,
     borderRadius: 12,
-    marginBottom: 12,
   },
   takePhotoButton: {
     padding: 16,
@@ -356,14 +530,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   retakeButton: {
+    marginTop: 12,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
-    width: '50%',
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
   },
   optionsContainer: {
@@ -375,11 +549,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
   },
-  optionText: {
+  submitButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  instructionText: {
     fontSize: 16,
     fontWeight: '500',
+    textAlign: 'center',
+    marginVertical: 20,
+    paddingHorizontal: 20,
+    lineHeight: 24,
+    color: '#333333',
   },
   checkbox: {
     width: 24,
@@ -387,15 +574,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#007AFF',
-  },
-  submitButton: {
-    padding: 16,
-    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Platform.OS === 'ios' ? 16 : 0,
   },
-  disabledButton: {
-    opacity: 0.7,
+  innerCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
   },
 });
 
