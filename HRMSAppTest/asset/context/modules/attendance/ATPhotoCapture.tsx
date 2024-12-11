@@ -281,14 +281,35 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
       formData.append('EmployeeId', employeeId);
       formData.append('CompanyId', companyId.toString());
       formData.append('TimeEntry', timeEntry);
-      // ... rest of the form data ...
+      formData.append('Latitude', latitude.toString());
+      formData.append('Longitude', longitude.toString());
+      formData.append('Address', address);
+      formData.append('AuthorizeZoneName', authorizeZoneName);
+      formData.append('IsOutOfFence', isOutOfFence ? '1' : '0');
+      formData.append('GpsNotAvailable', gpsNotAvailable ? '1' : '0');
 
-      console.log('Submitting form with:', {
-        employeeId,
-        companyId,
-        timeEntry,
-        hasUserToken: !!userToken,
-        baseUrl
+      // Append photos if camera is not broken
+      if (!isCameraBroken) {
+        if (frontPhoto) {
+          formData.append('FrontPhoto', {
+            uri: frontPhoto.uri,
+            type: frontPhoto.type,
+            name: frontPhoto.fileName
+          });
+        }
+        if (backPhoto) {
+          formData.append('BackPhoto', {
+            uri: backPhoto.uri,
+            type: backPhoto.type,
+            name: backPhoto.fileName
+          });
+        }
+      }
+
+      console.log('Submitting form with photos:', {
+        hasFrontPhoto: !!frontPhoto,
+        hasBackPhoto: !!backPhoto,
+        isCameraBroken
       });
 
       const response = await fetch(`${baseUrl}/apps/api/v1/attendance/time-logs`, {

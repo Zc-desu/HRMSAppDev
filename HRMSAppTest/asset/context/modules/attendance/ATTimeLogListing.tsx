@@ -29,6 +29,28 @@ const translations = {
     photos: 'gambar',
     loading: 'Memuatkan...',
     noRecords: 'Tiada rekod untuk'
+  },
+  'zh-Hans': {
+    timeLogListing: '时间记录列表',
+    error: '错误',
+    failedFetch: '无法获取时间记录',
+    ok: '确定',
+    approved: '已批准',
+    pending: '待处理',
+    photos: '张照片',
+    loading: '加载中...',
+    noRecords: '没有记录'
+  },
+  'zh-Hant': {
+    timeLogListing: '時間記錄列表',
+    error: '錯誤',
+    failedFetch: '無法獲取時間記錄',
+    ok: '確定',
+    approved: '已批准',
+    pending: '待處理',
+    photos: '張照片',
+    loading: '加載中...',
+    noRecords: '沒有記錄'
   }
 };
 

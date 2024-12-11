@@ -445,13 +445,6 @@ const ATShowMap = ({ route, navigation }: Props) => {
       return;
     }
 
-    console.log('Navigating with params:', {
-      employeeId,
-      companyId,
-      baseUrl,
-      timeEntry: new Date().toISOString()
-    });
-
     const timeEntry = new Date().toISOString();
     const currentZone = authorizedZones[0];
 

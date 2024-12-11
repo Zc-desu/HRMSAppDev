@@ -55,6 +55,40 @@ const translations = {
     ok: 'OK',
     loading: 'Memuatkan...',
     noData: '--'
+  },
+  'zh-Hans': {
+    timeLogDetails: '时间记录详情',
+    employeeNumber: '员工编号',
+    employeeName: '员工姓名',
+    entryTime: '打卡时间',
+    address: '地址',
+    remarks: '备注',
+    status: '状态',
+    approved: '已批准',
+    pending: '待处理',
+    photos: '照片',
+    error: '错误',
+    failedFetch: '无法获取时间记录详情',
+    ok: '确定',
+    loading: '加载中...',
+    noData: '--'
+  },
+  'zh-Hant': {
+    timeLogDetails: '時間記錄詳情',
+    employeeNumber: '員工編號',
+    employeeName: '員工姓名',
+    entryTime: '打卡時間',
+    address: '地址',
+    remarks: '備註',
+    status: '狀態',
+    approved: '已批准',
+    pending: '待處理',
+    photos: '照片',
+    error: '錯誤',
+    failedFetch: '無法獲取時間記錄詳情',
+    ok: '確定',
+    loading: '加載中...',
+    noData: '--'
   }
 };
 
