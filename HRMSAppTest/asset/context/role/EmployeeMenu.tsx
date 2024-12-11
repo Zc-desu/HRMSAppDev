@@ -30,6 +30,14 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     buttons: [],
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [employeeNumber, setEmployeeNumber] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(true);
+  const [baseUrl, setBaseUrl] = useState<string | null>(null);
+
+  // Extract companyId, baseUrl, and decodedToken from route params
+  const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
 
   const showAlert = (title: string, message: string, buttons: CustomAlertButton[] = []) => {
     setAlertConfig({
@@ -114,16 +122,6 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     }
   };
 
-  // Extract companyId, baseUrl, and decodedToken from route params
-  const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
-  const [loggedIn, setLoggedIn] = useState(true);
-  const [baseUrl, setBaseUrl] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
-
-  // Destructure employee details from the decoded token if available
-  const employeeName = decodedToken?.decodedPayload?.employee_name;
-  const employeeNumber = decodedToken?.decodedPayload?.employee_number;
-
   // Ensure baseUrl and employeeId are set properly
   useEffect(() => {
     const getBaseUrlAndEmployeeId = async () => {
@@ -138,13 +136,17 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         }
       }
 
-      const storedEmployeeId = decodedToken?.decodedPayload?.employee_id
-        || await AsyncStorage.getItem('employeeId');
-
-      if (storedEmployeeId) {
-        setEmployeeId(storedEmployeeId);
+      if (decodedToken?.decodedPayload) {
+        setEmployeeId(decodedToken.decodedPayload.employee_id);
+        setEmployeeName(decodedToken.decodedPayload.employee_name);
+        setEmployeeNumber(decodedToken.decodedPayload.employee_number);
       } else {
-        showAlert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
+        const storedEmployeeId = await AsyncStorage.getItem('employeeId');
+        if (storedEmployeeId) {
+          setEmployeeId(storedEmployeeId);
+        } else {
+          showAlert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
+        }
       }
     };
 
@@ -280,6 +282,28 @@ const EmployeeMenu = ({ route, navigation }: any) => {
       getBaseUrlAndEmployeeId();
     }
   }, [refresh]);
+
+  // Auto refresh when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshData = async () => {
+        try {
+          const storedDecodedToken = await AsyncStorage.getItem('decodedToken');
+          const parsedToken = storedDecodedToken ? JSON.parse(storedDecodedToken) : null;
+
+          if (parsedToken?.decodedPayload) {
+            setEmployeeId(parsedToken.decodedPayload.employee_id);
+            setEmployeeName(parsedToken.decodedPayload.employee_name);
+            setEmployeeNumber(parsedToken.decodedPayload.employee_no);
+          }
+        } catch (error) {
+          console.error('Refresh error:', error);
+        }
+      };
+
+      refreshData();
+    }, [])
+  );
 
   return (
     <ScrollView 

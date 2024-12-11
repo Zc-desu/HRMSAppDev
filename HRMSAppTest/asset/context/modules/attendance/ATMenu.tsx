@@ -32,28 +32,32 @@ const ATMenu = ({ route, navigation }: any) => {
         return {
           attendance: 'Kehadiran',
           clockInOut: 'Masuk/Keluar',
-          attendanceManagement: 'Pengurusan Kehadiran'
+          attendanceManagement: 'Pengurusan Kehadiran',
+          timeLogListing: 'Senarai Log Masa'
         }[key] || key;
       
       case 'zh-Hans':
         return {
           attendance: '考勤',
           clockInOut: '打卡',
-          attendanceManagement: '考勤管理'
+          attendanceManagement: '考勤管理',
+          timeLogListing: '时间记录列表'
         }[key] || key;
       
       case 'zh-Hant':
         return {
           attendance: '考勤',
           clockInOut: '打卡',
-          attendanceManagement: '考勤管理'
+          attendanceManagement: '考勤管理',
+          timeLogListing: '時間記錄列表'
         }[key] || key;
       
       default: // 'en'
         return {
           attendance: 'Attendance',
           clockInOut: 'Clock In/Out',
-          attendanceManagement: 'Attendance Management'
+          attendanceManagement: 'Attendance Management',
+          timeLogListing: 'Time Log Listing'
         }[key] || key;
     }
   };
@@ -62,6 +66,13 @@ const ATMenu = ({ route, navigation }: any) => {
     navigation.navigate('ATShowMap', {
       employeeId,
       companyId,
+      baseUrl
+    });
+  };
+
+  const handleTimeLogListing = () => {
+    navigation.navigate('ATTimeLogListing', {
+      employeeId,
       baseUrl
     });
   };
@@ -79,6 +90,21 @@ const ATMenu = ({ route, navigation }: any) => {
           <View style={styles.menuContent}>
             <Text style={[styles.menuText, { color: theme.text }]}>
               {getLocalizedText('clockInOut')}
+            </Text>
+            <Image
+              source={require('../../../../asset/img/icon/arrow-right.png')}
+              style={[styles.icon, { tintColor: theme.primary }]}
+            />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.menuCard, { backgroundColor: theme.card }]}
+          onPress={handleTimeLogListing}
+        >
+          <View style={styles.menuContent}>
+            <Text style={[styles.menuText, { color: theme.text }]}>
+              {getLocalizedText('timeLogListing')}
             </Text>
             <Image
               source={require('../../../../asset/img/icon/arrow-right.png')}

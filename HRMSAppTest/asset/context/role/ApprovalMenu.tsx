@@ -1,12 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, Animated } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Animated, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../modules/setting/ThemeContext';
+import { useLanguage } from '../modules/setting/LanguageContext';
 
 const ApprovalMenu = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const { companyId, baseUrl, decodedToken } = route.params;
   const [loggedIn, setLoggedIn] = useState(true);
   const [scrollOffset, setScrollOffset] = useState(0);
-  const fadeAnim = new Animated.Value(0); // Initial opacity 0
+  const fadeAnim = new Animated.Value(0);
+
+  const employeeId = decodedToken?.decodedPayload?.employee_id;
+  const employeeNumber = decodedToken?.decodedPayload?.employee_no || 'N/A';
+  const employeeName = decodedToken?.decodedPayload?.employee_name || 'N/A';
+
+  const getLocalizedText = (key: string) => {
+    const translations = {
+      en: {
+        payslip: 'Payslip',
+        leave: 'Leave',
+        logOut: 'Log Out',
+        error: 'Error',
+        employeeIdUnavailable: 'Employee ID is unavailable',
+        companyIdUnavailable: 'Company ID is unavailable',
+      },
+      ms: {
+        payslip: 'Slip Gaji',
+        leave: 'Cuti',
+        logOut: 'Log Keluar',
+        error: 'Ralat',
+        employeeIdUnavailable: 'ID Pekerja tidak tersedia',
+        companyIdUnavailable: 'ID Syarikat tidak tersedia',
+      },
+    };
+    return translations[language as keyof typeof translations]?.[key as keyof typeof translations[keyof typeof translations]] || key;
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme]);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.clear();
+      setLoggedIn(false);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      Alert.alert(getLocalizedText('error'), 'Failed to logout');
+    }
+  };
 
   const handleScroll = (event: any) => {
     const currentOffset = event.nativeEvent.contentOffset.y;
@@ -33,122 +91,84 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.clear();
-      setLoggedIn(false);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to logout');
-    }
-  };
-
-  const employeeId = decodedToken?.decodedPayload?.employee_id;
-  const employeeNumber = decodedToken?.decodedPayload?.employee_no || 'N/A';
-  const employeeName = decodedToken?.decodedPayload?.employee_name || 'N/A';
-
   return (
     <View style={styles.containerWrapper}>
-      <ScrollView 
-        contentContainerStyle={styles.container}
+      <ScrollView
+        contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}
         onScroll={handleScroll}
-        scrollEventThrottle={16} // For smooth scroll tracking
+        scrollEventThrottle={16}
       >
         <View>
-          <TouchableOpacity 
-            style={styles.viewDetailButton}
+          <TouchableOpacity
+            style={[styles.viewDetailButton, { backgroundColor: theme.card }]}
             onPress={() => {
               if (employeeId) {
                 navigation.navigate('ViewEmployeeDetail', { employeeId });
               } else {
-                Alert.alert('Error', 'Employee ID is unavailable');
+                Alert.alert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
               }
             }}
           >
             <View style={styles.buttonContent}>
               <View style={styles.textContainer}>
-                <Text style={styles.employeeNoText}>{employeeNumber}</Text>
-                <Text style={styles.employeeNameText}>{employeeName}</Text>
+                <Text style={[styles.employeeNoText, { color: theme.subText }]}>{employeeNumber}</Text>
+                <Text style={[styles.employeeNameText, { color: theme.text }]}>{employeeName}</Text>
               </View>
-              <Image 
-                source={require('../../img/icon/a-avatar.png')} 
+              <Image
+                source={require('../../img/icon/a-avatar.png')}
                 style={styles.avatarStyle}
               />
             </View>
           </TouchableOpacity>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={styles.squareButton}
+            <TouchableOpacity
+              style={[styles.squareButton, { backgroundColor: theme.card }]}
               onPress={() => {
                 if (employeeId) {
                   navigation.navigate('Payslip', { baseUrl, employeeId });
                 } else {
-                  Alert.alert('Error', 'Employee ID is unavailable');
+                  Alert.alert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
                 }
               }}
             >
               <View style={styles.iconTextContainer}>
-                <Image source={require('../../img/icon/gongzidan.png')} style={styles.iconImage} />
-                <Text style={styles.squareButtonText}>Payslip</Text>
+                <Image source={require('../../img/icon/gongzidan.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
+                <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('payslip')}</Text>
               </View>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.squareButton}
+            <TouchableOpacity
+              style={[styles.squareButton, { backgroundColor: theme.card }]}
               onPress={() => {
                 if (employeeId) {
                   navigation.navigate('LeaveMenu', { baseUrl, employeeId });
                 } else {
-                  Alert.alert('Error', 'Employee ID is unavailable');
+                  Alert.alert(getLocalizedText('error'), getLocalizedText('employeeIdUnavailable'));
                 }
               }}
             >
               <View style={styles.iconTextContainer}>
-                <Image source={require('../../img/icon/leave2.png')} style={styles.iconImage} />
-                <Text style={styles.squareButtonText}>Leave</Text>
+                <Image source={require('../../img/icon/leave2.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
+                <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('leave')}</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.squareButton}>
-              <Text style={styles.squareButtonText}>Button 3</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.squareButton}>
-              <Text style={styles.squareButtonText}>Button 4</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.squareButton}>
-              <Text style={styles.squareButtonText}>Button 5</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.squareButton}>
-              <Text style={styles.squareButtonText}>Button 6</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.squareButton}>
-              <Text style={styles.squareButtonText}>Button 7</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.squareButton, styles.logoutButtonStyle]} 
+            <TouchableOpacity
+              style={[styles.squareButton, styles.logoutButtonStyle, { backgroundColor: theme.card }]}
               onPress={handleLogout}
             >
               <View style={styles.iconTextContainer}>
-                <Image source={require('../../img/icon/tuichu.png')} style={styles.iconImage} />
-                <Text style={styles.squareButtonText}>Log Out</Text>
+                <Image source={require('../../img/icon/tuichu.png')} style={[styles.iconImage, { tintColor: theme.error }]} />
+                <Text style={[styles.squareButtonText, { color: theme.error }]}>{getLocalizedText('logOut')}</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      <Animated.View 
+      <Animated.View
         style={[
           styles.scrollIndicator,
           {
@@ -156,8 +176,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
           }
         ]}
       >
-        <Image 
-          source={require('../../img/icon/a-d-caret.png')} 
+        <Image
+          source={require('../../img/icon/a-d-caret.png')}
           style={styles.scrollIcon}
         />
       </Animated.View>
@@ -172,12 +192,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    backgroundColor: '#F5F5F5',
     padding: 16,
   },
   viewDetailButton: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 28,
     marginBottom: 20,
@@ -198,13 +216,11 @@ const styles = StyleSheet.create({
   },
   employeeNoText: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 8,
   },
   employeeNameText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 4,
   },
   avatarStyle: {
@@ -220,7 +236,6 @@ const styles = StyleSheet.create({
   squareButton: {
     width: '48%',
     aspectRatio: 1,
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     justifyContent: 'center',
@@ -232,7 +247,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   squareButtonText: {
-    color: '#333',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -244,7 +258,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginBottom: 8,
-    tintColor: '#007AFF',
   },
   logoutButtonStyle: {
     backgroundColor: '#FFF0F0',
@@ -253,7 +266,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     top: '50%',
-    transform: [{ translateY: -20 }], // Center the icon vertically
+    transform: [{ translateY: -20 }],
     zIndex: 1000,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 20,
@@ -267,7 +280,6 @@ const styles = StyleSheet.create({
   scrollIcon: {
     width: 24,
     height: 24,
-    tintColor: '#333',
   },
 });
 
