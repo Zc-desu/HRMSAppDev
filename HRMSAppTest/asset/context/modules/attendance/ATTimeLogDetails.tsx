@@ -21,6 +21,14 @@ interface TimeLogDetail {
   }>;
 }
 
+interface RejectionDetail {
+  approvalLevel: number;
+  approval: string;
+  respondDate: string;
+  approvalDecision: string;
+  reason: string;
+}
+
 const translations = {
   'en': {
     timeLogDetails: 'Time Log Details',
@@ -37,7 +45,10 @@ const translations = {
     failedFetch: 'Failed to fetch time log details',
     ok: 'OK',
     loading: 'Loading...',
-    noData: '--'
+    noData: '--',
+    rejected: 'Rejected',
+    rejectedBy: 'Rejected By',
+    rejectionReason: 'Rejection Reason',
   },
   'ms': {
     timeLogDetails: 'Butiran Log Masa',
@@ -54,7 +65,10 @@ const translations = {
     failedFetch: 'Gagal mendapatkan butiran log masa',
     ok: 'OK',
     loading: 'Memuatkan...',
-    noData: '--'
+    noData: '--',
+    rejected: 'Ditolak',
+    rejectedBy: 'Ditolak Oleh',
+    rejectionReason: 'Sebab Penolakan',
   },
   'zh-Hans': {
     timeLogDetails: '时间记录详情',
@@ -71,7 +85,10 @@ const translations = {
     failedFetch: '无法获取时间记录详情',
     ok: '确定',
     loading: '加载中...',
-    noData: '--'
+    noData: '--',
+    rejected: '已拒绝',
+    rejectedBy: '拒绝人',
+    rejectionReason: '拒绝原因',
   },
   'zh-Hant': {
     timeLogDetails: '時間記錄詳情',
@@ -88,7 +105,10 @@ const translations = {
     failedFetch: '無法獲取時間記錄詳情',
     ok: '確定',
     loading: '加載中...',
-    noData: '--'
+    noData: '--',
+    rejected: '已拒絕',
+    rejectedBy: '拒絕人',
+    rejectionReason: '拒絕原因',
   }
 };
 
@@ -98,6 +118,7 @@ const ATTimeLogDetails = ({ route, navigation }: any) => {
   const [timeLogDetail, setTimeLogDetail] = useState<TimeLogDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { timeLogId, employeeId, baseUrl, photos } = route.params;
+  const [rejectionDetails, setRejectionDetails] = useState<RejectionDetail[]>([]);
 
   const getLocalizedText = (key: string) => {
     return translations[language as keyof typeof translations]?.[key as keyof typeof translations[keyof typeof translations]] || key;
@@ -149,9 +170,41 @@ const ATTimeLogDetails = ({ route, navigation }: any) => {
     }
   };
 
+  const fetchRejectionDetails = async () => {
+    if (timeLogDetail?.approvalStatus === 'R') {
+      try {
+        const userToken = await AsyncStorage.getItem('userToken');
+        if (!userToken) throw new Error('Authentication token not found');
+
+        const response = await fetch(
+          `${baseUrl}/apps/api/v1/employees/${employeeId}/attendance/time-logs/${timeLogId}/approval-status?ApprovalAction=A`,
+          {
+            headers: {
+              'Authorization': `Bearer ${userToken}`,
+              'Accept': 'application/json',
+            },
+          }
+        );
+
+        const data = await response.json();
+        if (data.success) {
+          setRejectionDetails(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching rejection details:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchTimeLogDetail();
   }, []);
+
+  useEffect(() => {
+    if (timeLogDetail?.approvalStatus === 'R') {
+      fetchRejectionDetails();
+    }
+  }, [timeLogDetail]);
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -209,6 +262,27 @@ const ATTimeLogDetails = ({ route, navigation }: any) => {
     </View>
   );
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'A': return getLocalizedText('approved');
+      case 'R': return getLocalizedText('rejected');
+      default: return getLocalizedText('pending');
+    }
+  };
+
+  const renderRejectionDetails = () => {
+    if (timeLogDetail?.approvalStatus === 'R' && rejectionDetails.length > 0) {
+      const rejection = rejectionDetails[0];
+      return (
+        <>
+          {renderDetailItem(getLocalizedText('rejectedBy'), rejection.approval)}
+          {renderDetailItem(getLocalizedText('rejectionReason'), rejection.reason || getLocalizedText('noData'))}
+        </>
+      );
+    }
+    return null;
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -227,10 +301,8 @@ const ATTimeLogDetails = ({ route, navigation }: any) => {
         {renderDetailItem(getLocalizedText('entryTime'), timeLogDetail?.entryTime ? formatDate(timeLogDetail.entryTime) : null)}
         {renderDetailItem(getLocalizedText('address'), timeLogDetail?.address ?? null)}
         {renderDetailItem(getLocalizedText('remarks'), timeLogDetail?.remarks ?? null)}
-        {renderDetailItem(
-          getLocalizedText('status'),
-          timeLogDetail?.approvalStatus === 'A' ? getLocalizedText('approved') : getLocalizedText('pending')
-        )}
+        {renderDetailItem(getLocalizedText('status'), getStatusText(timeLogDetail?.approvalStatus || 'P'))}
+        {renderRejectionDetails()}
         {photos.length > 0 && renderPhotos()}
       </View>
     </ScrollView>

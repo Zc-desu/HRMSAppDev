@@ -30,6 +30,12 @@ import NBGetFileAttachment from './asset/context/modules/noticeboard/NBGetFileAt
 import ATMenu from './asset/context/modules/attendance/ATMenu';
 import ATShowMap from './asset/context/modules/attendance/ATShowMap';
 import ATPhotoCapture from './asset/context/modules/attendance/ATPhotoCapture';
+import ATTimeLogListing from './asset/context/modules/attendance/ATTimeLogListing';
+import ATTimeLogDetails from './asset/context/modules/attendance/ATTimeLogDetails';
+import ATTimeLogPhoto from './asset/context/modules/attendance/ATTimeLogPhoto';
+import ATBackDateTLApplication from './asset/context/modules/attendance/ATBackDateTLApplication';
+import ATPendingApplicationListing from './asset/context/modules/attendance/ATPendingApplicationListing';
+import ATPendingApplicationDetails from './asset/context/modules/attendance/ATPendingApplicationDetails';
 
 // Import Setting
 import Settings from './asset/context/src/Settings';
@@ -208,19 +214,6 @@ const App = () => {
               }}
             />
             <Stack.Screen
-              name="ChangeTheme"
-              component={ChangeTheme}
-              options={{ 
-                title: 'Change Theme',
-                headerTitleStyle: {
-                  fontSize: 20,
-                  fontWeight: '600',
-                  color: '#333',
-                },
-                headerTitleAlign: 'center',
-              }}
-            />
-            <Stack.Screen
               name="NBGetList"
               component={NBGetList}
               options={{ 
@@ -300,6 +293,84 @@ const App = () => {
               }}
             />
             <Stack.Screen
+              name="ATTimeLogListing"
+              component={ATTimeLogListing}
+              options={{
+                title: 'Time Log Listing',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATTimeLogDetails"
+              component={ATTimeLogDetails}
+              options={{
+                title: 'Time Log Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATTimeLogPhoto"
+              component={ATTimeLogPhoto}
+              options={{
+                title: 'Photo',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATBackDateTLApplication"
+              component={ATBackDateTLApplication}
+              options={{
+                title: 'Back Date Time Log Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATPendingApplicationListing"
+              component={ATPendingApplicationListing}
+              options={{
+                title: 'Pending Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATPendingApplicationDetails"
+              component={ATPendingApplicationDetails}
+              options={{
+                title: 'Pending Application Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
               name="LanguageSelector"
               component={LanguageSelector}
               options={{
@@ -310,6 +381,19 @@ const App = () => {
                 },
                 headerTitleAlign: 'center',
                 headerShadowVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="ChangeTheme"
+              component={ChangeTheme}
+              options={{ 
+                title: 'Change Theme',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
               }}
             />
           </Stack.Navigator>

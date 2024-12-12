@@ -42,6 +42,7 @@ const translations = {
     gpsNotAvailable: 'GPS Not Available',
     fetchError: 'Error fetching authorized zones',
     instruction: 'Please ensure GPS is enabled, network signal is available, and you are within office range',
+    backDateApplication: 'Apply for Back Date',
   },
   'ms': {
     loading: 'Memuat lokasi...',
@@ -63,6 +64,7 @@ const translations = {
     gpsNotAvailable: 'GPS Tidak Tersedia',
     fetchError: 'Ralat mendapatkan zon yang dibenarkan',
     instruction: 'Sila pastikan GPS diaktifkan, isyarat rangkaian tersedia, dan anda berada dalam lingkungan pejabat',
+    backDateApplication: 'Permohonan Tarikh Lampau',
   },
   'zh-Hans': {
     loading: '正在加载位置...',
@@ -84,6 +86,7 @@ const translations = {
     gpsNotAvailable: 'GPS不可用',
     fetchError: '获取授权区域时出错',
     instruction: '请确保GPS已启用，网络信号可用，并且您在办公室范围内',
+    backDateApplication: '补打卡申请',
   },
   'zh-Hant': {
     loading: '正在載入位置...',
@@ -105,6 +108,7 @@ const translations = {
     gpsNotAvailable: 'GPS不可用',
     fetchError: '獲取授權區域時出錯',
     instruction: '請確保GPS已啟用，網絡訊號可用，並且您在辦公室範圍內',
+    backDateApplication: '補打卡申請',
   }
 } as const;
 
@@ -671,6 +675,17 @@ const ATShowMap = ({ route, navigation }: Props) => {
           </View>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.backDateButton, { backgroundColor: theme.primary }]}
+          onPress={() => navigation.navigate('ATBackDateTLApplication', {
+            employeeId,
+            companyId,
+            baseUrl
+          })}
+        >
+          <Text style={styles.buttonText}>{t.backDateApplication}</Text>
+        </TouchableOpacity>
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: theme.primary }]}
@@ -828,6 +843,14 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 16,
     height: 16,
+  },
+  backDateButton: {
+    marginHorizontal: 16,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
 });
 

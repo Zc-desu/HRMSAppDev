@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { launchCamera, CameraOptions, MediaType } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -61,6 +62,7 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
     buttons: [],
   });
   const [userToken, setUserToken] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
 
   useEffect(() => {
     const getData = async () => {
@@ -139,6 +141,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           clockInOutSuccess: 'Permohonan telah dihantar untuk kelulusan',
           pleaseTakePhotos: 'Sila ambil kedua-dua gambar',
           instruction: 'Sila ambil gambar hadapan dan belakang untuk meneruskan',
+          sessionExpired: 'Sesi log masuk telah tamat. Sila log masuk semula.',
+          reasonPlaceholder: 'Masukkan sebab (pilihan) - Bahasa Inggeris/Melayu sahaja',
+          reasonError: 'Sila gunakan Bahasa Inggeris atau Bahasa Melayu sahaja',
         }[key] || key;
       
       case 'zh-Hans':
@@ -159,6 +164,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           clockInOutSuccess: '申请已提交等待审批',
           pleaseTakePhotos: '请拍摄两张照片',
           instruction: '请拍摄正面和背面照片以继续',
+          sessionExpired: '登录会话已过期，请重新登录。',
+          reasonPlaceholder: '输入原因（可选）- 仅限英文/马来文',
+          reasonError: '请使用英文或马来文',
         }[key] || key;
       
       case 'zh-Hant':
@@ -179,6 +187,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           clockInOutSuccess: '申請已提交等待審批',
           pleaseTakePhotos: '請拍攝兩張照片',
           instruction: '請拍攝正面和背面照片以繼續',
+          sessionExpired: '登入會話已過期，請重新登入。',
+          reasonPlaceholder: '輸入原因（可選）- 僅限英文/馬來文',
+          reasonError: '請使用英文或馬來文',
         }[key] || key;
       
       default: // 'en'
@@ -199,6 +210,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           clockInOutSuccess: 'Request has been submitted for approval',
           pleaseTakePhotos: 'Please take both photos',
           instruction: 'Please take front and back photos to proceed',
+          sessionExpired: 'Login session has expired. Please login again.',
+          reasonPlaceholder: 'Enter reason (optional) - English/Malay only',
+          reasonError: 'Please use English or Malay only',
         }[key] || key;
     }
   };
@@ -261,104 +275,175 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
     submitForm();
   };
 
-  const submitForm = async () => {
-    if (!frontPhoto && !backPhoto && !isCameraBroken) {
-      showAlert(
-        getLocalizedText('error'),
-        getLocalizedText('pleaseTakePhotos')
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-
+  const handleLogout = async () => {
     try {
-      if (!userToken || !companyId) {
-        throw new Error('Missing required data: userToken or companyId');
+      const userToken = await AsyncStorage.getItem('userToken');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+
+      // Call logout API
+      if (baseUrl && userToken && refreshToken) {
+        await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userToken}`
+          },
+          body: JSON.stringify({ refreshToken })
+        });
       }
 
-      const formData = new FormData();
-      formData.append('EmployeeId', employeeId);
-      formData.append('CompanyId', companyId.toString());
-      formData.append('TimeEntry', timeEntry);
-      formData.append('Latitude', latitude.toString());
-      formData.append('Longitude', longitude.toString());
-      formData.append('Address', address);
-      formData.append('AuthorizeZoneName', authorizeZoneName);
-      formData.append('IsOutOfFence', isOutOfFence ? '1' : '0');
-      formData.append('GpsNotAvailable', gpsNotAvailable ? '1' : '0');
+      // Clear all auth-related storage
+      const keys = await AsyncStorage.getAllKeys();
+      const keysToRemove = keys.filter(key => 
+        key !== 'baseUrl' && 
+        key !== 'scannedData' &&
+        key !== 'themePreference'
+      );
+      await AsyncStorage.multiRemove(keysToRemove);
 
-      // Append photos if camera is not broken
-      if (!isCameraBroken) {
-        if (frontPhoto) {
-          formData.append('FrontPhoto', {
-            uri: frontPhoto.uri,
-            type: frontPhoto.type,
-            name: frontPhoto.fileName
-          });
-        }
-        if (backPhoto) {
-          formData.append('BackPhoto', {
-            uri: backPhoto.uri,
-            type: backPhoto.type,
-            name: backPhoto.fileName
-          });
-        }
+      // Navigate to Login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
+  };
+
+  const submitForm = async () => {
+    try {
+      if (!frontPhoto && !backPhoto && !isCameraBroken) {
+        showAlert(
+          getLocalizedText('error'),
+          getLocalizedText('pleaseTakePhotos')
+        );
+        return;
       }
 
-      console.log('Submitting form with photos:', {
-        hasFrontPhoto: !!frontPhoto,
-        hasBackPhoto: !!backPhoto,
-        isCameraBroken
-      });
+      setIsSubmitting(true);
 
-      const response = await fetch(`${baseUrl}/apps/api/v1/attendance/time-logs`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-          'Accept': 'application/json',
-        },
-        body: formData,
-      });
+      try {
+        if (!userToken || !companyId) {
+          throw new Error('Missing required data: userToken or companyId');
+        }
 
-      const data = await response.json();
-      
-      if (data.success) {
+        const formData = new FormData();
+        
+        // Required fields
+        formData.append('EmployeeId', employeeId);
+        formData.append('TimeEntry', timeEntry);
+        
+        // Location data
+        formData.append('Latitude', latitude.toString());
+        formData.append('LatitudeDelta', '0.0018');  // Add fixed LatitudeDelta
+        formData.append('Longitude', longitude.toString());
+        formData.append('LongitudeDelta', '0.0018'); // Add fixed LongitudeDelta
+        formData.append('Address', `${latitude},${longitude},17z`); // Format address properly
+        formData.append('AuthorizeZoneName', authorizeZoneName);
+
+        // Boolean flags - send as boolean values
+        formData.append('IsOutOfFence', isOutOfFence);
+        formData.append('IsCameraBroken', isCameraBroken);
+        formData.append('GpsNotAvailable', gpsNotAvailable);
+
+        // Optional reason field
+        if (reason) {
+          formData.append('Reason', reason);
+        }
+
+        // Append photos if camera is not broken
+        if (!isCameraBroken) {
+          if (frontPhoto) {
+            formData.append('FrontPhoto', {
+              uri: frontPhoto.uri,
+              type: 'image/jpeg',
+              name: 'front_photo.jpg'
+            });
+          }
+          if (backPhoto) {
+            formData.append('BackPhoto', {
+              uri: backPhoto.uri,
+              type: 'image/jpeg',
+              name: 'back_photo.jpg'
+            });
+          }
+        }
+
+        console.log('Submitting form data:', {
+          employeeId,
+          timeEntry,
+          latitude,
+          longitude,
+          authorizeZoneName,
+          isOutOfFence,
+          isCameraBroken,
+          gpsNotAvailable,
+          hasFrontPhoto: !!frontPhoto,
+          hasBackPhoto: !!backPhoto
+        });
+
+        const response = await fetch(`${baseUrl}/apps/api/v1/attendance/time-logs/submit-for-approval`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Accept': 'application/json',
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error('Submit failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: data,
+            headers: response.headers
+          });
+          
+          // Handle validation errors specifically
+          if (response.status === 400 && data.errors) {
+            const errorMessages = Object.values(data.errors)
+              .flat()
+              .join('\n');
+            throw new Error(errorMessages);
+          }
+          
+          throw new Error(data.message || 'Server returned unsuccessful response');
+        }
+
+        // Success handling
         showAlert(
           getLocalizedText('success'),
           getLocalizedText('clockInOutSuccess'),
           [{
             text: 'OK',
-            onPress: () => {
-              navigation.reset({
-                index: 1,
-                routes: [
-                  { 
-                    name: 'EmployeeMenu',
-                    params: { companyId }
-                  },
-                  { 
-                    name: 'ATMenu',
-                    params: {
-                      refresh: true,
-                      employeeId,
-                      companyId,
-                      baseUrl
-                    }
-                  }
-                ],
-              });
-            }
+            onPress: () => navigation.goBack()
           }]
         );
-      } else {
-        throw new Error(data.message || 'Server returned unsuccessful response');
+
+      } catch (error: any) {
+        throw error;
       }
     } catch (error: any) {
-      console.error('Submit error:', error);
+      console.error('Submit error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response,
+        baseUrl,
+        hasUserToken: !!userToken,
+        hasCompanyId: !!companyId
+      });
+      
       showAlert(
         getLocalizedText('error'),
-        error.message || 'An unexpected error occurred'
+        error.message || getLocalizedText('unknownError')
       );
     } finally {
       setIsSubmitting(false);
@@ -390,6 +475,12 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
       );
     }
   }, [employeeId, companyId, baseUrl, timeEntry]);
+
+  const isEnglishOrMalay = (text: string) => {
+    // Regular expression for English and Malay characters
+    const englishMalayRegex = /^[a-zA-Z0-9\s.,!?@#$%&*()-_+=;:"'\/\\\s]*$/;
+    return englishMalayRegex.test(text);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -486,6 +577,33 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
               {isCameraBroken && <View style={[styles.innerCircle, { backgroundColor: theme.primary }]} />}
             </View>
           </TouchableOpacity>
+        </View>
+
+        <View style={[styles.inputContainer, { backgroundColor: theme.card }]}>
+          <TextInput
+            style={[
+              styles.reasonInput,
+              { 
+                backgroundColor: theme.card,
+                color: theme.text,
+              }
+            ]}
+            placeholder={getLocalizedText('reasonPlaceholder')}
+            placeholderTextColor={'#666'}
+            value={reason}
+            onChangeText={(text) => {
+              if (text === '' || isEnglishOrMalay(text)) {
+                setReason(text);
+              } else {
+                showAlert(
+                  getLocalizedText('error'),
+                  getLocalizedText('reasonError')
+                );
+              }
+            }}
+            multiline
+            numberOfLines={3}
+          />
         </View>
 
         <TouchableOpacity
@@ -603,6 +721,27 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: '#007AFF',
+  },
+  inputContainer: {
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
 });
 

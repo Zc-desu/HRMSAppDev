@@ -336,6 +336,9 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         await AsyncStorage.setItem('userToken', userToken);
         const decodedToken = decodeJWT(userToken);
 
+        // Store the decoded token in AsyncStorage
+        await AsyncStorage.setItem('decodedToken', JSON.stringify(decodedToken));
+
         const employeeId = decodedToken?.decodedPayload?.employee_id;
         if (employeeId) {
           await AsyncStorage.setItem('employeeId', employeeId.toString());

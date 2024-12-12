@@ -15,6 +15,7 @@ const translations = {
     ok: 'OK',
     approved: 'Approved',
     pending: 'Pending',
+    rejected: 'Rejected',
     photos: 'photos',
     loading: 'Loading...',
     noRecords: 'No records for'
@@ -26,6 +27,7 @@ const translations = {
     ok: 'OK',
     approved: 'Diluluskan',
     pending: 'Dalam Proses',
+    rejected: 'Ditolak',
     photos: 'gambar',
     loading: 'Memuatkan...',
     noRecords: 'Tiada rekod untuk'
@@ -37,6 +39,7 @@ const translations = {
     ok: '确定',
     approved: '已批准',
     pending: '待处理',
+    rejected: '已拒绝',
     photos: '张照片',
     loading: '加载中...',
     noRecords: '没有记录'
@@ -48,6 +51,7 @@ const translations = {
     ok: '確定',
     approved: '已批准',
     pending: '待處理',
+    rejected: '已拒絕',
     photos: '張照片',
     loading: '加載中...',
     noRecords: '沒有記錄'
@@ -202,6 +206,10 @@ const ATTimeLogListing = ({ route }: any) => {
         backgroundColor: 'rgba(255, 204, 0, 0.1)',
         textColor: '#FFCC00'
       },
+      'R': {
+        backgroundColor: 'rgba(255, 59, 48, 0.1)',
+        textColor: '#FF3B30'
+      },
       'default': {
         backgroundColor: 'rgba(142, 142, 147, 0.1)',
         textColor: '#8E8E93'
@@ -262,12 +270,22 @@ const ATTimeLogListing = ({ route }: any) => {
       <TouchableOpacity
         key={log.id}
         style={[styles.logCard, { backgroundColor: theme.card }]}
-        onPress={() => navigation.navigate('ATTimeLogDetails', {
-          timeLogId: log.id,
-          employeeId,
-          baseUrl,
-          photos: log.photos
-        })}
+        onPress={() => {
+          console.log('Time Log ID:', log.id);
+          console.log('Time Log Details:', {
+            id: log.id,
+            entryTime: log.entryTime,
+            status: log.approvalStatus,
+            address: log.address,
+            photosCount: log.photos.length
+          });
+          navigation.navigate('ATTimeLogDetails', {
+            timeLogId: log.id,
+            employeeId,
+            baseUrl,
+            photos: log.photos
+          });
+        }}
       >
         <View style={styles.logHeader}>
           <View style={styles.timeContainer}>
@@ -281,7 +299,9 @@ const ATTimeLogListing = ({ route }: any) => {
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
             <Text style={[styles.statusText, { color: statusStyle.textColor }]}>
-              {log.approvalStatus === 'A' ? getLocalizedText('approved') : getLocalizedText('pending')}
+              {log.approvalStatus === 'A' ? getLocalizedText('approved') 
+                : log.approvalStatus === 'R' ? getLocalizedText('rejected')
+                : getLocalizedText('pending')}
             </Text>
           </View>
         </View>

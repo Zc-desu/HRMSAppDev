@@ -1,12 +1,70 @@
-import React, { useLayoutEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useLayoutEffect, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ATMenu = ({ route, navigation }: any) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { employeeId, companyId, baseUrl } = route.params;
+  const [hasApprovalRole, setHasApprovalRole] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const userRole = await AsyncStorage.getItem('userRole');
+        setHasApprovalRole(userRole === 'Approval');
+      } catch (error) {
+        console.error('Error checking user role:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUserRole();
+  }, []);
+
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          attendance: 'Kehadiran',
+          clockInOut: 'Masuk/Keluar',
+          attendanceManagement: 'Pengurusan Kehadiran',
+          timeLogListing: 'Senarai Log Masa',
+          pendingApplications: 'Permohonan Tertunda'
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          attendance: '考勤',
+          clockInOut: '打卡',
+          attendanceManagement: '考勤管理',
+          timeLogListing: '时间记录列表',
+          pendingApplications: '待处理申请'
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          attendance: '考勤',
+          clockInOut: '打卡',
+          attendanceManagement: '考勤管理',
+          timeLogListing: '時間記錄列表',
+          pendingApplications: '待處理申請'
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          attendance: 'Attendance',
+          clockInOut: 'Clock In/Out',
+          attendanceManagement: 'Attendance Management',
+          timeLogListing: 'Time Log Listing',
+          pendingApplications: 'Pending Applications'
+        }[key] || key;
+    }
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -26,56 +84,42 @@ const ATMenu = ({ route, navigation }: any) => {
     });
   }, [navigation, theme]);
 
-  const getLocalizedText = (key: string) => {
-    switch (language) {
-      case 'ms':
-        return {
-          attendance: 'Kehadiran',
-          clockInOut: 'Masuk/Keluar',
-          attendanceManagement: 'Pengurusan Kehadiran',
-          timeLogListing: 'Senarai Log Masa'
-        }[key] || key;
-      
-      case 'zh-Hans':
-        return {
-          attendance: '考勤',
-          clockInOut: '打卡',
-          attendanceManagement: '考勤管理',
-          timeLogListing: '时间记录列表'
-        }[key] || key;
-      
-      case 'zh-Hant':
-        return {
-          attendance: '考勤',
-          clockInOut: '打卡',
-          attendanceManagement: '考勤管理',
-          timeLogListing: '時間記錄列表'
-        }[key] || key;
-      
-      default: // 'en'
-        return {
-          attendance: 'Attendance',
-          clockInOut: 'Clock In/Out',
-          attendanceManagement: 'Attendance Management',
-          timeLogListing: 'Time Log Listing'
-        }[key] || key;
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  const baseMenuItems = [
+    {
+      title: getLocalizedText('clockInOut'),
+      onPress: () => navigation.navigate('ATShowMap', {
+        employeeId,
+        companyId,
+        baseUrl
+      }),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      title: getLocalizedText('timeLogListing'),
+      onPress: () => navigation.navigate('ATTimeLogListing', {
+        employeeId,
+        baseUrl
+      }),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+  ];
+
+  const menuItems = hasApprovalRole ? [
+    ...baseMenuItems,
+    {
+      title: getLocalizedText('pendingApplications'),
+      onPress: () => navigation.navigate('ATPendingApplicationListing'),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
     }
-  };
-
-  const handleClockInOut = () => {
-    navigation.navigate('ATShowMap', {
-      employeeId,
-      companyId,
-      baseUrl
-    });
-  };
-
-  const handleTimeLogListing = () => {
-    navigation.navigate('ATTimeLogListing', {
-      employeeId,
-      baseUrl
-    });
-  };
+  ] : baseMenuItems;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -83,35 +127,23 @@ const ATMenu = ({ route, navigation }: any) => {
         {getLocalizedText('attendanceManagement')}
       </Text>
       <View style={styles.menuContainer}>
-        <TouchableOpacity
-          style={[styles.menuCard, { backgroundColor: theme.card }]}
-          onPress={handleClockInOut}
-        >
-          <View style={styles.menuContent}>
-            <Text style={[styles.menuText, { color: theme.text }]}>
-              {getLocalizedText('clockInOut')}
-            </Text>
-            <Image
-              source={require('../../../../asset/img/icon/arrow-right.png')}
-              style={[styles.icon, { tintColor: theme.primary }]}
-            />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.menuCard, { backgroundColor: theme.card }]}
-          onPress={handleTimeLogListing}
-        >
-          <View style={styles.menuContent}>
-            <Text style={[styles.menuText, { color: theme.text }]}>
-              {getLocalizedText('timeLogListing')}
-            </Text>
-            <Image
-              source={require('../../../../asset/img/icon/arrow-right.png')}
-              style={[styles.icon, { tintColor: theme.primary }]}
-            />
-          </View>
-        </TouchableOpacity>
+        {menuItems.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.menuCard, { backgroundColor: theme.card }]}
+            onPress={item.onPress}
+          >
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title}
+              </Text>
+              <Image
+                source={item.icon}
+                style={[styles.icon, { tintColor: theme.primary }]}
+              />
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );

@@ -22,6 +22,9 @@ interface CustomAlertProps {
   message: string;
   buttons?: CustomAlertButton[];
   onDismiss?: () => void;
+  showInput?: boolean;
+  inputValue?: string;
+  onInputChange?: (text: string) => void;
 }
 
 const CustomAlert = ({ visible, title, message, buttons = [], onDismiss }: CustomAlertProps) => {

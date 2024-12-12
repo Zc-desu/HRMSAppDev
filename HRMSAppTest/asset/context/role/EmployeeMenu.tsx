@@ -214,7 +214,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         {
           text: getLocalizedText('cancel'),
           style: 'cancel',
-          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
         },
         {
           text: getLocalizedText('ok'),
@@ -226,18 +226,17 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               const baseUrl = await AsyncStorage.getItem('baseUrl');
 
               // Call logout API
-              const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${userToken}`
-                },
-                body: JSON.stringify({ refreshToken })
-              });
+              if (baseUrl && userToken && refreshToken) {
+                const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                  },
+                  body: JSON.stringify({ refreshToken })
+                });
+              }
 
-              // Proceed with logout regardless of API response
-              setLoggedIn(false);
-              
               // Store necessary data
               const scannedData = await AsyncStorage.getItem('scannedData');
               const themePreference = await AsyncStorage.getItem('themePreference');
@@ -250,10 +249,9 @@ const EmployeeMenu = ({ route, navigation }: any) => {
                 key !== 'themePreference'
               );
               
-              // Remove auth-related items
+              // Remove auth-related items including decodedToken
               await AsyncStorage.multiRemove(keysToRemove);
               
-              // Reset navigation stack
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
@@ -294,7 +292,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           if (parsedToken?.decodedPayload) {
             setEmployeeId(parsedToken.decodedPayload.employee_id);
             setEmployeeName(parsedToken.decodedPayload.employee_name);
-            setEmployeeNumber(parsedToken.decodedPayload.employee_no);
+            setEmployeeNumber(parsedToken.decodedPayload.employee_number);
           }
         } catch (error) {
           console.error('Refresh error:', error);
@@ -303,6 +301,42 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
       refreshData();
     }, [])
+  );
+
+  // Consolidated all data loading logic into one function
+  const loadEmployeeData = async () => {
+    try {
+      // First try to get data from route params
+      if (route.params?.employeeData) {
+        const { employee_name, employee_number, employee_id } = route.params.employeeData;
+        setEmployeeName(employee_name);
+        setEmployeeNumber(employee_number);
+        setEmployeeId(employee_id);
+        return; // Exit if we got data from params
+      }
+
+      // Fallback to stored token if no route params
+      const storedDecodedToken = await AsyncStorage.getItem('decodedToken');
+      if (storedDecodedToken) {
+        const decodedToken = JSON.parse(storedDecodedToken);
+        if (decodedToken?.decodedPayload) {
+          const { employee_name, employee_number, employee_id } = decodedToken.decodedPayload;
+          setEmployeeName(employee_name);
+          setEmployeeNumber(employee_number);
+          setEmployeeId(employee_id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading employee data:', error);
+      showAlert(getLocalizedText('error'), 'Failed to load employee data');
+    }
+  };
+
+  // Use useFocusEffect to reload data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEmployeeData();
+    }, [route.params?.refresh]) // Depend on refresh param
   );
 
   return (
@@ -322,15 +356,16 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         >
           <View style={styles.buttonContent}>
             <View style={styles.textContainer}>
-              <Text style={[styles.employeeNoText, { color: theme.subText }]}>{employeeNumber}</Text>
-              <Text style={[styles.employeeNameText, { color: theme.text }]}>{employeeName}</Text>
+              <Text style={[styles.employeeNoText, { color: theme.subText }]}>
+                {employeeNumber}
+              </Text>
+              <Text style={[styles.employeeNameText, { color: theme.text }]}>
+                {employeeName}
+              </Text>
             </View>
             <Image 
               source={require('../../../asset/img/icon/a-avatar.png')} 
-              style={[
-                styles.avatarStyle,
-                { tintColor: theme.background === '#000000' ? '#FFFFFF' : undefined }
-              ]}
+              style={[styles.avatarStyle, { tintColor: theme.background === '#000000' ? '#FFFFFF' : undefined }]}
             />
           </View>
         </TouchableOpacity>
