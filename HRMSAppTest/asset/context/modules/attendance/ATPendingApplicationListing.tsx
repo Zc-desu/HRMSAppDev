@@ -34,7 +34,7 @@ type Translation = {
 
 const translations: Record<string, Translation> = {
   'en': {
-    title: 'Pending Applications',
+    title: 'Attendance Approvals',
     noApplications: 'No pending applications',
     loading: 'Loading...',
     error: 'Failed to load applications',
@@ -43,7 +43,7 @@ const translations: Record<string, Translation> = {
     clockOut: 'Clock Out',
   },
   'ms': {
-    title: 'Permohonan Tertunda',
+    title: 'Kelulusan Kehadiran',
     noApplications: 'Tiada permohonan tertunda',
     loading: 'Memuatkan...',
     error: 'Gagal memuat permohonan',
@@ -52,7 +52,7 @@ const translations: Record<string, Translation> = {
     clockOut: 'Daftar Keluar',
   },
   'zh-Hans': {
-    title: '待处理申请',
+    title: '考勤审批',
     noApplications: '没有待处理的申请',
     loading: '加载中...',
     error: '加载申请失败',
@@ -61,7 +61,7 @@ const translations: Record<string, Translation> = {
     clockOut: '签退',
   },
   'zh-Hant': {
-    title: '待處理申請',
+    title: '考勤審批',
     noApplications: '沒有待處理的申請',
     loading: '載入中...',
     error: '載入申請失敗',

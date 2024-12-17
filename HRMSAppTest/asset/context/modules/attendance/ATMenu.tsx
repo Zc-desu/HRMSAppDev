@@ -34,7 +34,9 @@ const ATMenu = ({ route, navigation }: any) => {
           clockInOut: 'Masuk/Keluar',
           attendanceManagement: 'Pengurusan Kehadiran',
           timeLogListing: 'Senarai Log Masa',
-          pendingApplications: 'Permohonan Tertunda'
+          pendingApplications: 'Permohonan Tertunda',
+          overtimeApplications: 'Sejarah Kerja Lebih Masa',
+          createOvertime: 'Cipta Kerja Lebih Masa',
         }[key] || key;
       
       case 'zh-Hans':
@@ -43,7 +45,9 @@ const ATMenu = ({ route, navigation }: any) => {
           clockInOut: '打卡',
           attendanceManagement: '考勤管理',
           timeLogListing: '时间记录列表',
-          pendingApplications: '待处理申请'
+          pendingApplications: '待处理申请',
+          overtimeApplications: '加班记录',
+          createOvertime: '创建加班申请',
         }[key] || key;
       
       case 'zh-Hant':
@@ -52,7 +56,9 @@ const ATMenu = ({ route, navigation }: any) => {
           clockInOut: '打卡',
           attendanceManagement: '考勤管理',
           timeLogListing: '時間記錄列表',
-          pendingApplications: '待處理申請'
+          pendingApplications: '待處理申請',
+          overtimeApplications: '加班紀錄',
+          createOvertime: '創建加班申請',
         }[key] || key;
       
       default: // 'en'
@@ -61,7 +67,9 @@ const ATMenu = ({ route, navigation }: any) => {
           clockInOut: 'Clock In/Out',
           attendanceManagement: 'Attendance Management',
           timeLogListing: 'Time Log Listing',
-          pendingApplications: 'Pending Applications'
+          pendingApplications: 'Pending Applications',
+          overtimeApplications: 'Overtime History',
+          createOvertime: 'Create Overtime',
         }[key] || key;
     }
   };
@@ -108,6 +116,16 @@ const ATMenu = ({ route, navigation }: any) => {
         employeeId,
         baseUrl
       }),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      title: getLocalizedText('createOvertime'),
+      onPress: () => navigation.navigate('OTCreateApplication'),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      title: getLocalizedText('overtimeApplications'),
+      onPress: () => navigation.navigate('OTApplicationListing'),
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
   ];

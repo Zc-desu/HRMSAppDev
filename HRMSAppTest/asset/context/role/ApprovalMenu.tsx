@@ -161,7 +161,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: 'Leave',
         noticeBoard: 'Notice Board',
         attendance: 'Attendance',
-        button5: 'Button 5'
+        button5: 'Approval'
       },
       'zh-Hans': {
         ok: '确定',
@@ -176,7 +176,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: '请假',
         noticeBoard: '公告栏',
         attendance: '考勤',
-        button5: '按钮 5'
+        button5: '审批'
       },
       'zh-Hant': {
         ok: '確定',
@@ -191,7 +191,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: '請假',
         noticeBoard: '公告欄',
         attendance: '考勤',
-        button5: '按鈕 5'
+        button5: '審批'
       },
       ms: {
         ok: 'OK',
@@ -206,7 +206,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: 'Cuti',
         noticeBoard: 'Papan Notis',
         attendance: 'Kehadiran',
-        button5: 'Butang 5'
+        button5: 'Kelulusan'
       }
     };
     return translations[language]?.[key] || key;
@@ -323,8 +323,19 @@ const ApprovalMenu = ({ route, navigation }: any) => {
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={[styles.squareButton, { backgroundColor: theme.card }]}>
-              <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('button5')}</Text>
+            <TouchableOpacity 
+              style={[styles.squareButton, { backgroundColor: theme.card }]}
+              onPress={() => navigation.navigate('ApproveManagement')}
+            >
+              <View style={styles.iconTextContainer}>
+                <Image 
+                  source={require('../../img/icon/a-circle-check.png')} 
+                  style={[styles.iconImage, { tintColor: theme.primary }]} 
+                />
+                <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                  {getLocalizedText('button5')}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.squareButton, styles.logoutButtonStyle, { backgroundColor: theme.card }]}

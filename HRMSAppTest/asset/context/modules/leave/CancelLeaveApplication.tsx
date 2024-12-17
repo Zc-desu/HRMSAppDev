@@ -206,24 +206,32 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
   return (
     <>
-      <ScrollView style={[styles.container, { backgroundColor: '#000000' }]}>
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.contentContainer}>
           <View style={[styles.warningCard, {
-            backgroundColor: 'rgba(255, 59, 48, 0.1)',
-            borderColor: 'rgba(255, 59, 48, 0.2)',
+            backgroundColor: theme.isDark 
+              ? 'rgba(255, 69, 58, 0.1)' 
+              : 'rgba(255, 59, 48, 0.1)',
+            borderColor: theme.isDark 
+              ? 'rgba(255, 69, 58, 0.2)' 
+              : 'rgba(255, 59, 48, 0.2)',
             borderWidth: 1,
           }]}>
-            <Text style={[styles.warningTitle, { color: '#FF453A' }]}>
+            <Text style={[styles.warningTitle, { 
+              color: theme.isDark ? '#FF453A' : '#FF3B30' 
+            }]}>
               Cancel Leave Application
             </Text>
-            <Text style={[styles.warningText, { color: '#FF453A' }]}>
+            <Text style={[styles.warningText, { 
+              color: theme.isDark ? '#FF453A' : '#FF3B30' 
+            }]}>
               Are you sure you want to cancel this leave application?
             </Text>
           </View>
 
           <View style={[styles.detailsCard, { 
-            backgroundColor: '#1C1C1E',
-            borderColor: '#2C2C2E',
+            backgroundColor: theme.card,
+            borderColor: theme.border,
             borderWidth: 1,
           }]}>
             <DetailItem 
@@ -269,20 +277,20 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
           </View>
 
           <View style={[styles.inputCard, { 
-            backgroundColor: '#1C1C1E',
-            borderColor: '#2C2C2E',
+            backgroundColor: theme.card,
+            borderColor: theme.border,
             borderWidth: 1,
           }]}>
-            <Text style={[styles.inputLabel, { color: '#FFFFFF' }]}>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>
               Cancellation Reason
             </Text>
             <TextInput
               style={[styles.input, {
-                backgroundColor: '#2C2C2E',
-                borderColor: '#3A3A3C',
-                color: '#FFFFFF',
+                backgroundColor: theme.isDark ? '#2C2C2E' : '#F2F2F7',
+                borderColor: theme.border,
+                color: theme.text,
               }]}
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.subText}
               placeholder="Enter your reason for cancellation"
               value={reason}
               onChangeText={setReason}
@@ -295,7 +303,7 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
               style={[styles.cancelButton, { 
-                backgroundColor: '#FF453A',
+                backgroundColor: theme.error,
               }]}
               onPress={handleCancelPress}
             >
@@ -306,11 +314,13 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
             
             <TouchableOpacity 
               style={[styles.backButton, { 
-                backgroundColor: '#3A3A3C',
+                backgroundColor: theme.isDark ? '#3A3A3C' : '#E5E5EA',
               }]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={[styles.backButtonText, { color: '#FFFFFF' }]}>
+              <Text style={[styles.backButtonText, { 
+                color: theme.isDark ? '#FFFFFF' : '#000000' 
+              }]}>
                 Go Back
               </Text>
             </TouchableOpacity>
@@ -330,11 +340,9 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 };
 
 const DetailItem = ({ label, value, theme }: { label: string; value: string; theme: Theme }) => (
-  <View style={[styles.detailRow, { 
-    borderBottomColor: '#2C2C2E'
-  }]}>
-    <Text style={[styles.detailLabel, { color: '#8E8E93' }]}>{label}</Text>
-    <Text style={[styles.detailValue, { color: '#FFFFFF' }]}>{value}</Text>
+  <View style={styles.detailRow}>
+    <Text style={[styles.detailLabel, { color: theme.subText }]}>{label}</Text>
+    <Text style={[styles.detailValue, { color: theme.text }]}>{value}</Text>
   </View>
 );
 
@@ -346,100 +354,74 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   warningCard: {
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
-    borderWidth: 1,
   },
   warningTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
-    textAlign: 'center',
   },
   warningText: {
-    fontSize: 16,
-    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
   },
   detailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   inputCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '500',
     marginBottom: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
     borderRadius: 8,
+    borderWidth: 1,
     padding: 12,
     fontSize: 16,
-    color: '#333',
-    backgroundColor: '#FAFAFA',
     minHeight: 100,
   },
   buttonContainer: {
     gap: 12,
-    marginBottom: 24,
   },
   cancelButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   backButton: {
-    backgroundColor: '#E5E5E5',
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#333',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   detailLabel: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
     flex: 1,
   },
   detailValue: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 14,
     flex: 1,
     textAlign: 'right',
     fontWeight: '500',
@@ -448,18 +430,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   messageContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     padding: 20,
   },
   messageText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
 });

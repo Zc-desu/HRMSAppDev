@@ -232,7 +232,13 @@ const LoginScreen = ({ navigation }: any) => {
       body: JSON.stringify({ username: loginId, password }),
       headers: { 'Content-Type': 'application/json' },
     })
-      .then((response) => response.json())
+      .then((response) => {
+        console.log('Login Response:', response);
+        if (!response.ok) {
+          throw new Error(response.statusText || 'Login failed');
+        }
+        return response.json();
+      })
       .then((data) => {
         if (data.success) {
           const accessToken = data.data.accessToken;
@@ -290,8 +296,8 @@ const LoginScreen = ({ navigation }: any) => {
         }
       })
       .catch((error) => {
-        console.error('Error during authentication:', error);
-        showAlert(getLocalizedText('error'), getLocalizedText('somethingWrong'));
+        console.error('Login Error:', error);
+        showAlert(getLocalizedText('error'), error.message || getLocalizedText('somethingWrong'));
       })
       .finally(() => {
         setIsLoading(false);

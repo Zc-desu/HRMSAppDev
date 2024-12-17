@@ -26,7 +26,7 @@ import ApproveLeaveDetail from './asset/context/modules/leave/ApproveLeaveDetail
 import NBGetList from './asset/context/modules/noticeboard/NBGetList';
 import NBDetails from './asset/context/modules/noticeboard/NBDetails';
 import NBGetFileAttachment from './asset/context/modules/noticeboard/NBGetFileAttachment';
-// Import Attendance Module
+// Import Attendance and Overtime Module
 import ATMenu from './asset/context/modules/attendance/ATMenu';
 import ATShowMap from './asset/context/modules/attendance/ATShowMap';
 import ATPhotoCapture from './asset/context/modules/attendance/ATPhotoCapture';
@@ -36,6 +36,11 @@ import ATTimeLogPhoto from './asset/context/modules/attendance/ATTimeLogPhoto';
 import ATBackDateTLApplication from './asset/context/modules/attendance/ATBackDateTLApplication';
 import ATPendingApplicationListing from './asset/context/modules/attendance/ATPendingApplicationListing';
 import ATPendingApplicationDetails from './asset/context/modules/attendance/ATPendingApplicationDetails';
+import OTApplicationListing from './asset/context/modules/attendance/OTApplicationListing';
+import OTApplicationDetails from './asset/context/modules/attendance/OTApplicationDetails';
+import OTCreateApplication from './asset/context/modules/attendance/OTCreateApplication';
+// Import Approve Module
+import ApproveManagement from './asset/context/modules/approve/ApproveManagement';
 
 // Import Setting
 import Settings from './asset/context/src/Settings';
@@ -362,6 +367,58 @@ const App = () => {
               component={ATPendingApplicationDetails}
               options={{
                 title: 'Pending Application Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTApplicationListing"
+              component={OTApplicationListing}
+              options={{
+                title: 'Overtime Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTApplicationDetails"
+              component={OTApplicationDetails}
+              options={{
+                title: 'Overtime Application Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTCreateApplication"
+              component={OTCreateApplication}
+              options={{
+                title: 'Create Overtime',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ApproveManagement"
+              component={ApproveManagement}
+              options={{
+                title: 'Approve Management',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

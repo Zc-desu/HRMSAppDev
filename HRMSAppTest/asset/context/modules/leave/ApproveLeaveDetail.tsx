@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
 
 interface LeaveDate {
   date: string;
@@ -37,7 +39,37 @@ interface LeaveDetail {
   leaveDateList: LeaveDate[];
 }
 
+interface Translation {
+  employeeInfo: string;
+  employeeNo: string;
+  name: string;
+  leaveDetails: string;
+  leaveType: string;
+  duration: string;
+  leaveSessions: string;
+  reason: string;
+  approvalRemarks: string;
+  remarksPlaceholder: string;
+  reject: string;
+  approve: string;
+  confirmAction: string;
+  approveConfirm: string;
+  rejectConfirm: string;
+  success: string;
+  approveSuccess: string;
+  rejectSuccess: string;
+  error: string;
+  remarksRequired: string;
+  days: string;
+  day: string;
+  cancel: string;
+  confirm: string;
+  leaveNotFound: string;
+}
+
 const ApproveLeaveDetail = ({ route, navigation }: any) => {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const { leaveDetail: initialLeaveDetail } = route.params;
   const [leaveDetail, setLeaveDetail] = useState<LeaveDetail>(initialLeaveDetail);
   const [remarks, setRemarks] = useState('');
@@ -56,22 +88,169 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
     initializeData();
   }, []);
 
+  const getLocalizedText = (key: keyof Translation): string => {
+    switch (language) {
+      case 'ms':
+        return {
+          employeeInfo: 'Maklumat Pekerja',
+          employeeNo: 'No. Pekerja:',
+          name: 'Nama:',
+          leaveDetails: 'Butiran Cuti',
+          leaveType: 'Jenis Cuti:',
+          duration: 'Tempoh:',
+          leaveSessions: 'Sesi Cuti:',
+          reason: 'Sebab:',
+          approvalRemarks: 'Catatan Kelulusan',
+          remarksPlaceholder: 'Masukkan catatan (diperlukan untuk penolakan)',
+          reject: 'Tolak',
+          approve: 'Lulus',
+          confirmAction: 'Sahkan Tindakan',
+          approveConfirm: 'Adakah anda pasti mahu meluluskan permohonan cuti ini?',
+          rejectConfirm: 'Adakah anda pasti mahu menolak permohonan cuti ini?',
+          success: 'Berjaya',
+          approveSuccess: 'Permohonan cuti berjaya diluluskan',
+          rejectSuccess: 'Permohonan cuti berjaya ditolak',
+          error: 'Ralat',
+          remarksRequired: 'Sila berikan catatan untuk penolakan',
+          days: 'hari',
+          day: 'hari',
+          cancel: 'Batal',
+          confirm: 'Sahkan',
+          leaveNotFound: 'Butiran cuti tidak dijumpai',
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          employeeInfo: '员工信息',
+          employeeNo: '员工编号：',
+          name: '姓名：',
+          leaveDetails: '请假详情',
+          leaveType: '请假类型：',
+          duration: '时长：',
+          leaveSessions: '请假时段：',
+          reason: '原因：',
+          approvalRemarks: '审批备注',
+          remarksPlaceholder: '输入备注（拒绝时必填）',
+          reject: '拒绝',
+          approve: '批准',
+          confirmAction: '确认操作',
+          approveConfirm: '确定要批准这个请假申请吗？',
+          rejectConfirm: '确定要拒绝这个请假申请吗？',
+          success: '成功',
+          approveSuccess: '请假申请已成功批准',
+          rejectSuccess: '请假申请已成功拒绝',
+          error: '错误',
+          remarksRequired: '请提供拒绝原因',
+          days: '天',
+          day: '天',
+          cancel: '取消',
+          confirm: '确认',
+          leaveNotFound: '未找到请假详情',
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          employeeInfo: '員工資訊',
+          employeeNo: '員工編號：',
+          name: '姓名：',
+          leaveDetails: '請假詳情',
+          leaveType: '請假類型：',
+          duration: '時長：',
+          leaveSessions: '請假時段：',
+          reason: '原因：',
+          approvalRemarks: '審批備註',
+          remarksPlaceholder: '輸入備註（拒絕時必填）',
+          reject: '拒絕',
+          approve: '批准',
+          confirmAction: '確認操作',
+          approveConfirm: '確定要批准這個��假申請嗎？',
+          rejectConfirm: '確定要拒絕這個請假申請嗎？',
+          success: '成功',
+          approveSuccess: '請假申請已成功批准',
+          rejectSuccess: '請假申請已成功拒絕',
+          error: '錯誤',
+          remarksRequired: '請提供拒絕原因',
+          days: '天',
+          day: '天',
+          cancel: '取消',
+          confirm: '確認',
+          leaveNotFound: '未找到請假詳情',
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          employeeInfo: 'Employee Information',
+          employeeNo: 'Employee No:',
+          name: 'Name:',
+          leaveDetails: 'Leave Details',
+          leaveType: 'Leave Type:',
+          duration: 'Duration:',
+          leaveSessions: 'Leave Sessions:',
+          reason: 'Reason:',
+          approvalRemarks: 'Approval Remarks',
+          remarksPlaceholder: 'Enter remarks (required for rejection)',
+          reject: 'Reject',
+          approve: 'Approve',
+          confirmAction: 'Confirm Action',
+          approveConfirm: 'Are you sure you want to approve this leave application?',
+          rejectConfirm: 'Are you sure you want to reject this leave application?',
+          success: 'Success',
+          approveSuccess: 'Leave application approved successfully',
+          rejectSuccess: 'Leave application rejected successfully',
+          error: 'Error',
+          remarksRequired: 'Please provide remarks for rejection',
+          days: 'days',
+          day: 'day',
+          cancel: 'Cancel',
+          confirm: 'Confirm',
+          leaveNotFound: 'Leave detail not found',
+        }[key] || key;
+    }
+  };
+
+  const getTitle = (): string => {
+    switch (language) {
+      case 'ms':
+        return 'Lulus Permohonan Cuti';
+      case 'zh-Hans':
+        return '审批请假申请';
+      case 'zh-Hant':
+        return '審批請假申請';
+      default: // 'en'
+        return 'Approve Leave Application';
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+      title: getTitle(),
+    });
+  }, [navigation, theme, language]);
+
   const handleApprovalAction = async (action: 'approve' | 'reject') => {
     if (!remarks.trim() && action === 'reject') {
-      Alert.alert('Error', 'Please provide remarks for rejection');
+      Alert.alert(getLocalizedText('error'), getLocalizedText('remarksRequired'));
       return;
     }
 
-    const confirmationMessage = action === 'approve' 
-      ? 'Are you sure you want to approve this leave application?'
-      : 'Are you sure you want to reject this leave application?';
-
     Alert.alert(
-      'Confirm Action',
-      confirmationMessage,
+      getLocalizedText('confirmAction'),
+      action === 'approve' ? getLocalizedText('approveConfirm') : getLocalizedText('rejectConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => submitApprovalAction(action) }
+        { text: getLocalizedText('cancel'), style: 'cancel' },
+        { text: getLocalizedText('confirm'), onPress: () => submitApprovalAction(action) }
       ]
     );
   };
@@ -103,15 +282,15 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
       const data = await response.json();
       if (data.success) {
         Alert.alert(
-          'Success',
-          `Leave application ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          getLocalizedText('success'),
+          action === 'approve' ? getLocalizedText('approveSuccess') : getLocalizedText('rejectSuccess'),
+          [{ text: getLocalizedText('confirm'), onPress: () => navigation.goBack() }]
         );
       } else {
-        Alert.alert('Error', data.message || `Failed to ${action} leave application`);
+        Alert.alert(getLocalizedText('error'), data.message || `Failed to ${action} leave application`);
       }
     } catch (error) {
-      Alert.alert('Error', `An error occurred while ${action}ing the leave application`);
+      Alert.alert(getLocalizedText('error'), `An error occurred while ${action}ing the leave application`);
       console.error('Error:', error);
     } finally {
       setIsSubmitting(false);
@@ -130,74 +309,100 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
   if (!leaveDetail) {
     return (
       <View style={styles.messageContainer}>
-        <Text style={styles.messageText}>Leave detail not found</Text>
+        <Text style={styles.messageText}>{getLocalizedText('leaveNotFound')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView>
         {/* Employee Information Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Employee Information</Text>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {getLocalizedText('employeeInfo')}
+            </Text>
           </View>
           <View style={styles.cardContent}>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Employee No:</Text>
-              <Text style={styles.value}>{leaveDetail.employeeNo}</Text>
+              <Text style={[styles.label, { color: theme.subText }]}>
+                {getLocalizedText('employeeNo')}
+              </Text>
+              <Text style={[styles.value, { color: theme.text }]}>{leaveDetail.employeeNo}</Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Name:</Text>
-              <Text style={styles.value}>{leaveDetail.employeeName}</Text>
+              <Text style={[styles.label, { color: theme.subText }]}>
+                {getLocalizedText('name')}
+              </Text>
+              <Text style={[styles.value, { color: theme.text }]}>{leaveDetail.employeeName}</Text>
             </View>
           </View>
         </View>
 
         {/* Leave Details Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Leave Details</Text>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {getLocalizedText('leaveDetails')}
+            </Text>
           </View>
           <View style={styles.cardContent}>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Leave Type:</Text>
-              <Text style={styles.value}>{leaveDetail.leaveDescription}</Text>
+              <Text style={[styles.label, { color: theme.subText }]}>
+                {getLocalizedText('leaveType')}
+              </Text>
+              <Text style={[styles.value, { color: theme.text }]}>{leaveDetail.leaveDescription}</Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Duration:</Text>
-              <Text style={styles.value}>
+              <Text style={[styles.label, { color: theme.subText }]}>
+                {getLocalizedText('duration')}
+              </Text>
+              <Text style={[styles.value, { color: theme.text }]}>
                 {formatDate(leaveDetail.dateFrom)} - {formatDate(leaveDetail.dateTo)}
-                {'\n'}({leaveDetail.totalDay} {leaveDetail.totalDay > 1 ? 'days' : 'day'})
+                {'\n'}({leaveDetail.totalDay} {leaveDetail.totalDay > 1 ? getLocalizedText('days') : getLocalizedText('day')})
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Leave Sessions:</Text>
+              <Text style={[styles.label, { color: theme.subText }]}>
+                {getLocalizedText('leaveSessions')}
+              </Text>
               {leaveDetail.leaveDateList.map((leaveDate, index) => (
-                <Text key={index} style={styles.value}>
+                <Text key={index} style={[styles.value, { color: theme.text }]}>
                   {formatDate(leaveDate.date)} - {leaveDate.session}
                 </Text>
               ))}
             </View>
             {leaveDetail.reason && (
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Reason:</Text>
-                <Text style={styles.value}>{leaveDetail.reason}</Text>
+                <Text style={[styles.label, { color: theme.subText }]}>
+                  {getLocalizedText('reason')}
+                </Text>
+                <Text style={[styles.value, { color: theme.text }]}>{leaveDetail.reason}</Text>
               </View>
             )}
           </View>
         </View>
 
         {/* Remarks Input */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Approval Remarks</Text>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {getLocalizedText('approvalRemarks')}
+            </Text>
           </View>
           <View style={styles.cardContent}>
             <TextInput
-              style={styles.remarksInput}
-              placeholder="Enter remarks (required for rejection)"
+              style={[
+                styles.remarksInput, 
+                { 
+                  borderColor: theme.border,
+                  backgroundColor: theme.background,
+                  color: theme.text
+                }
+              ]}
+              placeholder={getLocalizedText('remarksPlaceholder')}
+              placeholderTextColor={theme.subText}
               value={remarks}
               onChangeText={setRemarks}
               multiline
@@ -218,7 +423,7 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
               style={[styles.actionIcon, styles.rejectIcon]}
             />
             <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-              Reject
+              {getLocalizedText('reject')}
             </Text>
           </TouchableOpacity>
 
@@ -232,15 +437,15 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
               style={[styles.actionIcon, styles.approveIcon]}
             />
             <Text style={[styles.actionButtonText, styles.approveButtonText]}>
-              Approve
+              {getLocalizedText('approve')}
             </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
       {isSubmitting && (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
+        <View style={[styles.overlay, { backgroundColor: theme.background + '80' }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       )}
     </View>
@@ -250,11 +455,9 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     padding: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 16,
     shadowColor: '#000',
@@ -266,12 +469,10 @@ const styles = StyleSheet.create({
   cardHeader: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
   },
   cardContent: {
     padding: 16,
@@ -281,22 +482,19 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
   value: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
   },
   remarksInput: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#333',
     textAlignVertical: 'top',
+    minHeight: 100,
   },
   actionButtonsContainer: {
     flexDirection: 'row',
@@ -362,7 +560,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },

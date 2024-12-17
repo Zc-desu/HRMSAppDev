@@ -137,6 +137,56 @@ const ViewPayslip = () => {
     }
   };
 
+  // Function to directly download the PDF
+  const downloadPdf = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('Authentication token missing');
+      }
+
+      const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
+      const downloadPath = Platform.OS === 'ios'
+        ? `${RNFetchBlob.fs.dirs.DocumentDir}/${fileName}`
+        : `${RNFetchBlob.fs.dirs.DownloadDir}/${fileName}`;
+
+      const response = await RNFetchBlob.config({
+        fileCache: false,
+        path: downloadPath,
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          title: fileName,
+          description: 'Downloading payslip...',
+          mime: 'application/pdf',
+        },
+      }).fetch('GET', fileUrl, {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/pdf',
+      });
+
+      const status = response.info().status;
+      if (status === 200) {
+        Alert.alert(
+          getLocalizedText('downloadComplete'),
+          getLocalizedText('downloadSuccess'),
+          [{ text: getLocalizedText('ok') }]
+        );
+      } else {
+        throw new Error(`Server returned status ${status}`);
+      }
+    } catch (err: any) {
+      console.error('Download error:', err);
+      Alert.alert(
+        getLocalizedText('downloadFailed'),
+        getLocalizedText('unableToSave')
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Function to fetch and display the PDF
   const fetchPdf = async () => {
     setLoading(true);
@@ -150,7 +200,6 @@ const ViewPayslip = () => {
       const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
       const tempPath = `${RNFetchBlob.fs.dirs.CacheDir}/temp_${fileName}`;
 
-      // Download PDF file
       const response = await RNFetchBlob.config({
         fileCache: true,
         path: tempPath,
@@ -188,32 +237,6 @@ const ViewPayslip = () => {
     };
   }, []);
 
-  // Download button handler
-  const handleDownload = async () => {
-    try {
-      if (!pdfUri) throw new Error('PDF not loaded');
-
-      const downloadPath = Platform.OS === 'ios'
-        ? `${RNFetchBlob.fs.dirs.DocumentDir}/${fileName}`
-        : `${RNFetchBlob.fs.dirs.DownloadDir}/${fileName}`;
-
-      await RNFetchBlob.fs.cp(pdfUri.replace('file://', ''), downloadPath);
-
-      Alert.alert(
-        getLocalizedText('downloadComplete'),
-        getLocalizedText('downloadSuccess'),
-        [{ text: getLocalizedText('ok') }]
-      );
-    } catch (err) {
-      console.error('Download error:', err);
-      Alert.alert(
-        getLocalizedText('downloadFailed'), 
-        getLocalizedText('unableToSave')
-      );
-    }
-  };
-
-  // Add header styling
   useLayoutEffect(() => {
     navigation.setOptions({
       title: getLocalizedText('viewPayslip'),
@@ -239,48 +262,66 @@ const ViewPayslip = () => {
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : error ? (
-        <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-      ) : pdfUri ? (
-        <View style={[styles.pdfContainer, { backgroundColor: theme.background }]}>
-          <Pdf
-            trustAllCerts={false}
-            source={{ uri: pdfUri, cache: true }}
-            style={[styles.pdf, { backgroundColor: theme.background }]}
-            onLoadComplete={(numberOfPages) => {
-              console.log(`Loaded ${numberOfPages} pages`);
-            }}
-            onError={(error) => {
-              console.error('PDF Error:', error);
-              setError('Error opening PDF');
-            }}
-            enablePaging={true}
-            renderActivityIndicator={() => (
-              <ActivityIndicator size="large" color={theme.primary} />
-            )}
-          />
+        <View style={styles.mainContainer}>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              onPress={downloadPdf}
+              style={[styles.downloadButton, { 
+                backgroundColor: theme.primary,
+                shadowColor: theme.shadowColor,
+              }]}
+            >
+              <Image
+                source={require('../../../../asset/img/icon/a-download.png')}
+                style={[styles.downloadIcon, { tintColor: theme.card }]}
+              />
+              <Text style={[styles.downloadButtonText, { color: theme.card }]}>
+                {getLocalizedText('downloadPayslip')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      ) : pdfUri ? (
+        <>
+          <View style={[styles.pdfContainer, { backgroundColor: theme.background }]}>
+            <Pdf
+              trustAllCerts={false}
+              source={{ uri: pdfUri, cache: true }}
+              style={[styles.pdf, { backgroundColor: theme.background }]}
+              onLoadComplete={(numberOfPages) => {
+                console.log(`Loaded ${numberOfPages} pages`);
+              }}
+              onError={(error) => {
+                console.error('PDF Error:', error);
+                setError(getLocalizedText('pdfError'));
+              }}
+              enablePaging={true}
+              renderActivityIndicator={() => (
+                <ActivityIndicator size="large" color={theme.primary} />
+              )}
+            />
+          </View>
+          <TouchableOpacity 
+            onPress={downloadPdf}
+            style={[styles.downloadButton, { 
+              backgroundColor: theme.primary,
+              shadowColor: theme.shadowColor,
+            }]}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-download.png')}
+              style={[styles.downloadIcon, { tintColor: theme.card }]}
+            />
+            <Text style={[styles.downloadButtonText, { color: theme.card }]}>
+              {getLocalizedText('downloadPayslip')}
+            </Text>
+          </TouchableOpacity>
+        </>
       ) : (
         <Text style={[styles.errorText, { color: theme.error }]}>
           {getLocalizedText('noPdf')}
         </Text>
-      )}
-
-      {pdfUri && (
-        <TouchableOpacity 
-          onPress={handleDownload} 
-          style={[styles.downloadButton, { 
-            backgroundColor: theme.primary,
-            shadowColor: theme.shadowColor,
-          }]}
-        >
-          <Image
-            source={require('../../../../asset/img/icon/a-download.png')}
-            style={[styles.downloadIcon, { tintColor: theme.card }]}
-          />
-          <Text style={[styles.downloadButtonText, { color: theme.card }]}>
-            {getLocalizedText('downloadPayslip')}
-          </Text>
-        </TouchableOpacity>
       )}
     </View>
   );
@@ -290,6 +331,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  mainContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 20,
   },
   header: {
     fontSize: 24,
@@ -319,11 +370,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 15,
     borderRadius: 10,
-    marginTop: 10,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    marginTop: 10,
   },
   downloadIcon: {
     width: 20,
@@ -336,7 +387,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     textAlign: 'center',
-    marginTop: 20,
+    fontSize: 16,
+    marginBottom: 20,
+    color: 'red',
   },
 });
 

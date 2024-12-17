@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
 
 interface LeaveDate {
   date: string;
@@ -33,25 +34,121 @@ type NavigationParams = {
   ApproveLeaveDetail: { leaveDetail: PendingLeave };
 };
 
+interface Translation {
+  pendingApprovals: string;
+  loading: string;
+  error: string;
+  noApprovals: string;
+  reason: string;
+  days: string;
+  day: string;
+  baseUrlMissing: string;
+  tokenMissing: string;
+  fetchError: string;
+  failedToFetch: string;
+}
+
 const ApproveLeaveApplicationListing = () => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const [pendingLeaves, setPendingLeaves] = useState<PendingLeave[]>([]);
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProp<NavigationParams>>();
+
+  const getLocalizedText = (key: keyof Translation): string => {
+    switch (language) {
+      case 'ms':
+        return {
+          pendingApprovals: 'Kelulusan Cuti',
+          loading: 'Memuatkan kelulusan tertunda...',
+          error: 'Ralat',
+          noApprovals: 'Tiada kelulusan tertunda.',
+          reason: 'Sebab:',
+          days: 'hari',
+          day: 'hari',
+          baseUrlMissing: 'URL asas tiada',
+          tokenMissing: 'Token pengguna tiada',
+          fetchError: 'Gagal mendapatkan data.',
+          failedToFetch: 'Gagal mendapatkan kelulusan tertunda.',
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          pendingApprovals: '请假审批',
+          loading: '正在加载待处理审批...',
+          error: '错误',
+          noApprovals: '没有待处理的审批。',
+          reason: '原因：',
+          days: '天',
+          day: '天',
+          baseUrlMissing: '基础URL缺失',
+          tokenMissing: '用户令牌缺失',
+          fetchError: '获取数据失败。',
+          failedToFetch: '获取待处理审批失败。',
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          pendingApprovals: '請假審批',
+          loading: '正在加載待處理審批...',
+          error: '錯誤',
+          noApprovals: '沒有待處理的審批。',
+          reason: '原因：',
+          days: '天',
+          day: '天',
+          baseUrlMissing: '基礎URL缺失',
+          tokenMissing: '用戶令牌缺失',
+          fetchError: '獲取數據失敗。',
+          failedToFetch: '獲取待處理審批失敗。',
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          pendingApprovals: 'Leave Approvals',
+          loading: 'Loading pending approvals...',
+          error: 'Error',
+          noApprovals: 'No pending approvals found.',
+          reason: 'Reason:',
+          days: 'days',
+          day: 'day',
+          baseUrlMissing: 'Base URL is missing',
+          tokenMissing: 'User token is missing',
+          fetchError: 'Failed to fetch data.',
+          failedToFetch: 'Failed to fetch pending leaves.',
+        }[key] || key;
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: getLocalizedText('pendingApprovals'),
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.text,
+      headerTitleStyle: {
+        color: theme.text,
+      },
+      headerShadowVisible: false,
+    });
+  }, [navigation, theme, language]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         if (!storedBaseUrl) {
-          Alert.alert('Error', 'Base URL is missing');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('baseUrlMissing'));
           return;
         }
         setBaseUrl(storedBaseUrl);
         fetchPendingLeaves(storedBaseUrl);
       } catch (error) {
-        Alert.alert('Error', 'Failed to fetch stored data.');
+        Alert.alert(getLocalizedText('error'), getLocalizedText('fetchError'));
       }
     };
     fetchInitialData();
@@ -70,7 +167,7 @@ const ApproveLeaveApplicationListing = () => {
       setIsLoading(true);
       const userToken = await AsyncStorage.getItem('userToken');
       if (!userToken) {
-        Alert.alert('Error', 'User token is missing');
+        Alert.alert(getLocalizedText('error'), getLocalizedText('tokenMissing'));
         return;
       }
 
@@ -91,13 +188,13 @@ const ApproveLeaveApplicationListing = () => {
           });
           setPendingLeaves(sortedData);
         } else {
-          Alert.alert('Error', 'Failed to fetch pending leaves.');
+          Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
         }
       } else {
-        Alert.alert('Error', 'Failed to fetch pending leaves.');
+        Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch pending leaves.');
+      Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
     } finally {
       setIsLoading(false);
     }
@@ -140,18 +237,43 @@ const ApproveLeaveApplicationListing = () => {
     });
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    if (baseUrl) {
+      fetchPendingLeaves(baseUrl).finally(() => {
+        setRefreshing(false);
+      });
+    } else {
+      setRefreshing(false);
+    }
+  }, [baseUrl]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.headerCard, { backgroundColor: theme.card }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Pending Approvals</Text>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {getLocalizedText('pendingApprovals')}
+        </Text>
       </View>
 
       <View style={styles.contentContainer}>
-        <ScrollView contentContainerStyle={styles.leaveList}>
-          {isLoading ? (
+        <ScrollView 
+          contentContainerStyle={styles.leaveList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+              progressBackgroundColor={theme.card}
+              progressViewOffset={20}
+            />
+          }
+        >
+          {isLoading && !refreshing ? (
             <View style={styles.messageContainer}>
               <Text style={[styles.messageText, { color: theme.subText }]}>
-                Loading pending approvals...
+                {getLocalizedText('loading')}
               </Text>
             </View>
           ) : pendingLeaves.length > 0 ? (
@@ -165,8 +287,15 @@ const ApproveLeaveApplicationListing = () => {
                   <Text style={[styles.leaveType, { color: theme.text }]}>
                     {leave.leaveDescription}
                   </Text>
-                  <View style={styles.employeeInfo}>
-                    <Text style={[styles.employeeNo, { color: theme.subText }]}>
+                  <View style={[styles.employeeInfo, { 
+                    backgroundColor: theme.primary + '20',
+                    borderWidth: 1,
+                    borderColor: theme.primary + '40'
+                  }]}>
+                    <Text style={[styles.employeeNo, { 
+                      color: theme.text,
+                      fontWeight: '600'
+                    }]}>
                       {leave.employeeNo}
                     </Text>
                   </View>
@@ -175,14 +304,16 @@ const ApproveLeaveApplicationListing = () => {
                 <View style={styles.leaveDates}>
                   <Text style={[styles.dateText, { color: theme.text }]}>
                     {formatDate(leave.dateFrom)} - {formatDate(leave.dateTo)}
-                    ({leave.totalDay} {leave.totalDay > 1 ? 'days' : 'day'})
+                    ({leave.totalDay} {leave.totalDay > 1 ? 
+                      getLocalizedText('days') : 
+                      getLocalizedText('day')})
                   </Text>
                 </View>
 
                 {leave.reason && (
                   <View style={styles.reasonContainer}>
                     <Text style={[styles.reasonLabel, { color: theme.subText }]}>
-                      Reason:
+                      {getLocalizedText('reason')}
                     </Text>
                     <Text style={[styles.reasonText, { color: theme.text }]}>
                       {leave.reason}
@@ -194,7 +325,7 @@ const ApproveLeaveApplicationListing = () => {
           ) : (
             <View style={styles.messageContainer}>
               <Text style={[styles.messageText, { color: theme.subText }]}>
-                No pending approvals found.
+                {getLocalizedText('noApprovals')}
               </Text>
             </View>
           )}
@@ -229,7 +360,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   leaveList: {
-    paddingBottom: 20,
+    padding: 16,
+    flexGrow: 1,
   },
   leaveCard: {
     backgroundColor: '#FFFFFF',
@@ -254,15 +386,12 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   employeeInfo: {
-    backgroundColor: '#E5E5EA',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   employeeNo: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
   },
   employeeName: {
     fontSize: 16,

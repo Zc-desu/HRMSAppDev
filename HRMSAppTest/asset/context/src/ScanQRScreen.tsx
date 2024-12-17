@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { Alert, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import QRCodeScanner from 'react-native-qrcode-scanner';
 import { RNCamera } from 'react-native-camera';
 import RNQRGenerator from 'rn-qr-generator';
@@ -8,12 +8,30 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingAnimation from '../anim/loadingAnimation';
 import { useTheme } from '../modules/setting/ThemeContext';
 import { useLanguage } from '../modules/setting/LanguageContext';
+import CustomAlert from '../modules/setting/CustomAlert';
+
+interface AlertButton {
+  text: string;
+  onPress: () => void;
+}
 
 const ScanQRScreen = ({ navigation, route }: any) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const [qrData, setQrData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: AlertButton[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+  const [scannedUrl, setScannedUrl] = useState<string>('');
 
   // Get login data from route.params (or set fallback values)
   const { username, password } = route.params || {};
@@ -23,8 +41,10 @@ const ScanQRScreen = ({ navigation, route }: any) => {
     const fetchScannedData = async () => {
       try {
         const storedData = await AsyncStorage.getItem('scannedData');
+        console.log('Fetched stored data:', storedData);
         if (storedData) {
           setQrData(storedData);
+          setScannedUrl(storedData);
         }
       } catch (error) {
         console.error('Error fetching stored QR data:', error);
@@ -34,13 +54,30 @@ const ScanQRScreen = ({ navigation, route }: any) => {
     fetchScannedData();
   }, []);
 
+  // Replace Alert.alert with showAlert function
+  const showAlert = (title: string, message: string, buttons: AlertButton[] = []) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length > 0 ? buttons : [
+        { 
+          text: getLocalizedText('ok'), 
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+        }
+      ],
+    });
+  };
+
   // Function to handle QR code scanning from the camera
   const onSuccess = async (e: any) => {
     setIsLoading(true);
     const scannedData = e.data;
+    console.log('Scanned data:', scannedData);
+    setScannedUrl(scannedData);
 
     if (!scannedData || !scannedData.includes('/apps/api')) {
-      Alert.alert(getLocalizedText('error'), getLocalizedText('invalidQR'));
+      showAlert(getLocalizedText('error'), getLocalizedText('invalidQR'));
       setIsLoading(false);
       return;
     }
@@ -50,13 +87,14 @@ const ScanQRScreen = ({ navigation, route }: any) => {
       const baseUrl = scannedData.split('/apps/api')[0];
       await AsyncStorage.setItem('baseUrl', baseUrl);
 
-      Alert.alert(
+      showAlert(
         getLocalizedText('qrScanned'),
         getLocalizedText('qrSuccess'),
         [
           {
             text: getLocalizedText('ok'),
             onPress: () => {
+              setAlertConfig(prev => ({ ...prev, visible: false }));
               setIsLoading(false);
               navigation.navigate('Login', { scannedData, baseUrl });
             },
@@ -65,7 +103,7 @@ const ScanQRScreen = ({ navigation, route }: any) => {
       );
     } catch (error) {
       console.error('Error saving QR data:', error);
-      Alert.alert(getLocalizedText('error'), getLocalizedText('processingError'));
+      showAlert(getLocalizedText('error'), getLocalizedText('processingError'));
       setIsLoading(false);
     }
   };
@@ -96,10 +134,12 @@ const ScanQRScreen = ({ navigation, route }: any) => {
             const { values } = detectedQRCodes;
             if (values && values.length > 0) {
               const detectedData = values[0];
+              console.log('Detected data from image:', detectedData);
+              setScannedUrl(detectedData);
 
               if (!detectedData.includes('/apps/api')) {
                 setIsLoading(false);
-                Alert.alert(getLocalizedText('error'), getLocalizedText('invalidQR'));
+                showAlert(getLocalizedText('error'), getLocalizedText('invalidQR'));
                 return;
               }
 
@@ -110,13 +150,14 @@ const ScanQRScreen = ({ navigation, route }: any) => {
 
               console.log('Saved detectedData from image:', detectedData);
 
-              Alert.alert(
+              showAlert(
                 getLocalizedText('qrScanned'),
                 getLocalizedText('qrSuccess'),
                 [
                   {
                     text: getLocalizedText('ok'),
                     onPress: () => {
+                      setAlertConfig(prev => ({ ...prev, visible: false }));
                       setIsLoading(false);
                       navigation.navigate('Login', { scannedData: detectedData, baseUrl });
                     },
@@ -126,19 +167,19 @@ const ScanQRScreen = ({ navigation, route }: any) => {
             } else {
               setQrData('QR code not found');
               setIsLoading(false);
-              Alert.alert(getLocalizedText('error'), getLocalizedText('noQrFound'));
+              showAlert(getLocalizedText('error'), getLocalizedText('noQrFound'));
             }
           })
           .catch((error) => {
             console.error('QR detection error:', error);
             setQrData('Error decoding QR from image');
             setIsLoading(false);
-            Alert.alert(getLocalizedText('error'), getLocalizedText('processingError'));
+            showAlert(getLocalizedText('error'), getLocalizedText('processingError'));
           });
       } else {
         setQrData('No base64 data available');
         setIsLoading(false);
-        Alert.alert(getLocalizedText('error'), getLocalizedText('processingError'));
+        showAlert(getLocalizedText('error'), getLocalizedText('processingError'));
       }
     });
   };
@@ -174,6 +215,8 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           scanInstructions: 'Sila imbas kod QR yang disediakan oleh pentadbir HR anda',
           selectFromGallery: 'Pilih dari Galeri',
           goBack: 'Kembali',
+          scannedUrl: 'URL Diimbas:',
+          noUrlScanned: 'Tiada URL diimbas lagi',
           error: 'Ralat',
           success: 'Berjaya',
           invalidQR: 'Format kod QR tidak sah.',
@@ -190,6 +233,8 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           scanInstructions: '请扫描人力资源管理员提供的二维码',
           selectFromGallery: '从相册选择',
           goBack: '返回',
+          scannedUrl: '扫描网址:',
+          noUrlScanned: '尚未扫描网址',
           error: '错误',
           success: '成功',
           invalidQR: '无效的二维码格式。',
@@ -206,6 +251,8 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           scanInstructions: '請掃描人力資源管理員提供的二維碼',
           selectFromGallery: '從相冊選擇',
           goBack: '返回',
+          scannedUrl: '掃描網址:',
+          noUrlScanned: '尚未掃描網址',
           error: '錯誤',
           success: '成功',
           invalidQR: '無效的二維碼格式。',
@@ -222,6 +269,8 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           scanInstructions: 'Please scan the QR code provided by your HR administrator',
           selectFromGallery: 'Select from Gallery',
           goBack: 'Go Back',
+          scannedUrl: 'Scanned URL:',
+          noUrlScanned: 'No URL scanned yet',
           error: 'Error',
           success: 'Success',
           invalidQR: 'Invalid QR Code format.',
@@ -262,6 +311,16 @@ const ScanQRScreen = ({ navigation, route }: any) => {
         />
       </View>
 
+      {/* URL Display Section */}
+      <View style={[styles.urlCard, { backgroundColor: theme.card }]}>
+        <Text style={[styles.urlLabel, { color: theme.subText }]}>
+          {getLocalizedText('scannedUrl')}
+        </Text>
+        <Text style={[styles.urlText, { color: theme.text }]} numberOfLines={2} ellipsizeMode="tail">
+          {qrData || scannedUrl || getLocalizedText('noUrlScanned')}
+        </Text>
+      </View>
+
       {/* Action Buttons */}
       <View style={styles.actionContainer}>
         <TouchableOpacity 
@@ -291,6 +350,15 @@ const ScanQRScreen = ({ navigation, route }: any) => {
           <LoadingAnimation />
         </View>
       )}
+
+      {/* Add CustomAlert component */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -351,8 +419,9 @@ const styles = StyleSheet.create({
   },
   actionContainer: {
     gap: 12,
-    marginTop: 'auto',
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 34,
+    paddingHorizontal: 16,
   },
   actionButton: {
     borderRadius: 12,
@@ -360,7 +429,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1, // Add border width
+    borderWidth: 0,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -391,6 +460,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  urlCard: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  urlLabel: {
+    fontSize: 16,
+    marginBottom: 2,
+    color: '#666',
+    fontWeight: '600',
+  },
+  urlText: {
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 18,
   },
 });
 
