@@ -489,17 +489,32 @@ const ATShowMap = ({ route, navigation }: Props) => {
 
   const requestLocationPermission = async () => {
     try {
-      const permission = Platform.select({
-        android: PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
-        ios: PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
+      const permissions = Platform.select({
+        android: [
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+          PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION
+        ],
+        ios: [PERMISSIONS.IOS.LOCATION_WHEN_IN_USE],
       });
 
-      if (!permission) return false;
+      if (!permissions) return false;
 
-      const result = await check(permission);
-      
+      // For Android, check both permissions
+      if (Platform.OS === 'android') {
+        const results = await Promise.all(permissions.map(permission => check(permission)));
+        
+        if (results.includes(RESULTS.DENIED)) {
+          const permissionResults = await Promise.all(permissions.map(permission => request(permission)));
+          return !permissionResults.includes(RESULTS.DENIED);
+        }
+
+        return !results.includes(RESULTS.DENIED);
+      }
+
+      // For iOS, continue with single permission check
+      const result = await check(permissions[0]);
       if (result === RESULTS.DENIED) {
-        const permissionResult = await request(permission);
+        const permissionResult = await request(permissions[0]);
         return permissionResult === RESULTS.GRANTED;
       }
 
@@ -508,6 +523,20 @@ const ATShowMap = ({ route, navigation }: Props) => {
       console.error('Error checking location permission:', error);
       return false;
     }
+  };
+
+  const checkLocationServices = () => {
+    return new Promise((resolve) => {
+      Geolocation.getCurrentPosition(
+        () => resolve(true),
+        () => resolve(false),
+        { 
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    });
   };
 
   const webViewRef = useRef<WebView>(null);
@@ -524,10 +553,22 @@ const ATShowMap = ({ route, navigation }: Props) => {
     let watchId: number;
 
     const setupLocation = async () => {
-      const hasPermission = await requestLocationPermission();
-      
-      if (hasPermission) {
-        // Get initial position
+      try {
+        const hasPermission = await requestLocationPermission();
+        const isLocationEnabled = await checkLocationServices();
+        
+        setIsGPSEnabled(isLocationEnabled as boolean);
+        
+        if (!hasPermission || !isLocationEnabled) {
+          setIsLocationLoading(false);
+          showAlert(
+            t.gpsNotAvailable, 
+            'Please enable location services and grant location permissions to use this feature'
+          );
+          return;
+        }
+
+        // Get initial position with more aggressive settings
         Geolocation.getCurrentPosition(
           (position) => {
             const newLocation = {
@@ -540,13 +581,18 @@ const ATShowMap = ({ route, navigation }: Props) => {
             setIsLocationLoading(false);
           },
           (error) => {
-            console.log(error);
+            console.error('Location error:', error);
             setIsLocationLoading(false);
+            showAlert(t.errorTitle, 'Unable to get your location. Please check your GPS settings.');
           },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          { 
+            enableHighAccuracy: true,
+            timeout: 30000,
+            maximumAge: 0
+          }
         );
 
-        // Watch position changes
+        // Watch position changes with more aggressive settings
         watchId = Geolocation.watchPosition(
           (position) => {
             const newLocation = {
@@ -558,10 +604,18 @@ const ATShowMap = ({ route, navigation }: Props) => {
             checkLocationRange(newLocation);
             updateWebViewLocation(newLocation.latitude, newLocation.longitude);
           },
-          (error) => console.log(error),
-          { enableHighAccuracy: true, distanceFilter: 10 }
+          (error) => {
+            console.error('Watch position error:', error);
+          },
+          { 
+            enableHighAccuracy: true, 
+            distanceFilter: 5, // Update more frequently
+            timeout: 30000,
+            maximumAge: 1000
+          }
         );
-      } else {
+      } catch (error) {
+        console.error('Setup location error:', error);
         setIsLocationLoading(false);
       }
     };

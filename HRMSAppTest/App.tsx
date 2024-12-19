@@ -39,6 +39,7 @@ import ATPendingApplicationDetails from './asset/context/modules/attendance/ATPe
 import OTApplicationListing from './asset/context/modules/attendance/OTApplicationListing';
 import OTApplicationDetails from './asset/context/modules/attendance/OTApplicationDetails';
 import OTCreateApplication from './asset/context/modules/attendance/OTCreateApplication';
+import OTCancelApplication from './asset/context/modules/attendance/OTCancelApplication';
 // Import Approve Module
 import ApproveManagement from './asset/context/modules/approve/ApproveManagement';
 
@@ -406,6 +407,19 @@ const App = () => {
               component={OTCreateApplication}
               options={{
                 title: 'Create Overtime',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTCancelApplication"
+              component={OTCancelApplication}
+              options={{
+                title: 'Cancel Overtime Application',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

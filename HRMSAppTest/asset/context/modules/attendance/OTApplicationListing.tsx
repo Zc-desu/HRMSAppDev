@@ -41,6 +41,7 @@ const translations = {
     rejected: 'Rejected',
     hours: 'hours',
     fetchError: 'Failed to fetch overtime records',
+    pendingCancellation: 'Pending Cancellation',
   },
   'ms': {
     title: 'Sejarah Kerja Lebih Masa',
@@ -55,6 +56,7 @@ const translations = {
     rejected: 'Ditolak',
     hours: 'jam',
     fetchError: 'Gagal mendapatkan rekod kerja lebih masa',
+    pendingCancellation: 'Menunggu Pembatalan',
   },
   'zh-Hans': {
     title: '加班记录',
@@ -69,6 +71,7 @@ const translations = {
     rejected: '已拒绝',
     hours: '小时',
     fetchError: '获取加班记录失败',
+    pendingCancellation: '等待取消',
   },
   'zh-Hant': {
     title: '加班紀錄',
@@ -83,6 +86,7 @@ const translations = {
     rejected: '已拒絕',
     hours: '小時',
     fetchError: '獲取加班紀錄失敗',
+    pendingCancellation: '等待取消',
   }
 };
 
@@ -188,6 +192,8 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
         return theme.warning;
       case 'R':
         return theme.error;
+      case 'C':
+        return '#FF9500';
       default:
         return theme.subText;
     }
@@ -304,8 +310,15 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
                 <Text style={styles.dateText}>
                   {formatDate(app.attendanceDate)}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: app.approvalStatus === 'P' ? '#FFB800' : getStatusColor(app.approvalStatus) }]}>
-                  <Text style={styles.statusText}>{app.approvalStatusDisplay}</Text>
+                <View style={[
+                  styles.statusBadge, 
+                  { backgroundColor: app.approvalStatus === 'P' ? '#FFB800' : getStatusColor(app.approvalStatus) }
+                ]}>
+                  <Text style={[styles.statusText, { color: '#FFFFFF' }]}>
+                    {app.approvalStatusDisplay === 'PendingCancellation' 
+                      ? t.pendingCancellation 
+                      : app.approvalStatusDisplay}
+                  </Text>
                 </View>
               </View>
               <View style={styles.timeRow}>
@@ -417,7 +430,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   statusText: {
-    color: '#000000',
     fontSize: 14,
     fontWeight: '600',
   },

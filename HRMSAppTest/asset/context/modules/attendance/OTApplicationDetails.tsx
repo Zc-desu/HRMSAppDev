@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
@@ -50,7 +51,9 @@ const translations = {
     approvedBy: 'Approved By',
     reason: 'Reason',
     hours: 'hours',
-    notApplicable: 'N/A'
+    notApplicable: 'N/A',
+    cancel: 'Cancel Application',
+    pendingCancellation: 'Pending Cancellation',
   },
   'ms': {
     title: 'Butiran Kerja Lebih Masa',
@@ -68,7 +71,9 @@ const translations = {
     approvedBy: 'Diluluskan Oleh',
     reason: 'Sebab',
     hours: 'jam',
-    notApplicable: 'N/A'
+    notApplicable: 'N/A',
+    cancel: 'Batal Permohonan',
+    pendingCancellation: 'Menunggu Pembatalan',
   },
   'zh-Hans': {
     title: '加班详情',
@@ -82,11 +87,13 @@ const translations = {
     employee: '员工',
     department: '部门',
     costCenter: '成本中心',
-    division: '部���',
+    division: '部门',
     approvedBy: '审批人',
     reason: '原因',
     hours: '小时',
-    notApplicable: '不适用'
+    notApplicable: '不适用',
+    cancel: '取消申请',
+    pendingCancellation: '等待取消',
   },
   'zh-Hant': {
     title: '加班詳情',
@@ -104,7 +111,9 @@ const translations = {
     approvedBy: '審批人',
     reason: '原因',
     hours: '小時',
-    notApplicable: '不適用'
+    notApplicable: '不適用',
+    cancel: '取消申請',
+    pendingCancellation: '等待取消',
   }
 };
 
@@ -238,9 +247,21 @@ const OTApplicationDetails = ({ route, navigation }: any) => {
               </Text>
               <View style={[
                 styles.statusBadge,
-                { backgroundColor: details.approvalStatus === 'P' ? '#FFB800' : '#34C759' }
+                { 
+                  backgroundColor: details.approvalStatus === 'P' ? '#FFB800' : // Yellow/Orange for Pending
+                    details.approvalStatus === 'A' ? '#34C759' : // Green for Approved
+                    details.approvalStatus === 'C' ? '#FF9500' : // Orange for Pending Cancellation
+                    '#FF4444'  // Red for Rejected
+                }
               ]}>
-                <Text style={styles.statusText}>{details.approvalStatusDisplay}</Text>
+                <Text style={[
+                  styles.statusText, 
+                  { color: '#FFFFFF' }  // Always white text for all statuses
+                ]}>
+                  {details.approvalStatusDisplay === 'PendingCancellation' 
+                    ? t.pendingCancellation 
+                    : details.approvalStatusDisplay}
+                </Text>
               </View>
             </View>
 
@@ -260,6 +281,18 @@ const OTApplicationDetails = ({ route, navigation }: any) => {
           </>
         )}
       </View>
+
+      {details && ['P', 'A', 'C'].includes(details.approvalStatus) && (
+        <TouchableOpacity
+          style={[styles.cancelButton, { backgroundColor: theme.error }]}
+          onPress={() => navigation.navigate('OTCancelApplication', {
+            applicationId: details.id,
+            status: details.approvalStatus
+          })}
+        >
+          <Text style={styles.cancelButtonText}>{t.cancel}</Text>
+        </TouchableOpacity>
+      )}
 
       <CustomAlert
         visible={alertConfig.visible}
@@ -301,13 +334,12 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
   statusText: {
-    color: '#000000',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   content: {
     padding: 16,
@@ -322,6 +354,17 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  cancelButton: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
