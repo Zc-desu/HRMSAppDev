@@ -40,6 +40,8 @@ import OTApplicationListing from './asset/context/modules/attendance/OTApplicati
 import OTApplicationDetails from './asset/context/modules/attendance/OTApplicationDetails';
 import OTCreateApplication from './asset/context/modules/attendance/OTCreateApplication';
 import OTCancelApplication from './asset/context/modules/attendance/OTCancelApplication';
+import OTPendingApplicationListing from './asset/context/modules/attendance/OTPendingApplicationListing';
+import OTPendingApplicationDetails from './asset/context/modules/attendance/OTPendingApplicationDetails';
 // Import Approve Module
 import ApproveManagement from './asset/context/modules/approve/ApproveManagement';
 
@@ -420,6 +422,32 @@ const App = () => {
               component={OTCancelApplication}
               options={{
                 title: 'Cancel Overtime Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTPendingApplicationListing"
+              component={OTPendingApplicationListing}
+              options={{
+                title: 'Pending Overtime Application',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="OTPendingApplicationDetails"
+              component={OTPendingApplicationDetails}
+              options={{
+                title: 'Pending Overtime Application Details',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

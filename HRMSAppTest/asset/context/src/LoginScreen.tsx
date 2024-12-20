@@ -233,7 +233,6 @@ const LoginScreen = ({ navigation }: any) => {
       headers: { 'Content-Type': 'application/json' },
     })
       .then((response) => {
-        console.log('Login Response:', response);
         if (!response.ok) {
           throw new Error(response.statusText || 'Login failed');
         }

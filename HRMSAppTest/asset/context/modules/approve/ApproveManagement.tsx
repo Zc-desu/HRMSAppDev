@@ -2,18 +2,72 @@ import React, { useLayoutEffect, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface Translation {
   approvalManagement: string;
   approval: string;
   leaveApprovals: string;
   attendanceApprovals: string;
+  overtimeApprovals: string;
 }
 
 const ApproveManagement = ({ navigation }: any) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState({
+    leave: 0,
+    attendance: 0,
+    overtime: 0
+  });
+
+  const fetchCounts = async () => {
+    try {
+      setLoading(true);
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const token = await AsyncStorage.getItem('userToken');
+
+      if (!baseUrl || !token) {
+        throw new Error('Missing baseUrl or token');
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      };
+
+      // Fetch all three counts in parallel
+      const [leaveRes, attendanceRes, overtimeRes] = await Promise.all([
+        fetch(`${baseUrl}/apps/api/v1/leaves/approvals/pending-applications`, { headers }),
+        fetch(`${baseUrl}/apps/api/v1/attendance/time-logs/pending-applications`, { headers }),
+        fetch(`${baseUrl}/apps/api/v1/overtime/approvals/pending-applications`, { headers })
+      ]);
+
+      const [leaveData, attendanceData, overtimeData] = await Promise.all([
+        leaveRes.json(),
+        attendanceRes.json(),
+        overtimeRes.json()
+      ]);
+
+      setCounts({
+        leave: leaveData.success ? leaveData.data.length : 0,
+        attendance: attendanceData.success ? attendanceData.data.length : 0,
+        overtime: overtimeData.success ? overtimeData.data.length : 0
+      });
+    } catch (error) {
+      console.error('Error fetching counts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchCounts();
+    }, [])
+  );
 
   const getLocalizedText = (key: keyof Translation): string => {
     switch (language) {
@@ -23,6 +77,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approval: 'Kelulusan',
           leaveApprovals: 'Kelulusan Cuti',
           attendanceApprovals: 'Kelulusan Kehadiran',
+          overtimeApprovals: 'Kelulusan Kerja Lebih Masa',
         }[key] || key;
 
       case 'zh-Hans':
@@ -31,6 +86,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approval: '审批',
           leaveApprovals: '请假审批',
           attendanceApprovals: '考勤审批',
+          overtimeApprovals: '加班审批',
         }[key] || key;
 
       case 'zh-Hant':
@@ -39,6 +95,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approval: '審批',
           leaveApprovals: '請假審批',
           attendanceApprovals: '考勤審批',
+          overtimeApprovals: '加班審批',
         }[key] || key;
 
       default: // 'en'
@@ -47,6 +104,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approval: 'Approval',
           leaveApprovals: 'Leave Approvals',
           attendanceApprovals: 'Attendance Approvals',
+          overtimeApprovals: 'Overtime Approvals',
         }[key] || key;
     }
   };
@@ -72,11 +130,19 @@ const ApproveManagement = ({ navigation }: any) => {
       title: getLocalizedText('leaveApprovals'),
       screen: 'ApproveLeaveApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
+      count: counts.leave
     },
     {
       title: getLocalizedText('attendanceApprovals'),
       screen: 'ATPendingApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
+      count: counts.attendance
+    },
+    {
+      title: getLocalizedText('overtimeApprovals'),
+      screen: 'OTPendingApplicationListing',
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+      count: counts.overtime
     },
   ];
 
@@ -97,19 +163,20 @@ const ApproveManagement = ({ navigation }: any) => {
         {menuItems.map((item, index) => (
           <TouchableOpacity
             key={index}
-            style={[
-              styles.menuCard,
-              {
-                backgroundColor: theme.card,
-                shadowColor: theme.shadowColor,
-              }
-            ]}
+            style={[styles.menuCard, { backgroundColor: theme.card }]}
             onPress={() => navigation.navigate(item.screen)}
           >
             <View style={styles.menuContent}>
-              <Text style={[styles.menuText, { color: theme.text }]}>
-                {item.title}
-              </Text>
+              <View style={styles.menuTextContainer}>
+                <Text style={[styles.menuText, { color: theme.text }]}>
+                  {item.title}
+                </Text>
+                {item.count > 0 && (
+                  <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+                    <Text style={styles.badgeText}>{item.count}</Text>
+                  </View>
+                )}
+              </View>
               <Image
                 source={item.icon}
                 style={[styles.icon, { tintColor: theme.primary }]}
@@ -162,6 +229,24 @@ const styles = StyleSheet.create({
   icon: {
     width: 20,
     height: 20,
+  },
+  menuTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

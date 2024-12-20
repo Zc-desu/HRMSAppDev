@@ -40,6 +40,7 @@ interface Translation {
   error: string;
   pdfError: string;
   viewPayslip: string;
+  downloadingPayslip: string;
 }
 
 const ViewPayslip = () => {
@@ -71,6 +72,7 @@ const ViewPayslip = () => {
           error: 'Ralat',
           pdfError: 'Ralat membuka PDF',
           viewPayslip: 'Lihat Slip Gaji',
+          downloadingPayslip: 'Mengunduh slip gaji',
         }[key] || key;
 
       case 'zh-Hans':
@@ -86,6 +88,7 @@ const ViewPayslip = () => {
           error: '错误',
           pdfError: '打开PDF时出错',
           viewPayslip: '查看工资单',
+          downloadingPayslip: '正在下载工资单',
         }[key] || key;
 
       case 'zh-Hant':
@@ -101,6 +104,7 @@ const ViewPayslip = () => {
           error: '錯誤',
           pdfError: '打開PDF時出錯',
           viewPayslip: '查看工資單',
+          downloadingPayslip: '正在下載工資單',
         }[key] || key;
 
       default: // 'en'
@@ -116,71 +120,89 @@ const ViewPayslip = () => {
           error: 'Error',
           pdfError: 'Error opening PDF',
           viewPayslip: 'View Payslip',
+          downloadingPayslip: 'Downloading payslip',
         }[key] || key;
     }
   };
 
   // Update formatDate function
   const formatDate = (date: string) => {
-    const formattedDate = new Date(date);
-    const year = formattedDate.getFullYear();
-    const month = formattedDate.getMonth() + 1;
+    // Create date from YYYY-MM-DD format
+    const [year, month] = date.split('-');
+    const monthIndex = parseInt(month) - 1;
 
     switch (language) {
       case 'zh-Hans':
-        return `${year}年${month}月`;
       case 'zh-Hant':
         return `${year}年${month}月`;
       default:
-        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long' };
-        return new Intl.DateTimeFormat('en-US', options).format(formattedDate);
+        const months = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        return `${months[monthIndex]} ${year}`;
     }
   };
 
-  // Function to directly download the PDF
+  // Function to download the PDF
   const downloadPdf = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        throw new Error('Authentication token missing');
-      }
+      if (!token) throw new Error('User token is missing');
 
-      const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
-      const downloadPath = Platform.OS === 'ios'
-        ? `${RNFetchBlob.fs.dirs.DocumentDir}/${fileName}`
-        : `${RNFetchBlob.fs.dirs.DownloadDir}/${fileName}`;
-
+      // Format the date to YYYY-MM-DD
+      const formattedDate = payrollDate.split('T')[0];
+      
+      const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${formattedDate}`;
+      console.log('Downloading from URL:', fileUrl); // Debug log
+      
+      const downloadDir = Platform.OS === 'ios' 
+        ? RNFetchBlob.fs.dirs.DocumentDir 
+        : RNFetchBlob.fs.dirs.DownloadDir;
+      
+      console.log('Starting download...'); // Debug log
       const response = await RNFetchBlob.config({
-        fileCache: false,
-        path: downloadPath,
+        fileCache: true,
+        path: `${downloadDir}/${fileName}`,
+        timeout: 120000, // 2 minutes timeout
         addAndroidDownloads: {
           useDownloadManager: true,
           notification: true,
           title: fileName,
-          description: 'Downloading payslip...',
+          description: getLocalizedText('downloadingPayslip'),
           mime: 'application/pdf',
+          mediaScannable: true,
         },
+        Progress: {
+          count: 1,
+          interval: 250
+        }
       }).fetch('GET', fileUrl, {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/pdf',
+        'Cache-Control': 'no-store',
       });
 
-      const status = response.info().status;
-      if (status === 200) {
+      console.log('Download response status:', response.info().status); // Debug log
+
+      if (response.info().status === 200) {
+        if (Platform.OS === 'ios') {
+          await RNFetchBlob.ios.previewDocument(response.path());
+        }
         Alert.alert(
           getLocalizedText('downloadComplete'),
           getLocalizedText('downloadSuccess'),
           [{ text: getLocalizedText('ok') }]
         );
       } else {
-        throw new Error(`Server returned status ${status}`);
+        throw new Error(`Server returned status ${response.info().status}`);
       }
     } catch (err: any) {
       console.error('Download error:', err);
       Alert.alert(
         getLocalizedText('downloadFailed'),
-        getLocalizedText('unableToSave')
+        err.message || getLocalizedText('unableToSave')
       );
     } finally {
       setLoading(false);
@@ -195,19 +217,26 @@ const ViewPayslip = () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) throw new Error('User token is missing');
-      setUserToken(token);
 
+      // No need to format the date again as it's already in correct format
       const fileUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/payslips/${payrollType}/${payrollDate}`;
+      console.log('Fetching from URL:', fileUrl); // Debug log
+      
       const tempPath = `${RNFetchBlob.fs.dirs.CacheDir}/temp_${fileName}`;
 
+      console.log('Starting fetch...'); // Debug log
       const response = await RNFetchBlob.config({
         fileCache: true,
         path: tempPath,
         appendExt: 'pdf',
+        timeout: 120000,
       }).fetch('GET', fileUrl, {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/pdf',
+        'Cache-Control': 'no-store',
       });
+
+      console.log('Fetch response status:', response.info().status); // Debug log
 
       if (response.info().status === 200) {
         const path = Platform.OS === 'ios'
@@ -215,15 +244,25 @@ const ViewPayslip = () => {
           : response.path();
         setPdfUri(path);
       } else {
-        throw new Error('Failed to download payslip');
+        throw new Error(`Failed to download payslip (Status: ${response.info().status})`);
       }
     } catch (err) {
       console.error('Payslip fetch error:', err);
-      setError('Error fetching payslip.');
+      setError(getLocalizedText('pdfError'));
     } finally {
       setLoading(false);
     }
   };
+
+  // Add loading indicator component
+  const LoadingIndicator = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={theme.primary} />
+      <Text style={[styles.loadingText, { color: theme.text }]}>
+        {getLocalizedText('loading')}
+      </Text>
+    </View>
+  );
 
   // Initial load
   useEffect(() => {
@@ -258,9 +297,7 @@ const ViewPayslip = () => {
       <Text style={[styles.header, { color: theme.text }]}>{formatDate(payrollDate)}</Text>
 
       {loading ? (
-        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
+        <LoadingIndicator />
       ) : error ? (
         <View style={styles.mainContainer}>
           <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
@@ -390,6 +427,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     color: 'red',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
   },
 });
 

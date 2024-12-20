@@ -65,6 +65,24 @@ interface Translation {
   cancel: string;
   confirm: string;
   leaveNotFound: string;
+  enterRejectReason: string;
+  approvalStatus: string;
+  approvalLevel: string;
+  approver: string;
+  decision: string;
+  respondDate: string;
+  pending: string;
+  approved: string;
+  rejected: string;
+  cancelled: string;
+}
+
+interface ApprovalStatus {
+  approvalLevel: number;
+  approval: string;
+  respondDate: string | null;
+  approvalDecision: string;
+  reason: string | null;
 }
 
 const ApproveLeaveDetail = ({ route, navigation }: any) => {
@@ -75,6 +93,8 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [baseUrl, setBaseUrl] = useState<string>('');
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus[]>([]);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -87,6 +107,35 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
     };
     initializeData();
   }, []);
+
+  const fetchApprovalStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/employees/${leaveDetail.employeeId}/leaves/${leaveDetail.applicationId}/approval-status?ApprovalAction=${leaveDetail.actionType}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setApprovalStatus(result.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching approval status:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (baseUrl && leaveDetail) {
+      fetchApprovalStatus();
+    }
+  }, [baseUrl, leaveDetail]);
 
   const getLocalizedText = (key: keyof Translation): string => {
     switch (language) {
@@ -117,6 +166,16 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
           cancel: 'Batal',
           confirm: 'Sahkan',
           leaveNotFound: 'Butiran cuti tidak dijumpai',
+          enterRejectReason: 'Masukkan alasan penolakan',
+          approvalStatus: 'Status Kelulusan',
+          approvalLevel: 'Peringkat Kelulusan',
+          approver: 'Pelulus',
+          decision: 'Keputusan',
+          respondDate: 'Tarikh Respons',
+          pending: 'Dalam Proses',
+          approved: 'Diluluskan',
+          rejected: 'Ditolak',
+          cancelled: 'Dibatalkan'
         }[key] || key;
 
       case 'zh-Hans':
@@ -146,6 +205,16 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
           cancel: '取消',
           confirm: '确认',
           leaveNotFound: '未找到请假详情',
+          enterRejectReason: '请输入拒绝原因',
+          approvalStatus: '审批状态',
+          approvalLevel: '审批级别',
+          approver: '审批人',
+          decision: '决定',
+          respondDate: '响应日期',
+          pending: '待处理',
+          approved: '已批准',
+          rejected: '已拒绝',
+          cancelled: '已取消'
         }[key] || key;
 
       case 'zh-Hant':
@@ -163,7 +232,7 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
           reject: '拒絕',
           approve: '批准',
           confirmAction: '確認操作',
-          approveConfirm: '確定要批准這個��假申請嗎？',
+          approveConfirm: '確定要批准這個請假申請嗎？',
           rejectConfirm: '確定要拒絕這個請假申請嗎？',
           success: '成功',
           approveSuccess: '請假申請已成功批准',
@@ -175,6 +244,16 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
           cancel: '取消',
           confirm: '確認',
           leaveNotFound: '未找到請假詳情',
+          enterRejectReason: '輸入拒絕原因',
+          approvalStatus: '審批狀態',
+          approvalLevel: '審批級別',
+          approver: '審批人',
+          decision: '決定',
+          respondDate: '回應日期',
+          pending: '待處理',
+          approved: '已批准',
+          rejected: '已拒絕',
+          cancelled: '已取消'
         }[key] || key;
 
       default: // 'en'
@@ -204,6 +283,16 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
           cancel: 'Cancel',
           confirm: 'Confirm',
           leaveNotFound: 'Leave detail not found',
+          enterRejectReason: 'Enter rejection reason',
+          approvalStatus: 'Approval Status',
+          approvalLevel: 'Approval Level',
+          approver: 'Approver',
+          decision: 'Decision',
+          respondDate: 'Respond Date',
+          pending: 'Pending',
+          approved: 'Approved',
+          rejected: 'Rejected',
+          cancelled: 'Cancelled'
         }[key] || key;
     }
   };
@@ -240,17 +329,35 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
   }, [navigation, theme, language]);
 
   const handleApprovalAction = async (action: 'approve' | 'reject') => {
-    if (!remarks.trim() && action === 'reject') {
+    if (action === 'approve') {
+      Alert.alert(
+        getLocalizedText('confirmAction'),
+        getLocalizedText('approveConfirm'),
+        [
+          { text: getLocalizedText('cancel'), style: 'cancel' },
+          { text: getLocalizedText('confirm'), onPress: () => submitApprovalAction('approve') }
+        ]
+      );
+    } else {
+      setShowRejectInput(true);
+    }
+  };
+
+  const handleRejectSubmit = () => {
+    if (!remarks.trim()) {
       Alert.alert(getLocalizedText('error'), getLocalizedText('remarksRequired'));
       return;
     }
 
     Alert.alert(
       getLocalizedText('confirmAction'),
-      action === 'approve' ? getLocalizedText('approveConfirm') : getLocalizedText('rejectConfirm'),
+      getLocalizedText('rejectConfirm'),
       [
         { text: getLocalizedText('cancel'), style: 'cancel' },
-        { text: getLocalizedText('confirm'), onPress: () => submitApprovalAction(action) }
+        { 
+          text: getLocalizedText('confirm'), 
+          onPress: () => submitApprovalAction('reject')
+        }
       ]
     );
   };
@@ -383,64 +490,178 @@ const ApproveLeaveDetail = ({ route, navigation }: any) => {
             )}
           </View>
         </View>
-
-        {/* Remarks Input */}
         <View style={[styles.card, { backgroundColor: theme.card }]}>
           <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
             <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {getLocalizedText('approvalRemarks')}
+              {getLocalizedText('approvalStatus')}
             </Text>
           </View>
           <View style={styles.cardContent}>
-            <TextInput
-              style={[
-                styles.remarksInput, 
-                { 
-                  borderColor: theme.border,
-                  backgroundColor: theme.background,
-                  color: theme.text
-                }
-              ]}
-              placeholder={getLocalizedText('remarksPlaceholder')}
-              placeholderTextColor={theme.subText}
-              value={remarks}
-              onChangeText={setRemarks}
-              multiline
-              numberOfLines={3}
-            />
+            {approvalStatus && approvalStatus.length > 0 ? (
+              approvalStatus.map((status, index) => (
+                <View key={index} style={styles.approvalSection}>
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: theme.subText }]}>
+                      {getLocalizedText('approvalLevel')}
+                    </Text>
+                    <Text style={[styles.value, { color: theme.text }]}>
+                      {status.approvalLevel || '--'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: theme.subText }]}>
+                      {getLocalizedText('approver')}
+                    </Text>
+                    <Text style={[styles.value, { color: theme.text }]}>
+                      {status.approval || '--'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: theme.subText }]}>
+                      {getLocalizedText('decision')}
+                    </Text>
+                    <Text style={[styles.value, { color: theme.text }]}>
+                      {status.approvalDecision === 'P' ? getLocalizedText('pending') :
+                       status.approvalDecision === 'A' ? getLocalizedText('approved') :
+                       status.approvalDecision === 'R' ? getLocalizedText('rejected') :
+                       status.approvalDecision === 'C' ? getLocalizedText('cancelled') : '--'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: theme.subText }]}>
+                      {getLocalizedText('respondDate')}
+                    </Text>
+                    <Text style={[styles.value, { color: theme.text }]}>
+                      {status.respondDate ? formatDate(status.respondDate) : '--'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: theme.subText }]}>
+                      {getLocalizedText('reason')}
+                    </Text>
+                    <Text style={[styles.value, { color: theme.text }]}>
+                      {status.reason || '--'}
+                    </Text>
+                  </View>
+
+                  {/* Add divider if not the last item */}
+                  {index < approvalStatus.length - 1 && (
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  )}
+                </View>
+              ))
+            ) : (
+              // When no data available
+              <View style={styles.approvalSection}>
+                <View style={styles.detailItem}>
+                  <Text style={[styles.label, { color: theme.subText }]}>
+                    {getLocalizedText('approvalLevel')}
+                  </Text>
+                  <Text style={[styles.value, { color: theme.text }]}>--</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={[styles.label, { color: theme.subText }]}>
+                    {getLocalizedText('approver')}
+                  </Text>
+                  <Text style={[styles.value, { color: theme.text }]}>--</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={[styles.label, { color: theme.subText }]}>
+                    {getLocalizedText('decision')}
+                  </Text>
+                  <Text style={[styles.value, { color: theme.text }]}>--</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={[styles.label, { color: theme.subText }]}>
+                    {getLocalizedText('respondDate')}
+                  </Text>
+                  <Text style={[styles.value, { color: theme.text }]}>--</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={[styles.label, { color: theme.subText }]}>
+                    {getLocalizedText('reason')}
+                  </Text>
+                  <Text style={[styles.value, { color: theme.text }]}>--</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
-            onPress={() => handleApprovalAction('reject')}
-            disabled={isSubmitting}
-          >
-            <Image
-              source={require('../../../../asset/img/icon/a-close.png')}
-              style={[styles.actionIcon, styles.rejectIcon]}
-            />
-            <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-              {getLocalizedText('reject')}
+        {showRejectInput ? (
+          <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <Text style={[styles.instruction, { color: theme.subText }]}>
+              {getLocalizedText('enterRejectReason')}
             </Text>
-          </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.background,
+                color: theme.text,
+                borderColor: theme.border
+              }]}
+              value={remarks}
+              onChangeText={setRemarks}
+              placeholder={getLocalizedText('remarksPlaceholder')}
+              placeholderTextColor={theme.subText}
+              multiline
+            />
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.border, marginRight: 6 }]}
+                onPress={() => {
+                  setShowRejectInput(false);
+                  setRemarks('');
+                }}
+              >
+                <Text style={[styles.buttonText, { color: theme.text }]}>
+                  {getLocalizedText('cancel')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.error, marginLeft: 6 }]}
+                onPress={handleRejectSubmit}
+              >
+                <Text style={styles.buttonText}>
+                  {getLocalizedText('confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={() => handleApprovalAction('reject')}
+              disabled={isSubmitting}
+            >
+              <Image
+                source={require('../../../../asset/img/icon/a-close.png')}
+                style={[styles.actionIcon, styles.rejectIcon]}
+              />
+              <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+                {getLocalizedText('reject')}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.approveButton]}
-            onPress={() => handleApprovalAction('approve')}
-            disabled={isSubmitting}
-          >
-            <Image
-              source={require('../../../../asset/img/icon/a-check.png')}
-              style={[styles.actionIcon, styles.approveIcon]}
-            />
-            <Text style={[styles.actionButtonText, styles.approveButtonText]}>
-              {getLocalizedText('approve')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton]}
+              onPress={() => handleApprovalAction('approve')}
+              disabled={isSubmitting}
+            >
+              <Image
+                source={require('../../../../asset/img/icon/a-check.png')}
+                style={[styles.actionIcon, styles.approveIcon]}
+              />
+              <Text style={[styles.actionButtonText, styles.approveButtonText]}>
+                {getLocalizedText('approve')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {isSubmitting && (
@@ -458,13 +679,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
+    padding: 16,
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardHeader: {
     padding: 16,
@@ -562,6 +779,51 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  input: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  instruction: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  approvalSection: {
+    marginBottom: 16,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 16,
+  },
+  detailItem: {
+    marginBottom: 12,
+  },
+  noDataText: {
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 

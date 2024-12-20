@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
+import { Swipeable } from 'react-native-gesture-handler';
 
 interface LeaveDate {
   date: string;
@@ -46,6 +47,8 @@ interface Translation {
   tokenMissing: string;
   fetchError: string;
   failedToFetch: string;
+  approve: string;
+  reject: string;
 }
 
 const ApproveLeaveApplicationListing = () => {
@@ -72,6 +75,8 @@ const ApproveLeaveApplicationListing = () => {
           tokenMissing: 'Token pengguna tiada',
           fetchError: 'Gagal mendapatkan data.',
           failedToFetch: 'Gagal mendapatkan kelulusan tertunda.',
+          approve: 'Lulus',
+          reject: 'Tolak'
         }[key] || key;
 
       case 'zh-Hans':
@@ -87,6 +92,8 @@ const ApproveLeaveApplicationListing = () => {
           tokenMissing: '用户令牌缺失',
           fetchError: '获取数据失败。',
           failedToFetch: '获取待处理审批失败。',
+          approve: '批准',
+          reject: '拒绝'
         }[key] || key;
 
       case 'zh-Hant':
@@ -102,6 +109,8 @@ const ApproveLeaveApplicationListing = () => {
           tokenMissing: '用戶令牌缺失',
           fetchError: '獲取數據失敗。',
           failedToFetch: '獲取待處理審批失敗。',
+          approve: '批准',
+          reject: '拒絕'
         }[key] || key;
 
       default: // 'en'
@@ -117,6 +126,8 @@ const ApproveLeaveApplicationListing = () => {
           tokenMissing: 'User token is missing',
           fetchError: 'Failed to fetch data.',
           failedToFetch: 'Failed to fetch pending leaves.',
+          approve: 'Approve',
+          reject: 'Reject'
         }[key] || key;
     }
   };
@@ -248,6 +259,106 @@ const ApproveLeaveApplicationListing = () => {
     }
   }, [baseUrl]);
 
+  const renderRightActions = (leave: PendingLeave) => {
+    const handleReject = () => {
+      navigation.navigate('ApproveLeaveDetail', { 
+        leaveDetail: {
+          ...leave,
+          actionType: 'REJECT'
+        }
+      });
+    };
+
+    return (
+      <View style={styles.rightActions}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.rejectButton]}
+          onPress={handleReject}
+        >
+          <Image
+            source={require('../../../../asset/img/icon/a-close.png')}
+            style={[styles.actionIcon, styles.rejectIcon]}
+          />
+          <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+            {getLocalizedText('reject')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderLeftActions = (leave: PendingLeave) => {
+    const handleApprove = () => {
+      navigation.navigate('ApproveLeaveDetail', { 
+        leaveDetail: {
+          ...leave,
+          actionType: 'APPROVE'
+        }
+      });
+    };
+
+    return (
+      <View style={styles.leftActions}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.approveButton]}
+          onPress={handleApprove}
+        >
+          <Image
+            source={require('../../../../asset/img/icon/a-check.png')}
+            style={[styles.actionIcon, styles.approveIcon]}
+          />
+          <Text style={[styles.actionButtonText, styles.approveButtonText]}>
+            {getLocalizedText('approve')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderLeaveItem = (leave: PendingLeave, index: number) => {
+    return (
+      <Swipeable
+        key={leave.approvalActionId || index}
+        renderRightActions={() => renderRightActions(leave)}
+        renderLeftActions={() => renderLeftActions(leave)}
+        rightThreshold={40}
+        leftThreshold={40}
+        overshootRight={false}
+        overshootLeft={false}
+        friction={2}
+      >
+        <TouchableOpacity 
+          style={[styles.leaveCard, { backgroundColor: theme.card }]} 
+          onPress={() => handleLeaveClick(leave)}
+        >
+          <View style={styles.cardContainer}>
+            <View style={styles.leaveContent}>
+              <Text style={[styles.leaveType, { color: theme.text }]} numberOfLines={1}>
+                {leave.leaveDescription}
+              </Text>
+
+              <Text style={[styles.dateText, { color: theme.subText }]}>
+                {formatDate(leave.dateFrom)} - {formatDate(leave.dateTo)}
+                {leave.totalDay && ` (${leave.totalDay} ${
+                  leave.totalDay > 1 ? getLocalizedText('days') : getLocalizedText('day')
+                })`}
+              </Text>
+            </View>
+
+            <View style={[styles.employeeInfo, { 
+              backgroundColor: theme.primary + '20',
+              borderColor: theme.primary + '40'
+            }]}>
+              <Text style={[styles.employeeNo, { color: theme.text }]}>
+                {leave.employeeNo}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Swipeable>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.headerCard, { backgroundColor: theme.card }]}>
@@ -277,51 +388,9 @@ const ApproveLeaveApplicationListing = () => {
               </Text>
             </View>
           ) : pendingLeaves.length > 0 ? (
-            pendingLeaves.map((leave: PendingLeave, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={[styles.leaveCard, { backgroundColor: theme.card }]} 
-                onPress={() => handleLeaveClick(leave)}
-              >
-                <View style={styles.leaveHeader}>
-                  <Text style={[styles.leaveType, { color: theme.text }]}>
-                    {leave.leaveDescription}
-                  </Text>
-                  <View style={[styles.employeeInfo, { 
-                    backgroundColor: theme.primary + '20',
-                    borderWidth: 1,
-                    borderColor: theme.primary + '40'
-                  }]}>
-                    <Text style={[styles.employeeNo, { 
-                      color: theme.text,
-                      fontWeight: '600'
-                    }]}>
-                      {leave.employeeNo}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.leaveDates}>
-                  <Text style={[styles.dateText, { color: theme.text }]}>
-                    {formatDate(leave.dateFrom)} - {formatDate(leave.dateTo)}
-                    ({leave.totalDay} {leave.totalDay > 1 ? 
-                      getLocalizedText('days') : 
-                      getLocalizedText('day')})
-                  </Text>
-                </View>
-
-                {leave.reason && (
-                  <View style={styles.reasonContainer}>
-                    <Text style={[styles.reasonLabel, { color: theme.subText }]}>
-                      {getLocalizedText('reason')}
-                    </Text>
-                    <Text style={[styles.reasonText, { color: theme.text }]}>
-                      {leave.reason}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))
+            pendingLeaves.map((leave: PendingLeave, index) => 
+              renderLeaveItem(leave, index)
+            )
           ) : (
             <View style={styles.messageContainer}>
               <Text style={[styles.messageText, { color: theme.subText }]}>
@@ -358,79 +427,51 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    paddingHorizontal: 0,
   },
   leaveList: {
-    padding: 16,
-    flexGrow: 1,
+    paddingTop: 8,
   },
   leaveCard: {
     backgroundColor: '#FFFFFF',
+    marginBottom: 8,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    marginHorizontal: 16,
+    height: 90,
   },
-  leaveHeader: {
+  cardContainer: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  leaveContent: {
+    flex: 1,
+    marginRight: 12,
   },
   leaveType: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    marginBottom: 4,
+    width: '100%',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#8E8E93',
   },
   employeeInfo: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
   },
   employeeNo: {
     fontSize: 14,
-  },
-  employeeName: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
-  },
-  leaveDates: {
-    flexDirection: 'column',
-    gap: 4,
-    marginBottom: 12,
-  },
-  dateLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#333',
     fontWeight: '500',
-  },
-  daysText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  reasonContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    paddingTop: 12,
-    marginTop: 8,
-  },
-  reasonLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  reasonText: {
-    fontSize: 14,
-    color: '#333',
   },
   messageContainer: {
     padding: 20,
@@ -440,6 +481,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  leftActions: {
+    flexDirection: 'row',
+    height: 90,
+    marginLeft: 16,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    height: 90,
+    marginRight: 16,
+  },
+  actionButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+  },
+  approveButton: {
+    backgroundColor: '#34C759',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  rejectButton: {
+    backgroundColor: '#FF3B30',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  actionIcon: {
+    width: 24,
+    height: 24,
+    marginBottom: 4,
+  },
+  approveIcon: {
+    tintColor: '#FFFFFF',
+  },
+  rejectIcon: {
+    tintColor: '#FFFFFF',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  approveButtonText: {
+    color: '#FFFFFF',
+  },
+  rejectButtonText: {
+    color: '#FFFFFF',
   },
 });
 

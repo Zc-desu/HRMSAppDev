@@ -231,12 +231,9 @@ const Payslip = ({ route, navigation }: any) => {
   };
 
   const handleViewPayslip = async (payrollType: string, payrollDate: string) => {
-    const formattedDate = new Date(payrollDate).toISOString().split('T')[0];
+    const formattedDate = payrollDate.substring(0, 10);
 
     try {
-      await AsyncStorage.setItem('payrollType', payrollType);
-      await AsyncStorage.setItem('payrollDate', formattedDate);
-
       navigation.navigate('ViewPayslip', {
         baseUrl,
         employeeId,
@@ -244,7 +241,7 @@ const Payslip = ({ route, navigation }: any) => {
         payrollDate: formattedDate,
       });
     } catch (error) {
-      console.error('Error saving to AsyncStorage:', error);
+      console.error('Navigation error:', error);
     }
   };
 

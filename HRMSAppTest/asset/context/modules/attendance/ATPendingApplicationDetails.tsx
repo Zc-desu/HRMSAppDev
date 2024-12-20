@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   TextInput,
+  Image,
 } from 'react-native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
@@ -36,6 +37,15 @@ type Translation = {
   reasonRequired: string;
   rejectReasonPlaceholder: string;
   onlyRequiredIfRejecting: string;
+  approvalStatus: string;
+  level: string;
+  approver: string;
+  decision: string;
+  respondDate: string;
+  pending: string;
+  approved: string;
+  rejected: string;
+  cancelled: string;
 };
 
 const translations: Record<string, Translation> = {
@@ -61,6 +71,15 @@ const translations: Record<string, Translation> = {
     reasonRequired: 'Reason is required',
     rejectReasonPlaceholder: 'Enter reason for rejection',
     onlyRequiredIfRejecting: '(Only required if rejecting)',
+    approvalStatus: 'Approval Status',
+    level: 'Level',
+    approver: 'Approver',
+    decision: 'Decision',
+    respondDate: 'Respond Date',
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    cancelled: 'Cancelled',
   },
   'ms': {
     title: 'Butiran Permohonan',
@@ -84,6 +103,15 @@ const translations: Record<string, Translation> = {
     reasonRequired: 'Sebab diperlukan',
     rejectReasonPlaceholder: 'Masukkan sebab penolakan',
     onlyRequiredIfRejecting: '(Hanya diperlukan jika menolak)',
+    approvalStatus: 'Status Kelulusan',
+    level: 'Peringkat',
+    approver: 'Pelulus',
+    decision: 'Keputusan',
+    respondDate: 'Tarikh Respons',
+    pending: 'Dalam Proses',
+    approved: 'Diluluskan',
+    rejected: 'Ditolak',
+    cancelled: 'Dibatalkan',
   },
   'zh-Hans': {
     title: '申请详情',
@@ -107,6 +135,15 @@ const translations: Record<string, Translation> = {
     reasonRequired: '请输入原因',
     rejectReasonPlaceholder: '请输入拒绝原因',
     onlyRequiredIfRejecting: '(仅在拒绝时需要)',
+    approvalStatus: '审批状态',
+    level: '级别',
+    approver: '审批人',
+    decision: '决策',
+    respondDate: '响应日期',
+    pending: '待审批',
+    approved: '已批准',
+    rejected: '已拒绝',
+    cancelled: '已取消',
   },
   'zh-Hant': {
     title: '申請詳情',
@@ -130,6 +167,15 @@ const translations: Record<string, Translation> = {
     reasonRequired: '請輸入原因',
     rejectReasonPlaceholder: '請輸入拒絕原因',
     onlyRequiredIfRejecting: '(僅在拒絕時需要)',
+    approvalStatus: '審批狀態',
+    level: '級別',
+    approver: '審批人',
+    decision: '決策',
+    respondDate: '回應日期',
+    pending: '待審批',
+    approved: '已批准',
+    rejected: '已拒絕',
+    cancelled: '已取消',
   },
 };
 
@@ -143,6 +189,15 @@ const formatDateTime = (dateString: string): string => {
   
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
+
+// Add new interface for approval status
+interface ApprovalStatus {
+  approvalLevel: number;
+  approval: string;
+  respondDate: string | null;
+  approvalDecision: string;
+  reason: string | null;
+}
 
 const ATPendingApplicationDetails = ({ route, navigation }: any) => {
   const { theme } = useTheme();
@@ -164,6 +219,8 @@ const ATPendingApplicationDetails = ({ route, navigation }: any) => {
     inputValue?: string;
     onInputChange?: (text: string) => void;
   }>({ visible: false });
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus[]>([]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -258,73 +315,180 @@ const ATPendingApplicationDetails = ({ route, navigation }: any) => {
         ]
       });
     } else {
-      if (!rejectReason.trim()) {
-        setAlertConfig({
-          visible: true,
-          title: t.error,
-          message: t.reasonRequired,
-          buttons: [
-            {
-              text: t.ok,
-              onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
-            }
-          ]
-        });
-      } else {
-        setAlertConfig({
-          visible: true,
-          title: t.reject,
-          message: t.confirmReject,
-          buttons: [
-            {
-              text: t.cancel,
-              style: 'cancel',
-              onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
-            },
-            {
-              text: t.confirm,
-              onPress: () => {
-                setAlertConfig(prev => ({ ...prev, visible: false }));
-                handleAction('reject', rejectReason);
-                setRejectReason('');
-              }
-            }
-          ]
-        });
-      }
+      setShowRejectInput(true);
     }
   };
 
+  const handleRejectSubmit = () => {
+    if (!rejectReason.trim()) {
+      setAlertConfig({
+        visible: true,
+        title: t.error,
+        message: t.reasonRequired,
+        buttons: [
+          {
+            text: t.ok,
+            onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+          }
+        ]
+      });
+      return;
+    }
+
+    setAlertConfig({
+      visible: true,
+      title: t.reject,
+      message: t.confirmReject,
+      buttons: [
+        {
+          text: t.cancel,
+          style: 'cancel',
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+        },
+        {
+          text: t.confirm,
+          onPress: () => {
+            setAlertConfig(prev => ({ ...prev, visible: false }));
+            handleAction('reject', rejectReason);
+            setRejectReason('');
+            setShowRejectInput(false);
+          }
+        }
+      ]
+    });
+  };
+
+  // Add function to fetch approval status
+  const fetchApprovalStatus = async () => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      if (!userToken || !baseUrl) throw new Error('Authentication failed');
+
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/employees/${application.employeeId}/attendance/time-logs/${application.applicationId}/approval-status?ApprovalAction=${application.actionType || 'A'}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+      if (result.success) {
+        setApprovalStatus(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching approval status:', error);
+    }
+  };
+
+  // Add useEffect to fetch approval status
+  useEffect(() => {
+    fetchApprovalStatus();
+  }, [application]);
+
   return (
-    <>
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.background }]}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* First Card - Application Details */}
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
-          <View style={styles.row}>
-            <Text style={[styles.label, { color: theme.subText }]}>{t.employeeName}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Details Container */}
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>
+          Details
+        </Text>
+        <View style={styles.divider} />
+        
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Employee Name</Text>
             <Text style={[styles.value, { color: theme.text }]}>{application.employeeName}</Text>
           </View>
           
-          <View style={styles.row}>
-            <Text style={[styles.label, { color: theme.subText }]}>{t.dateTime}</Text>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Date & Time</Text>
             <Text style={[styles.value, { color: theme.text }]}>
               {formatDateTime(application.attendanceDateTime)}
             </Text>
           </View>
 
-          <View style={styles.row}>
-            <Text style={[styles.label, { color: theme.subText }]}>{t.reason}</Text>
-            <Text style={[styles.value, { color: theme.text }]}>{application.reason || '-'}</Text>
+          <View style={styles.lastInfoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Reason</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{application.reason || '--'}</Text>
           </View>
         </View>
+      </View>
 
-        {/* Second Card - Rejection Reason */}
+      {/* Approval Status Container */}
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>
+          {t.approvalStatus}
+        </Text>
+        <View style={styles.divider} />
+
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Level</Text>
+            <Text style={[styles.value, { color: theme.text }]}>
+              {approvalStatus[0]?.approvalLevel || '--'}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Approver</Text>
+            <Text style={[styles.value, { color: theme.text }]}>
+              {approvalStatus[0]?.approval || '--'}
+            </Text>
+          </View>
+
+          <View style={styles.lastInfoRow}>
+            <Text style={[styles.label, { color: theme.subText }]}>Decision</Text>
+            <Text style={[styles.value, { color: theme.text }]}>
+              {approvalStatus[0]?.approvalDecision === 'P' ? 'Pending' :
+               approvalStatus[0]?.approvalDecision === 'A' ? 'Approved' :
+               approvalStatus[0]?.approvalDecision === 'R' ? 'Rejected' :
+               approvalStatus[0]?.approvalDecision === 'C' ? 'Cancelled' : '--'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Action Buttons */}
+      {!showRejectInput && !loading && (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.rejectButton]}
+            onPress={() => confirmAction('reject')}
+          >
+            <Image source={require('../../../../asset/img/icon/a-close.png')} 
+              style={[styles.actionIcon, styles.rejectIcon]} />
+            <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+              {t.reject}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.approveButton]}
+            onPress={() => confirmAction('approve')}
+          >
+            <Image source={require('../../../../asset/img/icon/a-check.png')} 
+              style={[styles.actionIcon, styles.approveIcon]} />
+            <Text style={[styles.actionButtonText, styles.approveButtonText]}>
+              {t.approve}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {loading && (
+        <ActivityIndicator size="large" color={theme.primary} style={styles.loading} />
+      )}
+
+      {/* Rejection Reason Input - Only show when needed */}
+      {showRejectInput && (
         <View style={[styles.card, { backgroundColor: theme.card }]}>
           <Text style={[styles.instruction, { color: theme.subText }]}>
-            {t.enterRejectReason} {t.onlyRequiredIfRejecting}
+            {t.enterRejectReason}
           </Text>
           <TextInput
             style={[styles.input, { 
@@ -338,74 +502,88 @@ const ATPendingApplicationDetails = ({ route, navigation }: any) => {
             placeholderTextColor={theme.subText}
             multiline
           />
-        </View>
-
-        {loading ? (
-          <ActivityIndicator size="large" color={theme.primary} style={styles.loading} />
-        ) : (
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.approveButton]}
-              onPress={() => confirmAction('approve')}
+              style={[styles.button, { backgroundColor: theme.border }]}
+              onPress={() => {
+                setShowRejectInput(false);
+                setRejectReason('');
+              }}
             >
-              <Text style={styles.buttonText}>{t.approve}</Text>
+              <Text style={[styles.buttonText, { color: theme.text }]}>{t.cancel}</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              style={[styles.button, styles.rejectButton]}
-              onPress={() => confirmAction('reject')}
+              style={[styles.button, { backgroundColor: theme.error }]}
+              onPress={handleRejectSubmit}
             >
-              <Text style={styles.buttonText}>{t.reject}</Text>
+              <Text style={styles.buttonText}>{t.confirm}</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      )}
+
       <CustomAlert 
         visible={alertConfig.visible}
         title={alertConfig.title ?? ''}
         message={alertConfig.message ?? ''}
         buttons={alertConfig.buttons}
-        showInput={alertConfig.showInput}
-        inputValue={alertConfig.inputValue}
-        onInputChange={alertConfig.onInputChange}
       />
-    </>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  contentContainer: {
     padding: 16,
   },
   card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginBottom: 16,
     padding: 16,
-    borderRadius: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E5E5',
     marginBottom: 16,
   },
-  row: {
+  cardContent: {
+    paddingTop: 4,
+  },
+  infoRow: {
     marginBottom: 16,
+  },
+  lastInfoRow: {
+    marginBottom: 0,
   },
   label: {
     fontSize: 14,
+    color: '#666666',
     marginBottom: 4,
   },
   value: {
     fontSize: 16,
-    fontWeight: '500',
+    color: '#000000',
   },
-  buttonContainer: {
+  actionButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    marginHorizontal: 6,
   },
-  button: {
+  actionButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 6,
   },
   approveButton: {
     backgroundColor: '#34C759',
@@ -413,10 +591,16 @@ const styles = StyleSheet.create({
   rejectButton: {
     backgroundColor: '#FF3B30',
   },
-  buttonText: {
-    color: '#FFFFFF',
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
+    color: '#FFFFFF',
+  },
+  actionIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#FFFFFF',
   },
   loading: {
     marginTop: 20,
@@ -432,6 +616,37 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 80,
     textAlignVertical: 'top',
+    marginBottom: 8,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  approveButtonText: {
+    color: '#FFFFFF',
+  },
+  rejectButtonText: {
+    color: '#FFFFFF',
+  },
+  approveIcon: {
+    tintColor: '#FFFFFF',
+  },
+  rejectIcon: {
+    tintColor: '#FFFFFF',
   },
 });
 

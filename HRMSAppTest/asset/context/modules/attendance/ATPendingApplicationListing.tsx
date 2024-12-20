@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PendingApplication = {
@@ -30,6 +32,8 @@ type Translation = {
   retry: string;
   clockIn: string;
   clockOut: string;
+  approve: string;
+  reject: string;
 };
 
 const translations: Record<string, Translation> = {
@@ -41,6 +45,8 @@ const translations: Record<string, Translation> = {
     retry: 'Retry',
     clockIn: 'Clock In',
     clockOut: 'Clock Out',
+    approve: 'Approve',
+    reject: 'Reject',
   },
   'ms': {
     title: 'Kelulusan Kehadiran',
@@ -50,6 +56,8 @@ const translations: Record<string, Translation> = {
     retry: 'Cuba semula',
     clockIn: 'Daftar Masuk',
     clockOut: 'Daftar Keluar',
+    approve: 'Lulus',
+    reject: 'Tolak',
   },
   'zh-Hans': {
     title: '考勤审批',
@@ -59,6 +67,8 @@ const translations: Record<string, Translation> = {
     retry: '重试',
     clockIn: '签到',
     clockOut: '签退',
+    approve: '批准',
+    reject: '拒绝',
   },
   'zh-Hant': {
     title: '考勤審批',
@@ -68,6 +78,8 @@ const translations: Record<string, Translation> = {
     retry: '重試',
     clockIn: '簽到',
     clockOut: '簽退',
+    approve: '批准',
+    reject: '拒絕',
   },
 };
 
@@ -107,10 +119,12 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
   const fetchApplications = async () => {
     try {
       const userToken = await AsyncStorage.getItem('userToken');
-      if (!userToken) throw new Error('No auth token');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      if (!userToken || !baseUrl) throw new Error('Authentication failed');
 
       const response = await fetch(
-        'http://training.mcsb-pg.com/apps/api/v1/attendance/time-logs/pending-applications',
+        `${baseUrl}/apps/api/v1/attendance/time-logs/pending-applications`,
         {
           headers: {
             'Authorization': `Bearer ${userToken}`,
@@ -143,23 +157,80 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
     fetchApplications();
   };
 
-  const renderItem = ({ item }: { item: PendingApplication }) => (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.card }]}
-      onPress={() => navigation.navigate('ATPendingApplicationDetails', { application: item })}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={[styles.employeeName, { color: theme.text }]}>
-          {item.employeeName}
-        </Text>
-        <Text style={[styles.date, { color: theme.subText }]}>
-          {formatDateTime(item.createDate)}
-        </Text>
+  const renderRightActions = (application: PendingApplication) => {
+    const handleApprove = () => {
+      navigation.navigate('ATPendingApplicationDetails', { 
+        application: {
+          ...application,
+          actionType: 'APPROVE'
+        }
+      });
+    };
+
+    const handleReject = () => {
+      navigation.navigate('ATPendingApplicationDetails', { 
+        application: {
+          ...application,
+          actionType: 'REJECT'
+        }
+      });
+    };
+
+    return (
+      <View style={styles.rightActions}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.approveButton]}
+          onPress={handleApprove}
+        >
+          <Image
+            source={require('../../../../asset/img/icon/a-check.png')}
+            style={[styles.actionIcon, styles.approveIcon]}
+          />
+          <Text style={[styles.actionButtonText, styles.approveButtonText]}>
+            {t.approve}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.rejectButton]}
+          onPress={handleReject}
+        >
+          <Image
+            source={require('../../../../asset/img/icon/a-close.png')}
+            style={[styles.actionIcon, styles.rejectIcon]}
+          />
+          <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+            {t.reject}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <Text style={[styles.reason, { color: theme.subText }]}>
-        {item.reason || '-'}
-      </Text>
-    </TouchableOpacity>
+    );
+  };
+
+  const renderItem = ({ item }: { item: PendingApplication }) => (
+    <Swipeable
+      renderRightActions={() => renderRightActions(item)}
+      rightThreshold={40}
+      overshootRight={false}
+      friction={2}
+    >
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.card }]}
+        onPress={() => navigation.navigate('ATPendingApplicationDetails', { application: item })}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={[styles.employeeName, { color: theme.text }]}>
+            {item.employeeName}
+          </Text>
+          <Text style={[styles.date, { color: theme.subText }]}>
+            {formatDateTime(item.createDate)}
+          </Text>
+        </View>
+        <Text style={[styles.reason, { color: theme.subText }]}>
+          {item.reason || '-'}
+        </Text>
+      </TouchableOpacity>
+    </Swipeable>
   );
 
   if (loading && !refreshing) {
@@ -215,6 +286,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
+    marginLeft: 16,
+    marginRight: 8,
+    height: 90,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -252,6 +326,52 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    height: 90,
+    marginRight: 0,
+  },
+  actionButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 65,
+    height: '100%',
+  },
+  approveButton: {
+    backgroundColor: '#34C759',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+    marginRight: 1,
+  },
+  rejectButton: {
+    backgroundColor: '#FF3B30',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  actionIcon: {
+    width: 20,
+    height: 20,
+    marginBottom: 4,
+    tintColor: '#FFFFFF',
+  },
+  approveIcon: {
+    tintColor: '#FFFFFF',
+  },
+  rejectIcon: {
+    tintColor: '#FFFFFF',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  approveButtonText: {
+    color: '#FFFFFF',
+  },
+  rejectButtonText: {
+    color: '#FFFFFF',
   },
 });
 

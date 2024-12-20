@@ -31,51 +31,72 @@ const ATMenu = ({ route, navigation }: any) => {
       case 'ms':
         return {
           attendance: 'Kehadiran',
+          timeAndAttendance: 'Masa & Kehadiran',
           clockInOut: 'Masuk/Keluar',
           attendanceManagement: 'Pengurusan Kehadiran',
           timeLogListing: 'Sejarah Log Masa',
           pendingApplications: 'Permohonan Tertunda',
           overtimeApplications: 'Sejarah Kerja Lebih Masa',
           createOvertime: 'Cipta Kerja Lebih Masa',
+          attendancePendingApplications: 'Kelulusan Kehadiran',
+          overtimePendingApplications: 'Kelulusan Kerja Lebih Masa',
+          attendanceSection: 'Kehadiran',
+          overtimeManagement: 'Kerja Lebih Masa'
         }[key] || key;
       
       case 'zh-Hans':
         return {
           attendance: '考勤',
+          timeAndAttendance: '时间和考勤',
           clockInOut: '打卡',
           attendanceManagement: '考勤管理',
           timeLogListing: '时间记录历史',
           pendingApplications: '待处理申请',
           overtimeApplications: '加班记录',
           createOvertime: '创建加班申请',
+          attendancePendingApplications: '考勤审批',
+          overtimePendingApplications: '加班审批',
+          attendanceSection: '考勤管理',
+          overtimeManagement: '加班管理'
         }[key] || key;
       
       case 'zh-Hant':
         return {
           attendance: '考勤',
+          timeAndAttendance: '時間和考勤',
           clockInOut: '打卡',
           attendanceManagement: '考勤管理',
           timeLogListing: '時間記錄歷史',
           pendingApplications: '待處理申請',
           overtimeApplications: '加班紀錄',
           createOvertime: '創建加班申請',
+          attendancePendingApplications: '考勤審批',
+          overtimePendingApplications: '加班審批',
+          attendanceSection: '考勤管理',
+          overtimeManagement: '加班管理'
         }[key] || key;
       
       default: // 'en'
         return {
           attendance: 'Attendance',
+          timeAndAttendance: 'Time & Attendance',
           clockInOut: 'Clock In/Out',
           attendanceManagement: 'Attendance Management',
           timeLogListing: 'Time Log History',
           pendingApplications: 'Pending Applications',
           overtimeApplications: 'Overtime History',
           createOvertime: 'Create Overtime',
+          attendancePendingApplications: 'Attendance Approvals',
+          overtimePendingApplications: 'Overtime Approvals',
+          attendanceSection: 'Attendance',
+          overtimeManagement: 'Overtime'
         }[key] || key;
     }
   };
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      title: getLocalizedText('attendance'),
       headerStyle: {
         backgroundColor: theme.headerBackground,
         shadowColor: 'transparent',
@@ -88,9 +109,8 @@ const ATMenu = ({ route, navigation }: any) => {
         fontWeight: '600',
       },
       headerShadowVisible: false,
-      title: getLocalizedText('attendance'),
     });
-  }, [navigation, theme]);
+  }, [navigation, theme, language]);
 
   if (loading) {
     return (
@@ -100,7 +120,7 @@ const ATMenu = ({ route, navigation }: any) => {
     );
   }
 
-  const baseMenuItems = [
+  const attendanceMenuItems = [
     {
       title: getLocalizedText('clockInOut'),
       onPress: () => navigation.navigate('ATShowMap', {
@@ -118,6 +138,9 @@ const ATMenu = ({ route, navigation }: any) => {
       }),
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
+  ];
+
+  const overtimeMenuItems = [
     {
       title: getLocalizedText('createOvertime'),
       onPress: () => navigation.navigate('OTCreateApplication'),
@@ -130,24 +153,57 @@ const ATMenu = ({ route, navigation }: any) => {
     },
   ];
 
-  const menuItems = hasApprovalRole ? [
-    ...baseMenuItems,
+  const approvalMenuItems = hasApprovalRole ? [
     {
-      title: getLocalizedText('pendingApplications'),
+      section: 'attendance',
+      title: getLocalizedText('attendancePendingApplications'),
       onPress: () => navigation.navigate('ATPendingApplicationListing'),
       icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      section: 'overtime',
+      title: getLocalizedText('overtimePendingApplications'),
+      onPress: () => navigation.navigate('OTPendingApplicationListing'),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
     }
-  ] : baseMenuItems;
+  ] : [];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.header, { color: theme.text }]}>
-        {getLocalizedText('attendanceManagement')}
-      </Text>
       <View style={styles.menuContainer}>
-        {menuItems.map((item, index) => (
+        {/* Time & Attendance Section */}
+        <Text style={[styles.sectionHeader, { color: theme.text }]}>
+          {getLocalizedText('timeAndAttendance')}
+        </Text>
+        {[...attendanceMenuItems, 
+          ...approvalMenuItems.filter(item => item.section === 'attendance')
+        ].map((item, index) => (
           <TouchableOpacity
-            key={index}
+            key={`attendance-${index}`}
+            style={[styles.menuCard, { backgroundColor: theme.card }]}
+            onPress={item.onPress}
+          >
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title}
+              </Text>
+              <Image
+                source={item.icon}
+                style={[styles.icon, { tintColor: theme.primary }]}
+              />
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* Overtime Section */}
+        <Text style={[styles.sectionHeader, { color: theme.text, marginTop: 24 }]}>
+          {getLocalizedText('overtimeManagement')}
+        </Text>
+        {[...overtimeMenuItems,
+          ...approvalMenuItems.filter(item => item.section === 'overtime')
+        ].map((item, index) => (
+          <TouchableOpacity
+            key={`overtime-${index}`}
             style={[styles.menuCard, { backgroundColor: theme.card }]}
             onPress={item.onPress}
           >
@@ -172,15 +228,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    marginTop: 10,
-  },
   menuContainer: {
     flex: 1,
-    gap: 12,
+    paddingTop: 8,
   },
   menuCard: {
     borderRadius: 12,
@@ -188,6 +238,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    marginBottom: 12,
   },
   menuContent: {
     flexDirection: 'row',
@@ -202,6 +253,11 @@ const styles = StyleSheet.create({
   icon: {
     width: 20,
     height: 20,
+  },
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
   },
 });
 
