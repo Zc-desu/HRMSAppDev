@@ -35,6 +35,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
   const [employeeNumber, setEmployeeNumber] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(true);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Extract companyId, baseUrl, and decodedToken from route params
   const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
@@ -339,6 +340,34 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     }, [route.params?.refresh]) // Depend on refresh param
   );
 
+  // Add to useEffect for loading user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        // Get from route params first
+        console.log('EmployeeMenu - Route params userId:', route.params?.userId);
+        if (route.params?.userId) {
+          setUserId(route.params.userId.toString());
+          await AsyncStorage.setItem('userId', route.params.userId.toString());
+          console.log('EmployeeMenu - Stored userId from params:', route.params.userId);
+        } else {
+          // Fallback to AsyncStorage
+          const storedUserId = await AsyncStorage.getItem('userId');
+          console.log('EmployeeMenu - Retrieved userId from storage:', storedUserId);
+          if (storedUserId) {
+            setUserId(storedUserId);
+          }
+        }
+
+        // ... rest of existing loadUserData logic ...
+      } catch (error) {
+        console.error('EmployeeMenu - Error loading user data:', error);
+      }
+    };
+
+    loadUserData();
+  }, [route.params?.userId]);
+
   return (
     <ScrollView 
       contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}
@@ -386,14 +415,23 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
           <TouchableOpacity
             style={[styles.squareButton, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate('LeaveMenu', { baseUrl, employeeId })}
+            onPress={() => {
+              console.log('EmployeeMenu - Navigating to LeaveMenu with userId:', userId);
+              navigation.navigate('LeaveMenu', { 
+                baseUrl, 
+                employeeId,
+                userId 
+              });
+            }}
           >
             <View style={styles.iconTextContainer}>
               <Image 
                 source={require('../../../asset/img/icon/leave2.png')} 
                 style={[styles.iconImage, { tintColor: theme.primary }]} 
               />
-              <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('leave')}</Text>
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                {getLocalizedText('leave')}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>

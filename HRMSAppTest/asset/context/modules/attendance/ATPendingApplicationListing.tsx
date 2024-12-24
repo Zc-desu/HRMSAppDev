@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LinearGradient from 'react-native-linear-gradient';
+import CustomAlert from '../setting/CustomAlert';
 
 type PendingApplication = {
   employeeId: number;
@@ -34,6 +39,14 @@ type Translation = {
   clockOut: string;
   approve: string;
   reject: string;
+  confirmAction: string;
+  enterRejectReason: string;
+  remarksPlaceholder: string;
+  remarksRequired: string;
+  rejectConfirm: string;
+  approveConfirm: string;
+  cancel: string;
+  confirm: string;
 };
 
 const translations: Record<string, Translation> = {
@@ -47,6 +60,14 @@ const translations: Record<string, Translation> = {
     clockOut: 'Clock Out',
     approve: 'Approve',
     reject: 'Reject',
+    confirmAction: 'Confirm',
+    enterRejectReason: 'Enter reject reason',
+    remarksPlaceholder: 'Enter your remarks here',
+    remarksRequired: 'Remarks are required',
+    rejectConfirm: 'Are you sure you want to reject this application?',
+    approveConfirm: 'Are you sure you want to approve this application?',
+    cancel: 'Cancel',
+    confirm: 'Confirm',
   },
   'ms': {
     title: 'Kelulusan Kehadiran',
@@ -58,6 +79,14 @@ const translations: Record<string, Translation> = {
     clockOut: 'Daftar Keluar',
     approve: 'Lulus',
     reject: 'Tolak',
+    confirmAction: 'Konfirmasi',
+    enterRejectReason: 'Masukkan alasan penolakan',
+    remarksPlaceholder: 'Masukkan komen anda di sini',
+    remarksRequired: 'Komen diperlukan',
+    rejectConfirm: 'Adakah anda pasti mahu menolak permohonan ini?',
+    approveConfirm: 'Adakah anda pasti mahu lulus permohonan ini?',
+    cancel: 'Batal',
+    confirm: 'Konfirmasi',
   },
   'zh-Hans': {
     title: '考勤审批',
@@ -69,6 +98,14 @@ const translations: Record<string, Translation> = {
     clockOut: '签退',
     approve: '批准',
     reject: '拒绝',
+    confirmAction: '确认',
+    enterRejectReason: '输入拒绝理由',
+    remarksPlaceholder: '在这里输入你的备注',
+    remarksRequired: '备注是必需的',
+    rejectConfirm: '你确定要拒绝这个申请吗？',
+    approveConfirm: '你确定要批准这个申请吗？',
+    cancel: '取消',
+    confirm: '确认',
   },
   'zh-Hant': {
     title: '考勤審批',
@@ -80,6 +117,14 @@ const translations: Record<string, Translation> = {
     clockOut: '簽退',
     approve: '批准',
     reject: '拒絕',
+    confirmAction: '確認',
+    enterRejectReason: '輸入拒絕理由',
+    remarksPlaceholder: '在此輸入你的備註',
+    remarksRequired: '備註是必需的',
+    rejectConfirm: '你確定要拒絕這個申請嗎？',
+    approveConfirm: '你確定要批准這個申請嗎？',
+    cancel: '取消',
+    confirm: '確認',
   },
 };
 
@@ -102,6 +147,12 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showConfirmAlert, setShowConfirmAlert] = useState(false);
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<PendingApplication | null>(null);
+  const [remarks, setRemarks] = useState('');
+  const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -157,81 +208,115 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
     fetchApplications();
   };
 
-  const renderRightActions = (application: PendingApplication) => {
-    const handleApprove = () => {
-      navigation.navigate('ATPendingApplicationDetails', { 
-        application: {
-          ...application,
-          actionType: 'APPROVE'
-        }
-      });
-    };
+  const closeOtherSwipeables = useCallback((currentId: number) => {
+    Object.entries(swipeableRefs.current).forEach(([key, ref]) => {
+      if (ref && Number(key) !== currentId) {
+        ref.close();
+      }
+    });
+  }, []);
 
-    const handleReject = () => {
-      navigation.navigate('ATPendingApplicationDetails', { 
-        application: {
-          ...application,
-          actionType: 'REJECT'
-        }
-      });
-    };
-
-    return (
-      <View style={styles.rightActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.approveButton]}
-          onPress={handleApprove}
-        >
-          <Image
-            source={require('../../../../asset/img/icon/a-check.png')}
-            style={[styles.actionIcon, styles.approveIcon]}
-          />
-          <Text style={[styles.actionButtonText, styles.approveButtonText]}>
-            {t.approve}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.rejectButton]}
-          onPress={handleReject}
-        >
-          <Image
-            source={require('../../../../asset/img/icon/a-close.png')}
-            style={[styles.actionIcon, styles.rejectIcon]}
-          />
-          <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-            {t.reject}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  const handleSwipeAction = useCallback((application: PendingApplication, direction: 'left' | 'right', ref: Swipeable) => {
+    closeOtherSwipeables(application.applicationId);
+    
+    setTimeout(() => {
+      if (direction === 'left') {
+        setSelectedApplication(application);
+        setShowConfirmAlert(true);
+      } else {
+        setSelectedApplication(application);
+        setShowRejectInput(true);
+      }
+    }, 100);
+  }, [closeOtherSwipeables]);
 
   const renderItem = ({ item }: { item: PendingApplication }) => (
-    <Swipeable
-      renderRightActions={() => renderRightActions(item)}
-      rightThreshold={40}
-      overshootRight={false}
-      friction={2}
-    >
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.card }]}
-        onPress={() => navigation.navigate('ATPendingApplicationDetails', { application: item })}
+    <View style={styles.cardWrapper}>
+      <Swipeable
+        ref={(ref) => {
+          if (ref) {
+            swipeableRefs.current[item.applicationId] = ref;
+          } else {
+            delete swipeableRefs.current[item.applicationId];
+          }
+        }}
+        renderLeftActions={(progress, dragX) => (
+          <LinearGradient
+            colors={['#34C759', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.leftActionGradient}
+          >
+            <View style={styles.leftActionContent}>
+              <Image
+                source={require('../../../../asset/img/icon/a-check.png')}
+                style={styles.actionIcon}
+              />
+              <Text style={styles.approveText}>{t.approve}</Text>
+            </View>
+          </LinearGradient>
+        )}
+        renderRightActions={(progress, dragX) => (
+          <LinearGradient
+            colors={['transparent', '#FF3B30']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.rightActionGradient}
+          >
+            <View style={styles.rightActionContent}>
+              <Image
+                source={require('../../../../asset/img/icon/a-close.png')}
+                style={styles.actionIcon}
+              />
+              <Text style={styles.rejectText}>{t.reject}</Text>
+            </View>
+          </LinearGradient>
+        )}
+        friction={2}
+        leftThreshold={80}
+        rightThreshold={80}
+        overshootLeft={false}
+        overshootRight={false}
+        onSwipeableWillOpen={(direction) => {
+          const currentRef = swipeableRefs.current[item.applicationId];
+          if (currentRef) {
+            handleSwipeAction(item, direction as 'left' | 'right', currentRef);
+          }
+        }}
       >
-        <View style={styles.cardHeader}>
-          <Text style={[styles.employeeName, { color: theme.text }]}>
-            {item.employeeName}
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: theme.card }]}
+          onPress={() => navigation.navigate('ATPendingApplicationDetails', { application: item })}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={[styles.employeeName, { color: theme.text }]}>
+              {item.employeeName}
+            </Text>
+            <Text style={[styles.date, { color: theme.subText }]}>
+              {formatDateTime(item.createDate)}
+            </Text>
+          </View>
+          <Text style={[styles.reason, { color: theme.subText }]}>
+            {item.reason || '-'}
           </Text>
-          <Text style={[styles.date, { color: theme.subText }]}>
-            {formatDateTime(item.createDate)}
-          </Text>
-        </View>
-        <Text style={[styles.reason, { color: theme.subText }]}>
-          {item.reason || '-'}
-        </Text>
-      </TouchableOpacity>
-    </Swipeable>
+        </TouchableOpacity>
+      </Swipeable>
+    </View>
   );
+
+  const closeSwipeable = useCallback(() => {
+    Object.values(swipeableRefs.current).forEach(ref => {
+      if (ref) {
+        ref.close();
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      swipeableRefs.current = {};
+    };
+  }, []);
 
   if (loading && !refreshing) {
     return (
@@ -271,6 +356,138 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
           </View>
         }
       />
+      <CustomAlert
+        visible={showConfirmAlert}
+        title={t.confirmAction}
+        message={t.approveConfirm}
+        buttons={[
+          {
+            text: t.cancel,
+            style: 'cancel',
+            onPress: () => {
+              closeSwipeable();
+              setShowConfirmAlert(false);
+            }
+          },
+          {
+            text: t.confirm,
+            onPress: () => {
+              closeSwipeable();
+              setShowConfirmAlert(false);
+              if (selectedApplication) {
+                navigation.navigate('ATPendingApplicationDetails', { 
+                  application: {
+                    ...selectedApplication,
+                    actionType: 'APPROVE'
+                  }
+                });
+              }
+            }
+          }
+        ]}
+        onDismiss={() => {
+          closeSwipeable();
+          setShowConfirmAlert(false);
+        }}
+      />
+
+      <Modal
+        visible={showRejectInput}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          closeSwipeable();
+          setShowRejectInput(false);
+          setRemarks('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {t.enterRejectReason}
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.background,
+                color: theme.text,
+                borderColor: theme.border
+              }]}
+              value={remarks}
+              onChangeText={setRemarks}
+              placeholder={t.remarksPlaceholder}
+              placeholderTextColor={theme.subText}
+              multiline
+            />
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.border }]}
+                onPress={() => {
+                  closeSwipeable();
+                  setShowRejectInput(false);
+                  setRemarks('');
+                }}
+              >
+                <Text style={[styles.buttonText, { color: theme.text }]}>
+                  {t.cancel}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.error }]}
+                onPress={() => {
+                  if (!remarks.trim()) {
+                    Alert.alert(t.error, t.remarksRequired);
+                    return;
+                  }
+                  closeSwipeable();
+                  setShowRejectInput(false);
+                  setShowRejectConfirm(true);
+                }}
+              >
+                <Text style={styles.buttonText}>{t.confirm}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={showRejectConfirm}
+        title={t.confirmAction}
+        message={t.rejectConfirm}
+        buttons={[
+          {
+            text: t.cancel,
+            style: 'cancel',
+            onPress: () => {
+              closeSwipeable();
+              setShowRejectConfirm(false);
+              setRemarks('');
+            }
+          },
+          {
+            text: t.confirm,
+            onPress: () => {
+              closeSwipeable();
+              setShowRejectConfirm(false);
+              if (selectedApplication) {
+                navigation.navigate('ATPendingApplicationDetails', { 
+                  application: {
+                    ...selectedApplication,
+                    actionType: 'REJECT',
+                    remarks: remarks
+                  }
+                });
+              }
+              setRemarks('');
+            }
+          }
+        ]}
+        onDismiss={() => {
+          closeSwipeable();
+          setShowRejectConfirm(false);
+          setRemarks('');
+        }}
+      />
     </View>
   );
 };
@@ -285,26 +502,26 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 12,
-    marginBottom: 8,
-    marginLeft: 16,
-    marginRight: 8,
-    height: 90,
+    height: 80,
+    justifyContent: 'center',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
   employeeName: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   date: {
     fontSize: 14,
+    color: '#666',
   },
   reason: {
     fontSize: 14,
+    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -329,20 +546,19 @@ const styles = StyleSheet.create({
   },
   rightActions: {
     flexDirection: 'row',
-    height: 90,
-    marginRight: 0,
+    height: 80,
+    marginRight: 16,
   },
   actionButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 65,
+    width: 80,
     height: '100%',
   },
   approveButton: {
     backgroundColor: '#34C759',
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
-    marginRight: 1,
   },
   rejectButton: {
     backgroundColor: '#FF3B30',
@@ -350,10 +566,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   actionIcon: {
-    width: 20,
-    height: 20,
-    marginBottom: 4,
+    width: 24,
+    height: 24,
     tintColor: '#FFFFFF',
+    marginBottom: 4,
   },
   approveIcon: {
     tintColor: '#FFFFFF',
@@ -372,6 +588,94 @@ const styles = StyleSheet.create({
   },
   rejectButtonText: {
     color: '#FFFFFF',
+  },
+  cardWrapper: {
+    marginBottom: 8,
+    width: '100%',
+  },
+  leftActions: {
+    width: 80,
+    height: '100%',
+    position: 'absolute',
+    left: 0,
+  },
+  gradientContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+    padding: 8,
+  },
+  approveText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    padding: 20,
+    borderRadius: 12,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    height: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  button: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  leftActionGradient: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  rightActionGradient: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  leftActionContent: {
+    alignItems: 'center',
+  },
+  rightActionContent: {
+    alignItems: 'center',
   },
 });
 

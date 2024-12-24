@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
 import CustomAlert from '../setting/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Swipeable } from 'react-native-gesture-handler';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 
 // Translations
 const translations = {
@@ -31,6 +32,10 @@ const translations = {
     ok: 'OK',
     approve: 'Approve',
     reject: 'Reject',
+    confirmAction: 'Confirm Action',
+    approveConfirm: 'Are you sure you want to approve this application?',
+    rejectConfirm: 'Are you sure you want to reject this application?',
+    cancel: 'Cancel',
   },
   'ms': {
     title: 'Kelulusan Kerja Lebih Masa',
@@ -46,6 +51,10 @@ const translations = {
     ok: 'OK',
     approve: 'Lulus',
     reject: 'Tolak',
+    confirmAction: 'Konfirmasi Aksi',
+    approveConfirm: 'Adakah anda pasti ingin menyetujui permohonan ini?',
+    rejectConfirm: 'Adakah anda pasti ingin menolak permohonan ini?',
+    cancel: 'Batal',
   },
   'zh-Hans': {
     title: '加班审批',
@@ -61,6 +70,10 @@ const translations = {
     ok: '确定',
     approve: '批准',
     reject: '拒绝',
+    confirmAction: '确认操作',
+    approveConfirm: '您确定要批准此申请吗？',
+    rejectConfirm: '您确定要拒绝此申请吗？',
+    cancel: '取消',
   },
   'zh-Hant': {
     title: '加班審批',
@@ -76,6 +89,10 @@ const translations = {
     ok: '確定',
     approve: '批准',
     reject: '拒絕',
+    confirmAction: '確認操作',
+    approveConfirm: '您確定要批准此申請嗎？',
+    rejectConfirm: '您確定要拒絕此申請嗎？',
+    cancel: '取消',
   },
 };
 
@@ -106,6 +123,10 @@ const OTPendingApplicationListing = ({ navigation }: any) => {
     message: '',
   });
   const [baseUrl, setBaseUrl] = useState<string>('');
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [showConfirmAlert, setShowConfirmAlert] = useState(false);
+  const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | null>(null);
+  const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -178,105 +199,124 @@ const OTPendingApplicationListing = ({ navigation }: any) => {
     // return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
   };
 
-  const renderRightActions = (item: Application, navigation: any, baseUrl: string) => {
-    const handleApprove = () => {
-      navigation.navigate('OTPendingApplicationDetails', {
-        baseUrl,
-        approvalActionId: item.approvalActionId,
-        employeeId: item.employeeId,
-        applicationId: item.applicationId,
-        actionType: 'APPROVE'
-      });
-    };
-
-    const handleReject = () => {
-      navigation.navigate('OTPendingApplicationDetails', {
-        baseUrl,
-        approvalActionId: item.approvalActionId,
-        employeeId: item.employeeId,
-        applicationId: item.applicationId,
-        actionType: 'REJECT'
-      });
-    };
-
+  const renderLeftActions = (progress: any, dragX: any, application: Application) => {
     return (
-      <View style={styles.rightActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.approveButton]}
-          onPress={handleApprove}
-        >
+      <LinearGradient
+        colors={['#34C759', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.leftActionGradient}
+      >
+        <View style={styles.leftActionContent}>
           <Image
             source={require('../../../../asset/img/icon/a-check.png')}
-            style={[styles.actionIcon, styles.approveIcon]}
+            style={styles.actionIcon}
           />
-          <Text style={[styles.actionButtonText, styles.approveButtonText]}>
-            {t.approve}
-          </Text>
-        </TouchableOpacity>
+          <Text style={styles.approveText}>{t.approve}</Text>
+        </View>
+      </LinearGradient>
+    );
+  };
 
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.rejectButton]}
-          onPress={handleReject}
-        >
+  const renderRightActions = (progress: any, dragX: any) => {
+    return (
+      <LinearGradient
+        colors={['transparent', '#FF3B30']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.rightActionGradient}
+      >
+        <View style={styles.rightActionContent}>
           <Image
             source={require('../../../../asset/img/icon/a-close.png')}
-            style={[styles.actionIcon, styles.rejectIcon]}
+            style={styles.actionIcon}
           />
-          <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-            {t.reject}
-          </Text>
-        </TouchableOpacity>
+          <Text style={styles.rejectText}>{t.reject}</Text>
+        </View>
+      </LinearGradient>
+    );
+  };
+
+  const closeOtherSwipeables = useCallback((currentId: number) => {
+    Object.entries(swipeableRefs.current).forEach(([key, ref]) => {
+      if (ref && Number(key) !== currentId) {
+        ref.close();
+      }
+    });
+  }, []);
+
+  const handleSwipeAction = useCallback((application: Application, direction: 'left' | 'right', ref: Swipeable) => {
+    closeOtherSwipeables(application.approvalActionId);
+    
+    if (direction === 'left') {
+      setSelectedApplication(application);
+      setActionType('APPROVE');
+      setShowConfirmAlert(true);
+    } else {
+      setSelectedApplication(application);
+      setActionType('REJECT');
+      setShowConfirmAlert(true);
+    }
+  }, [closeOtherSwipeables]);
+
+  const renderItem = ({ item }: { item: Application }) => {
+    return (
+      <View style={styles.cardWrapper}>
+        <Swipeable
+          ref={(ref) => {
+            if (ref) {
+              swipeableRefs.current[item.approvalActionId] = ref;
+            } else {
+              delete swipeableRefs.current[item.approvalActionId];
+            }
+          }}
+          renderLeftActions={(progress, dragX) => renderLeftActions(progress, dragX, item)}
+          renderRightActions={renderRightActions}
+          friction={2}
+          leftThreshold={80}
+          rightThreshold={80}
+          overshootLeft={false}
+          overshootRight={false}
+          onSwipeableWillOpen={(direction) => {
+            const currentRef = swipeableRefs.current[item.approvalActionId];
+            if (currentRef) {
+              handleSwipeAction(item, direction as 'left' | 'right', currentRef);
+            }
+          }}
+        >
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: theme.card }]}
+            onPress={() => navigation.navigate('OTPendingApplicationDetails', {
+              baseUrl,
+              approvalActionId: item.approvalActionId,
+              employeeId: item.employeeId,
+              applicationId: item.applicationId,
+              actionType: null
+            })}
+          >
+            <View style={styles.cardContent}>
+              <Text style={[styles.employeeName, { color: theme.text }]}>
+                {item.employeeName}
+              </Text>
+              <Text style={[styles.dateText, { color: theme.subText }]}>
+                {`${t.date}: ${formatDate(item.appDateTimeFrom)}`}
+              </Text>
+              <Text style={[styles.durationText, { color: theme.subText }]}>
+                {`${t.duration}: ${item.overtimeDuration} ${t.hours}`}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Swipeable>
       </View>
     );
   };
 
-  const renderItem = ({ item }: { item: Application }) => {
-    const handlePress = async () => {
-      try {
-        const baseUrl = await AsyncStorage.getItem('baseUrl');
-        navigation.navigate('OTPendingApplicationDetails', {
-          baseUrl,
-          approvalActionId: item.approvalActionId,
-          employeeId: item.employeeId,
-          applicationId: item.applicationId,
-          actionType: item.actionType,
-        });
-      } catch (error) {
-        console.error('Navigation error:', error);
-        setAlertConfig({
-          visible: true,
-          title: t.errorTitle,
-          message: t.error,
-        });
-      }
+  // Clean up refs when component unmounts
+  useEffect(() => {
+    return () => {
+      swipeableRefs.current = {};
     };
-
-    return (
-      <Swipeable
-        renderRightActions={() => renderRightActions(item, navigation, baseUrl)}
-        rightThreshold={40}
-        overshootRight={false}
-        friction={2}
-      >
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: theme.card }]}
-          onPress={handlePress}
-        >
-          <View style={styles.cardContent}>
-            <Text style={[styles.employeeName, { color: theme.text }]}>
-              {item.employeeName}
-            </Text>
-            <Text style={[styles.dateText, { color: theme.subText }]}>
-              {`${t.date}: ${formatDate(item.appDateTimeFrom)}`}
-            </Text>
-            <Text style={[styles.durationText, { color: theme.subText }]}>
-              {`${t.duration}: ${item.overtimeDuration} ${t.hours}`}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
-    );
-  };
+  }, []);
 
   if (loading && !refreshing) {
     return (
@@ -302,6 +342,55 @@ const OTPendingApplicationListing = ({ navigation }: any) => {
             {t.noApplications}
           </Text>
         }
+      />
+      <CustomAlert
+        visible={showConfirmAlert}
+        title={t.confirmAction}
+        message={actionType === 'APPROVE' ? t.approveConfirm : t.rejectConfirm}
+        buttons={[
+          {
+            text: t.cancel,
+            style: 'cancel',
+            onPress: () => {
+              const ref = selectedApplication && swipeableRefs.current[selectedApplication.approvalActionId];
+              if (ref) {
+                ref.close();
+              }
+              setShowConfirmAlert(false);
+              setSelectedApplication(null);
+              setActionType(null);
+            }
+          },
+          {
+            text: t.ok,
+            onPress: () => {
+              if (selectedApplication && actionType) {
+                const ref = swipeableRefs.current[selectedApplication.approvalActionId];
+                if (ref) {
+                  ref.close();
+                }
+                console.debug('Navigating with params:', {
+                  baseUrl,
+                  approvalActionId: selectedApplication.approvalActionId,
+                  employeeId: selectedApplication.employeeId,
+                  applicationId: selectedApplication.applicationId,
+                  actionType
+                });
+                
+                navigation.navigate('OTPendingApplicationDetails', {
+                  baseUrl,
+                  approvalActionId: selectedApplication.approvalActionId,
+                  employeeId: selectedApplication.employeeId,
+                  applicationId: selectedApplication.applicationId,
+                  actionType
+                });
+              }
+              setShowConfirmAlert(false);
+              setSelectedApplication(null);
+              setActionType(null);
+            }
+          }
+        ]}
       />
       <CustomAlert
         visible={alertConfig.visible}
@@ -391,10 +480,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   actionIcon: {
-    width: 20,
-    height: 20,
-    marginBottom: 4,
+    width: 24,
+    height: 24,
     tintColor: '#FFFFFF',
+    marginBottom: 4,
   },
   approveIcon: {
     tintColor: '#FFFFFF',
@@ -413,6 +502,48 @@ const styles = StyleSheet.create({
   },
   rejectButtonText: {
     color: '#FFFFFF',
+  },
+  cardWrapper: {
+    marginBottom: 8,
+    width: '100%',
+  },
+  actionIconStyle: {
+    width: 24,
+    height: 24,
+    tintColor: '#FFFFFF',
+    marginBottom: 4,
+  },
+  leftActionGradient: {
+    width: 80,
+    height: 90,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  rightActionGradient: {
+    width: 80,
+    height: 90,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  leftActionContent: {
+    alignItems: 'center',
+  },
+  rightActionContent: {
+    alignItems: 'center',
+  },
+  approveText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

@@ -20,3 +20,12 @@
     java.lang.Object writeReplace();
     java.lang.Object readResolve();
 }
+
+# React Native
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.hermes.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# Geolocation
+-keep class com.google.android.gms.location.** { *; }
+-keep class com.google.android.gms.common.** { *; }

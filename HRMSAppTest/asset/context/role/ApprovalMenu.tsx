@@ -30,6 +30,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     }>;
   }>({ visible: false });
 
+  // Add state for userId
+  const [userId, setUserId] = useState<string | null>(null);
+
   useEffect(() => {
     const loadBaseUrl = async () => {
       const url = await AsyncStorage.getItem('baseUrl');
@@ -37,6 +40,28 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     };
     loadBaseUrl();
   }, []);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        // Get from route params first
+        if (route.params?.userId) {
+          setUserId(route.params.userId.toString());
+          await AsyncStorage.setItem('userId', route.params.userId.toString());
+        } else {
+          // Fallback to AsyncStorage
+          const storedUserId = await AsyncStorage.getItem('userId');
+          if (storedUserId) {
+            setUserId(storedUserId);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+
+    loadUserData();
+  }, [route.params?.userId]);
 
   const showAlert = (title: string, message: string, buttons?: Array<any>) => {
     setAlertConfig({

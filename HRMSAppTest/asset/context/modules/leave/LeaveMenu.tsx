@@ -24,6 +24,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasApprovalRole, setHasApprovalRole] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const getLocalizedText = (key: keyof Translation): string => {
     switch (language) {
@@ -104,8 +105,21 @@ const LeaveMenu = ({ navigation, route }: any) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('LeaveMenu - Route params:', route.params);
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         const storedEmployeeId = await AsyncStorage.getItem('employeeId');
+        const storedUserId = await AsyncStorage.getItem('userId');
+        console.log('LeaveMenu - Stored userId:', storedUserId);
+        console.log('LeaveMenu - Route params userId:', route.params?.userId);
+
+        if (route.params?.userId) {
+          setUserId(route.params.userId);
+          console.log('LeaveMenu - Set userId from params:', route.params.userId);
+        } else if (storedUserId) {
+          setUserId(storedUserId);
+          console.log('LeaveMenu - Set userId from storage:', storedUserId);
+        }
+
         const userRole = await AsyncStorage.getItem('userRole');
 
         if (userRole === 'Approval') {
@@ -124,6 +138,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
           Alert.alert(getLocalizedText('error'), getLocalizedText('employeeIdError'));
         }
       } catch (error) {
+        console.error('LeaveMenu - Error:', error);
         Alert.alert(getLocalizedText('error'), getLocalizedText('fetchDataError'));
       } finally {
         setLoading(false);
@@ -182,7 +197,14 @@ const LeaveMenu = ({ navigation, route }: any) => {
                 shadowColor: theme.shadowColor,
               }
             ]}
-            onPress={() => navigation.navigate(item.screen, { baseUrl, employeeId })}
+            onPress={() => {
+              console.log('LeaveMenu - Navigating to', item.screen, 'with userId:', userId);
+              navigation.navigate(item.screen, { 
+                baseUrl, 
+                employeeId,
+                userId
+              });
+            }}
           >
             <View style={styles.menuContent}>
               <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>

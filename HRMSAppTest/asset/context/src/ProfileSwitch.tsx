@@ -361,7 +361,15 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             index: 0,
             routes: [{ 
               name: 'ApprovalMenu', 
-              params: { userToken, baseUrl, companyId, employeeId, decodedToken, refreshToken }
+              params: { 
+                userToken, 
+                baseUrl, 
+                companyId, 
+                employeeId, 
+                decodedToken, 
+                refreshToken,
+                userId
+              }
             }],
           });
         } else if (role === 'Employee') {
@@ -369,7 +377,15 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             index: 0,
             routes: [{ 
               name: 'EmployeeMenu', 
-              params: { userToken, baseUrl, companyId, employeeId, decodedToken, refreshToken }
+              params: { 
+                userToken, 
+                baseUrl, 
+                companyId, 
+                employeeId, 
+                decodedToken, 
+                refreshToken,
+                userId
+              }
             }],
           });
         } else {

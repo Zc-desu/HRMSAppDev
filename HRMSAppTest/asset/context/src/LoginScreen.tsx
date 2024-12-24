@@ -262,6 +262,7 @@ const LoginScreen = ({ navigation }: any) => {
                 const userId = roleData.data[0].userId;
                 const companyId = roleData.data[0].companies[0]?.companyId;
                 await AsyncStorage.setItem('userRole', userRole);
+                await AsyncStorage.setItem('userId', userId.toString());
 
                 if (userRole === 'Support') {
                   showAlert(getLocalizedText('accessDenied'), getLocalizedText('hrAdminBrowser'));
