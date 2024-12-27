@@ -4,6 +4,7 @@ import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import SwipeLeftRightAnimation from '../../anim/swipeLeftRightAnimation';
 
 interface Translation {
   approvalManagement: string;
@@ -22,6 +23,7 @@ const ApproveManagement = ({ navigation }: any) => {
     attendance: 0,
     overtime: 0
   });
+  const [showSwipeAnimation, setShowSwipeAnimation] = useState(false);
 
   const fetchCounts = async () => {
     try {
@@ -68,6 +70,41 @@ const ApproveManagement = ({ navigation }: any) => {
       fetchCounts();
     }, [])
   );
+
+  useEffect(() => {
+    checkSwipeAnimation();
+  }, []);
+
+  const checkSwipeAnimation = async () => {
+    try {
+      const neverShow = await AsyncStorage.getItem('approveManagement_neverShowSwipe');
+      const lastShown = await AsyncStorage.getItem('approveManagement_lastShownSwipe');
+      
+      if (neverShow === 'true') {
+        return;
+      }
+
+      const today = new Date().toDateString();
+      if (lastShown !== today) {
+        setShowSwipeAnimation(true);
+      }
+    } catch (error) {
+      console.error('Error checking swipe animation status:', error);
+    }
+  };
+
+  const handleSwipeAnimationDismiss = async (neverShowAgain: boolean) => {
+    try {
+      if (neverShowAgain) {
+        await AsyncStorage.setItem('approveManagement_neverShowSwipe', 'true');
+      } else {
+        await AsyncStorage.setItem('approveManagement_lastShownSwipe', new Date().toDateString());
+      }
+      setShowSwipeAnimation(false);
+    } catch (error) {
+      console.error('Error saving swipe animation preference:', error);
+    }
+  };
 
   const getLocalizedText = (key: keyof Translation): string => {
     switch (language) {
@@ -185,6 +222,10 @@ const ApproveManagement = ({ navigation }: any) => {
           </TouchableOpacity>
         ))}
       </View>
+
+      {showSwipeAnimation && (
+        <SwipeLeftRightAnimation onDismiss={handleSwipeAnimationDismiss} />
+      )}
     </View>
   );
 };

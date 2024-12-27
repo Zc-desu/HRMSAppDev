@@ -16,7 +16,6 @@ import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
 import CustomAlert from '../setting/CustomAlert';
 import { Calendar } from 'react-native-calendars';
-import CustomTimePickerModal from '../setting/TimePickerModal';
 import { launchCamera, CameraOptions } from 'react-native-image-picker';
 
 type Translation = {
@@ -46,6 +45,7 @@ type Translation = {
   takeFrontPhoto: string;
   takeBackPhoto: string;
   selectLocation: string;
+  locationFetchError: string;
 }
 
 const translations: Record<string, Translation> = {
@@ -76,6 +76,7 @@ const translations: Record<string, Translation> = {
     takeFrontPhoto: 'Take Front Photo',
     takeBackPhoto: 'Take Back Photo',
     selectLocation: 'Select Location',
+    locationFetchError: 'Failed to fetch locations',
   },
   'ms': {
     title: 'Permohonan Tarikh Lampau',
@@ -104,6 +105,7 @@ const translations: Record<string, Translation> = {
     takeFrontPhoto: 'Ambil Gambar Depan',
     takeBackPhoto: 'Ambil Gambar Belakang',
     selectLocation: 'Pilih Lokasi',
+    locationFetchError: 'Gagal mendapatkan lokasi',
   } as Translation,
   'zh-Hans': {
     title: '补打卡申请',
@@ -132,6 +134,7 @@ const translations: Record<string, Translation> = {
     takeFrontPhoto: '拍正面照片',
     takeBackPhoto: '拍背面照片',
     selectLocation: '选择位置',
+    locationFetchError: '获取位置失败',
   } as Translation,
   'zh-Hant': {
     title: '補打卡申請',
@@ -160,13 +163,13 @@ const translations: Record<string, Translation> = {
     takeFrontPhoto: '拍正面照片',
     takeBackPhoto: '拍背面照片',
     selectLocation: '選擇位置',
+    locationFetchError: '獲取位置失敗',
   } as Translation,
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   contentContainer: {
     padding: 16,
@@ -241,8 +244,14 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1C1C1E',
+    maxHeight: '80%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
   },
   timePickerContainer: {
     width: '80%',
@@ -352,11 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  modalContent: {
-    padding: 16,
-    borderRadius: 8,
-    width: '80%',
-  },
   locationItem: {
     padding: 16,
     borderBottomWidth: 1,
@@ -373,19 +377,18 @@ type AlertButton = {
   onPress: () => void;
 }
 
-interface TimePickerModalProps {
+interface TimePickerProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (time: Date) => void;
-  selectedTime: Date;
+  initialTime: Date;
   theme: any;
+  t: Translation;
 }
 
-const TimePickerModal = ({ visible, onClose, onSelect, selectedTime, theme }: TimePickerModalProps) => {
-  const [hours, setHours] = useState(selectedTime.getHours());
-  const [minutes, setMinutes] = useState(selectedTime.getMinutes());
-  const { language } = useLanguage();
-  const t = translations[language] || translations.en;
+const TimePicker = ({ visible, onClose, onSelect, initialTime, theme, t }: TimePickerProps) => {
+  const [hours, setHours] = useState(initialTime.getHours());
+  const [minutes, setMinutes] = useState(initialTime.getMinutes());
 
   return (
     <Modal
@@ -521,6 +524,7 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
   const [frontPhoto, setFrontPhoto] = useState<PhotoData | null>(null);
   const [backPhoto, setBackPhoto] = useState<PhotoData | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -546,28 +550,40 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
 
   const fetchLocations = async () => {
     try {
+      setIsLoading(true);
       const userToken = await AsyncStorage.getItem('userToken');
-      if (!userToken) throw new Error('Missing authentication token');
+      
+      if (!userToken) {
+        throw new Error('No authentication token found');
+      }
 
-      const response = await fetch(
-        `${route.params.baseUrl}/apps/api/v1/attendance/authorized-zones`,
-        {
-          headers: {
-            'Authorization': `Bearer ${userToken}`,
-            'Accept': 'application/json',
-          },
-        }
-      );
+      console.log('Fetching from:', `${route.params.baseUrl}/apps/api/v1/attendance/authorized-zones`);
+      
+      const response = await fetch(`${route.params.baseUrl}/apps/api/v1/attendance/authorized-zones`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
 
       const data = await response.json();
-      if (data.success) {
+      console.log('Location API response:', data);
+
+      if (data.success && Array.isArray(data.data)) {
         setLocations(data.data);
         if (data.data.length > 0) {
           setSelectedLocation(data.data[0]);
         }
+      } else {
+        throw new Error(data.message || 'Failed to fetch locations');
       }
     } catch (error) {
-      console.error('Error fetching locations:', error);
+      console.error('Fetch locations error:', error);
+      showAlert(t.error, t.locationFetchError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -618,7 +634,12 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
   };
 
   const handleSubmit = async () => {
-    if (reason && !isValidLanguage(reason)) {
+    if (!reason) {
+      showAlert(t.error, t.reasonRequired);
+      return;
+    }
+
+    if (!isValidLanguage(reason)) {
       showAlert(t.error, t.languageError);
       return;
     }
@@ -650,19 +671,21 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
       }
 
       if (frontPhoto) {
-        formData.append('FrontPhoto', {
+        const photoFile = {
           uri: frontPhoto.uri,
           type: frontPhoto.type,
           name: frontPhoto.fileName,
-        });
+        } as any;
+        formData.append('FrontPhoto', photoFile);
       }
 
       if (backPhoto) {
-        formData.append('BackPhoto', {
+        const photoFile = {
           uri: backPhoto.uri,
           type: backPhoto.type,
           name: backPhoto.fileName,
-        });
+        } as any;
+        formData.append('BackPhoto', photoFile);
       }
 
       const response = await fetch(
@@ -672,6 +695,7 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
           headers: {
             'Authorization': `Bearer ${userToken}`,
             'Accept': 'application/json',
+            'Content-Type': 'multipart/form-data',
           },
           body: formData,
         }
@@ -693,96 +717,20 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
     }
   };
 
-  const showDateOptions = () => {
-    const today = new Date();
-    const dates = [];
-    
-    // Show last 7 days including today
-    for(let i = 0; i < 7; i++) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
-      dates.push({
-        date: date,
-        // Format: "DD/MM/YYYY (Day)"
-        display: date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          weekday: 'short'
-        })
-      });
-    }
-
-    setAlertConfig({
-      visible: true,
-      title: t.selectDate,
-      message: '',
-      buttons: [
-        ...dates.map(({ date, display }) => ({
-          text: display,
-          onPress: () => {
-            setSelectedDate(date);
-            setAlertConfig(prev => ({ ...prev, visible: false }));
-          }
-        })),
-        {
-          text: t.cancel,
-          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
-        }
-      ]
-    });
-  };
-
-  const showTimeOptions = () => {
-    const times = [];
-    // Generate time options from 7 AM to 10 PM with 30-minute intervals
-    for(let hour = 7; hour <= 22; hour++) {
-      for(let minutes of [0, 30]) {
-        const time = new Date();
-        time.setHours(hour, minutes, 0);
-        times.push({
-          time: time,
-          // Format: "HH:MM AM/PM"
-          display: time.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          })
-        });
-      }
-    }
-
-    setAlertConfig({
-      visible: true,
-      title: t.selectTime,
-      message: '',
-      buttons: [
-        ...times.map(({ time, display }) => ({
-          text: display,
-          onPress: () => {
-            setSelectedTime(time);
-            setAlertConfig(prev => ({ ...prev, visible: false }));
-          }
-        })),
-        {
-          text: t.cancel,
-          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
-        }
-      ]
-    });
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
-        style={[styles.container]}
+        style={styles.container}
         contentContainerStyle={styles.contentContainer}
       >
-        <Text style={[styles.instruction, { color: theme.text, backgroundColor: theme.card }]}>
+        <Text style={[styles.instruction, { 
+          color: theme.text, 
+          backgroundColor: theme.card 
+        }]}>
           {t.instruction}
         </Text>
 
-        {/* Calendar */}
+        {/* Calendar with theme */}
         <View style={[styles.calendarContainer, { backgroundColor: theme.card }]}>
           <Calendar
             onDayPress={(day: { timestamp: number }) => {
@@ -804,14 +752,18 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
               dayTextColor: theme.text,
               textDisabledColor: theme.subText,
               monthTextColor: theme.text,
+              arrowColor: theme.text,
+              textMonthFontWeight: 'bold',
+              textDayFontSize: 16,
+              textMonthFontSize: 16,
+              textDayHeaderFontSize: 14,
             }}
-            // Limit to past 7 days
             minDate={new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
             maxDate={new Date().toISOString().split('T')[0]}
           />
         </View>
 
-        {/* Time Picker Button */}
+        {/* Time Button */}
         <TouchableOpacity
           style={[styles.timeButton, { backgroundColor: theme.card }]}
           onPress={() => setShowTimePicker(true)}
@@ -822,59 +774,64 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.formSection}>
-          <View style={[styles.clockTypeContainer, { backgroundColor: theme.card }]}>
-            <Text style={[styles.label, { color: theme.text }]}>{t.clockType}</Text>
-            <View style={styles.clockTypeButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.clockTypeButton,
-                  { backgroundColor: clockType === 'in' ? theme.primary : theme.background }
-                ]}
-                onPress={() => setClockType('in')}
-              >
-                <Text style={[
-                  styles.clockTypeText,
-                  { color: clockType === 'in' ? '#FFFFFF' : theme.text }
-                ]}>
-                  {t.clockIn}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.clockTypeButton,
-                  { backgroundColor: clockType === 'out' ? theme.primary : theme.background }
-                ]}
-                onPress={() => setClockType('out')}
-              >
-                <Text style={[
-                  styles.clockTypeText,
-                  { color: clockType === 'out' ? '#FFFFFF' : theme.text }
-                ]}>
-                  {t.clockOut}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={[styles.reasonContainer, { backgroundColor: theme.card }]}>
-            <Text style={[styles.label, { color: theme.text }]}>{t.reason}</Text>
-            <TextInput
-              style={[styles.reasonInput, { color: theme.text, backgroundColor: theme.background }]}
-              placeholder={t.reasonPlaceholder}
-              placeholderTextColor={theme.text}
-              value={reason}
-              onChangeText={setReason}
-              multiline
-              numberOfLines={4}
-            />
+        {/* Clock Type */}
+        <View style={[styles.clockTypeContainer, { backgroundColor: theme.card }]}>
+          <Text style={[styles.label, { color: theme.text }]}>{t.clockType}</Text>
+          <View style={styles.clockTypeButtons}>
+            <TouchableOpacity
+              style={[
+                styles.clockTypeButton,
+                { backgroundColor: clockType === 'in' ? theme.primary : theme.background }
+              ]}
+              onPress={() => setClockType('in')}
+            >
+              <Text style={[
+                styles.clockTypeText,
+                { color: clockType === 'in' ? '#FFFFFF' : theme.text }
+              ]}>
+                {t.clockIn}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.clockTypeButton,
+                { backgroundColor: clockType === 'out' ? theme.primary : theme.background }
+              ]}
+              onPress={() => setClockType('out')}
+            >
+              <Text style={[
+                styles.clockTypeText,
+                { color: clockType === 'out' ? '#FFFFFF' : theme.text }
+              ]}>
+                {t.clockOut}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
+        {/* Reason Input */}
+        <View style={[styles.reasonContainer, { backgroundColor: theme.card }]}>
+          <Text style={[styles.label, { color: theme.text }]}>{t.reason}</Text>
+          <TextInput
+            style={[styles.reasonInput, { 
+              color: theme.text, 
+              backgroundColor: theme.background,
+              borderColor: theme.border
+            }]}
+            placeholder={t.reasonPlaceholder}
+            placeholderTextColor={theme.subText}
+            value={reason}
+            onChangeText={setReason}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+
+        {/* Location Selection */}
         <View style={[styles.locationContainer, { backgroundColor: theme.card }]}>
           <Text style={[styles.label, { color: theme.text }]}>{t.location}</Text>
           <TouchableOpacity 
-            style={[styles.locationButton, { backgroundColor: theme.card }]}
+            style={[styles.locationButton, { backgroundColor: theme.background }]}
             onPress={() => setShowLocationPicker(true)}
           >
             <Text style={[styles.locationText, { color: theme.text }]}>
@@ -883,9 +840,9 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
 
+        {/* Photo Section */}
         <View style={[styles.photoContainer, { backgroundColor: theme.card }]}>
           <Text style={[styles.label, { color: theme.text }]}>{t.photos}</Text>
-          
           <View style={styles.photoButtons}>
             <TouchableOpacity
               style={[styles.photoButton, { backgroundColor: theme.background }]}
@@ -899,7 +856,6 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
                 </Text>
               )}
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.photoButton, { backgroundColor: theme.background }]}
               onPress={() => takePhoto('back')}
@@ -915,12 +871,12 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
           </View>
         </View>
 
+        {/* Submit Button */}
         <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: theme.primary },
-            isSubmitting && styles.disabledButton
-          ]}
+          style={[styles.submitButton, { 
+            backgroundColor: theme.primary,
+            opacity: isSubmitting ? 0.7 : 1
+          }]}
           onPress={handleSubmit}
           disabled={isSubmitting}
         >
@@ -932,22 +888,27 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Time Picker Modal */}
+      {showTimePicker && (
+        <TimePicker
+          visible={showTimePicker}
+          onClose={() => setShowTimePicker(false)}
+          onSelect={(time: Date) => setSelectedTime(time)}
+          initialTime={selectedTime}
+          theme={theme}
+          t={t}
+        />
+      )}
+
+      {/* Alert */}
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
         message={alertConfig.message}
         buttons={alertConfig.buttons}
-        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
       />
 
-      <CustomTimePickerModal 
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        onSelect={setSelectedTime}
-        selectedTime={selectedTime}
-        theme={theme}
-      />
-
+      {/* Location Picker Modal */}
       {showLocationPicker && (
         <Modal
           visible={showLocationPicker}
@@ -955,30 +916,40 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
           animationType="slide"
           onRequestClose={() => setShowLocationPicker(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-              <ScrollView>
-                {locations.map((location) => (
-                  <TouchableOpacity
-                    key={location.id}
-                    style={styles.locationItem}
-                    onPress={() => {
-                      setSelectedLocation(location);
-                      setShowLocationPicker(false);
-                    }}
-                  >
-                    <Text style={[styles.locationItemText, { color: theme.text }]}>
-                      {location.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowLocationPicker(false)}
+          >
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+                <ScrollView>
+                  {locations.map((location) => (
+                    <TouchableOpacity
+                      key={location.id}
+                      style={styles.locationItem}
+                      onPress={() => {
+                        setSelectedLocation(location);
+                        setShowLocationPicker(false);
+                      }}
+                    >
+                      <Text style={[styles.locationItemText, { color: theme.text }]}>
+                        {location.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       )}
     </View>
   );
 };
+
 
 export default ATBackDateTLApplication;

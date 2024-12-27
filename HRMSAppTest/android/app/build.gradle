@@ -76,11 +76,11 @@ android {
 
     namespace "com.hrmsapptest"
     defaultConfig {
-        applicationId "com.hrmsapptest"
+        applicationId "com.mcsb_penang_island_plaza.ihrms"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0 Beta"
         missingDimensionStrategy 'react-native-camera', 'general'
         manifestPlaceholders = [
             usesCleartextTraffic: true
@@ -119,6 +119,7 @@ dependencies {
     }
 
     implementation project(':react-native-linear-gradient')
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

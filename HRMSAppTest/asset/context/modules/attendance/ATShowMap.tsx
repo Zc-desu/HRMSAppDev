@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text,
@@ -10,15 +10,22 @@ import {
   Dimensions,
   Platform,
   useColorScheme,
+  PermissionsAndroid,
+  NativeModules,
+  Linking,
+  NativeEventEmitter,
+  Switch,
 } from 'react-native';
 import WebView from 'react-native-webview';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
-import Geolocation from '@react-native-community/geolocation';
+import Geolocation from 'react-native-geolocation-service';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomAlert from '../../modules/setting/CustomAlert';
 import NetInfo from '@react-native-community/netinfo';
+import currentLocation from 'current-location-geo';
+import GetLocation from 'react-native-get-location';
 
 // Translations object
 const translations = {
@@ -43,6 +50,7 @@ const translations = {
     fetchError: 'Error fetching authorized zones',
     instruction: 'Please ensure GPS is enabled, network signal is available, and you are within office range',
     backDateApplication: 'Apply for Back Date',
+    pleaseWait: 'Please wait while we get your location...',
   },
   'ms': {
     loading: 'Memuat lokasi...',
@@ -65,6 +73,7 @@ const translations = {
     fetchError: 'Ralat mendapatkan zon yang dibenarkan',
     instruction: 'Sila pastikan GPS diaktifkan, isyarat rangkaian tersedia, dan anda berada dalam lingkungan pejabat',
     backDateApplication: 'Permohonan Tarikh Lampau',
+    pleaseWait: 'Sila tunggu sementara kami mendapatkan lokasi anda...',
   },
   'zh-Hans': {
     loading: '正在加载位置...',
@@ -85,8 +94,9 @@ const translations = {
     office: '办公室',
     gpsNotAvailable: 'GPS不可用',
     fetchError: '获取授权区域时出错',
-    instruction: '请确保GPS已启用，网络信号可用，并且您在办公室范围内',
+    instruction: '请确保GPS已启用，网络信号可用，且您在办公室范围内',
     backDateApplication: '补打卡申请',
+    pleaseWait: '正在获取您的位置，请稍候...',
   },
   'zh-Hant': {
     loading: '正在載入位置...',
@@ -95,10 +105,10 @@ const translations = {
     ok: '確定',
     status: '狀態',
     withinRange: '在辦公範圍內',
-    outsideRange: '在辦公範圍外',
+    outsideRange: '在辦公室圍外',
     clockIn: '簽到',
     clockOut: '簽退',
-    errorRange: '您必須在辦公範圍內才能簽到/簽退',
+    errorRange: '您必須在辦公室範圍內才能簽到/簽退',
     success: '成功',
     successClockIn: '簽到成功！',
     successClockOut: '簽退成功！',
@@ -106,9 +116,10 @@ const translations = {
     yourLocation: '您的位置',
     office: '辦公室',
     gpsNotAvailable: 'GPS不可用',
-    fetchError: '獲取授權區域時出錯',
+    fetchError: '獲取授權區域出錯',
     instruction: '請確保GPS已啟用，網絡訊號可用，並且您在辦公室範圍內',
     backDateApplication: '補打卡申請',
+    pleaseWait: '正在獲取您的位置，請稍候...',
   }
 } as const;
 
@@ -151,6 +162,43 @@ interface Props {
   route: any;
   navigation: any;
 }
+
+const { LocationServicesDialogBox } = NativeModules;
+
+interface LocationState {
+  latitude: number;
+  longitude: number;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const checkGooglePlayServices = async (): Promise<boolean> => {
+  if (Platform.OS !== 'android') return true;
+  
+  try {
+    // Check if Google Play Services is available using native modules
+    const playStorePackage = 'com.android.vending';
+    const playServicesPackage = 'com.google.android.gms';
+    
+    // Simple check if Play Store and Play Services packages are installed
+    const checkPackage = async (packageName: string) => {
+      try {
+        await NativeModules.PackageManager.getPackageInfo(packageName);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const hasPlayStore = await checkPackage(playStorePackage);
+    const hasPlayServices = await checkPackage(playServicesPackage);
+
+    return hasPlayStore && hasPlayServices;
+  } catch (error) {
+    console.warn('Error checking Google Play Services:', error);
+    return true; // Return true on error to not block functionality
+  }
+};
 
 const ATShowMap = ({ route, navigation }: Props) => {
   const { theme } = useTheme();
@@ -199,19 +247,17 @@ const ATShowMap = ({ route, navigation }: Props) => {
 
   // Set default location (can be your office location)
   const [currentLocation, setCurrentLocation] = useState({
-    latitude: 3.1390,
-    longitude: 101.6869,
+    latitude: 0,
+    longitude: 0,
   });
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [locationText, setLocationText] = useState('');
   const [isWithinRange, setIsWithinRange] = useState(false);
   const [lastClockAction, setLastClockAction] = useState<string>('');
   const [hasError, setHasError] = useState(false);
 
   // Office location state
-  const [officeLocation, setOfficeLocation] = useState({
-    latitude: 3.1390,
-    longitude: 101.6869,
-  });
+  const [officeLocation, setOfficeLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [allowedRadius, setAllowedRadius] = useState(100); // Radius in meters within which clock in/out is allowed
 
   // Add new states
@@ -247,18 +293,15 @@ const ATShowMap = ({ route, navigation }: Props) => {
     setAlertVisible(true);
   };
 
-  // Update fetchAuthorizedZones to use companyId from route params
+  // Fetch authorized zones
   useEffect(() => {
     const fetchAuthorizedZones = async () => {
       try {
         const userToken = await AsyncStorage.getItem('userToken');
-        
-        if (!userToken || !baseUrl || !companyId) {
-          throw new Error('Missing required authentication data');
-        }
+        if (!userToken) throw new Error('No authentication token found');
 
         const response = await fetch(
-          `${baseUrl}/apps/api/v1/attendance/authorized-zones?companyId=${companyId}`,
+          `${baseUrl}/apps/api/v1/attendance/authorized-zones`,
           {
             headers: {
               'Authorization': `Bearer ${userToken}`,
@@ -266,41 +309,434 @@ const ATShowMap = ({ route, navigation }: Props) => {
             },
           }
         );
-        
+
         const data = await response.json();
-        
         if (data.success && data.data.length > 0) {
-          setAuthorizedZones(data.data);
           const zone = data.data[0];
-          
+          setAuthorizedZones(data.data);
           setOfficeLocation({
             latitude: zone.latitude,
             longitude: zone.longitude,
           });
-          
           setAllowedRadius(zone.radius);
         }
       } catch (error) {
         console.error('Error fetching authorized zones:', error);
-        showAlert(t.errorTitle, t.fetchError);
       }
     };
 
-    if (baseUrl && companyId) {
-      fetchAuthorizedZones();
-    }
+    fetchAuthorizedZones();
   }, [baseUrl, companyId]);
 
+  // Custom debounce hook
+  function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedValue(value);
+      }, delay);
+
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [value, delay]);
+
+    return debouncedValue;
+  }
+
+  // Properly typed state
+  const [locationState, setLocationState] = useState<LocationState>({
+    latitude: 0,
+    longitude: 0,
+    isLoading: false,
+    error: null
+  });
+
+  const debouncedLocation = useDebounce(locationState, 1000);
+  const lastDistance = useRef<number>(0);
+  const watchIdRef = useRef<number | null>(null);
+
+  // Add these state variables at the top of your component
+  const [stableLocation, setStableLocation] = useState<LocationState>({
+    latitude: 0,
+    longitude: 0,
+    isLoading: false,
+    error: null
+  });
+  const lastLocationUpdate = useRef(Date.now());
+  const locationBuffer = useRef<LocationState[]>([]);
+
+  const BUFFER_SIZE = 5; // Keep last 5 readings
+  const DISTANCE_THRESHOLD = 10; // 10 meters threshold for change
+  const UPDATE_INTERVAL = 10000; // 10 seconds
+
+  // Remove duplicate locationBuffer declaration since it's already declared above
+  const lastStatusUpdate = useRef<number>(0);
+
+  const checkLocationRange = useCallback((location: Pick<LocationState, 'latitude' | 'longitude'>) => {
+    try {
+      const now = Date.now();
+      if (now - lastStatusUpdate.current < UPDATE_INTERVAL) {
+        return; // Don't update too frequently
+      }
+
+      // Add to buffer
+      locationBuffer.current.push({
+        ...location,
+        isLoading: false,
+        error: null
+      });
+
+      // Keep buffer size limited
+      if (locationBuffer.current.length > BUFFER_SIZE) {
+        locationBuffer.current.shift();
+      }
+
+      // Only proceed if we have enough readings
+      if (locationBuffer.current.length >= 3) {
+        // Calculate median position (more stable than average)
+        const sortedLat = [...locationBuffer.current].sort((a, b) => a.latitude - b.latitude);
+        const sortedLng = [...locationBuffer.current].sort((a, b) => a.longitude - b.longitude);
+        const medianLocation = {
+          latitude: sortedLat[Math.floor(sortedLat.length / 2)].latitude,
+          longitude: sortedLng[Math.floor(sortedLng.length / 2)].longitude
+        };
+
+        if (!officeLocation) return;
+
+        const distance = calculateDistance(
+          medianLocation.latitude,
+          medianLocation.longitude,
+          officeLocation.latitude,
+          officeLocation.longitude
+        );
+
+        // Only update status if change is significant
+        if (Math.abs(distance - lastDistance.current) > DISTANCE_THRESHOLD) {
+          const withinRange = distance <= (allowedRadius + DISTANCE_THRESHOLD);
+          setIsWithinRange(withinRange);
+          setLocationText(withinRange ? t.withinRange : t.outsideRange);
+          lastDistance.current = distance;
+          lastStatusUpdate.current = now;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking location range:', error);
+    }
+  }, [officeLocation, allowedRadius, t]);
+
+  // Update watchLocation function with less frequent updates
+  const watchLocation = useCallback((): number => {
+    return Geolocation.watchPosition(
+      (position) => {
+        const newLocation: LocationState = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          isLoading: false,
+          error: null
+        };
+        
+        // Significant change threshold increased
+        const threshold = 0.00002; // Approximately 2 meters
+        
+        setLocationState(prev => {
+          if (Math.abs(prev.latitude - newLocation.latitude) > threshold ||
+              Math.abs(prev.longitude - newLocation.longitude) > threshold) {
+            return newLocation;
+          }
+          return prev;
+        });
+      },
+      (error) => {
+        setLocationState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error.message
+        }));
+      },
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 15, // Increased from 10 to 15 meters
+        interval: 10000, // Increased from 5000 to 10000 ms
+        fastestInterval: 5000, // Increased from 3000 to 5000 ms
+        forceRequestLocation: true,
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    const initLocation = async () => {
+      try {
+        const hasPermission = await checkGPSStatus();
+        if (!hasPermission) return;
+
+        watchIdRef.current = watchLocation();
+      } catch (error) {
+        console.error('Location initialization error:', error);
+        setLocationState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }));
+      }
+    };
+
+    initLocation();
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        Geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [watchLocation]);
+
+  useEffect(() => {
+    if (debouncedLocation.latitude && debouncedLocation.longitude) {
+      checkLocationRange(debouncedLocation);
+    }
+  }, [debouncedLocation, checkLocationRange]);
+
+  // Handle GPS Not Available toggle
+  const handleGPSToggle = async () => {
+    const newGPSNotAvailable = !gpsNotAvailable;
+    setGpsNotAvailable(newGPSNotAvailable);
+    
+    if (newGPSNotAvailable) {
+      setIsWithinRange(true); // Allow clock in/out if GPS not available
+    } else {
+      // When turning GPS back on, keep the previous state until we get a new location
+      setIsLocationLoading(true); // Show loading state
+      
+      try {
+        // Get current position first
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          Geolocation.getCurrentPosition(
+            (pos) => resolve(pos as GeolocationPosition),
+            (error) => reject(error),
+            { 
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 10000
+            }
+          );
+        });
+
+        // Update location and check range before changing any states
+        const newLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        };
+
+        setLocation(newLocation);
+        setCurrentLocation(newLocation);
+        checkLocationRange(newLocation);
+        updateWebViewLocation(newLocation.latitude, newLocation.longitude);
+        setIsGPSEnabled(true);
+        
+        // Only now start the continuous location watching
+        setupLocation();
+      } catch (error) {
+        console.error('Error getting location:', error);
+        setIsGPSEnabled(false);
+        setIsWithinRange(false); // Only set to false if we can't get location
+      } finally {
+        setIsLocationLoading(false);
+      }
+    }
+  };
+
+  // Handle Clock In/Out
+  const handleClockAction = (action: 'in' | 'out') => {
+    if (!isWifiEnabled && !gpsNotAvailable) {
+      showAlert('Network Error', 'Please enable WiFi or mobile data');
+      return;
+    }
+
+    if (!isGPSEnabled && !gpsNotAvailable) {
+      showAlert('GPS Error', 'Please enable GPS or use GPS Not Available option');
+      return;
+    }
+
+    if (!isWithinRange && !gpsNotAvailable) {
+      showAlert('Location Error', 'You must be within office range or use GPS Not Available option');
+      return;
+    }
+
+    // Proceed with clock action
+    const timeEntry = new Date().toISOString();
+    navigation.navigate('ATPhotoCapture', {
+      timeEntry,
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.0018,
+      longitudeDelta: 0.0018,
+      address: `${currentLocation.latitude},${currentLocation.longitude}`,
+      authorizeZoneName: authorizedZones[0]?.name || '',
+      isOutOfFence: !isWithinRange && !gpsNotAvailable,
+      gpsNotAvailable,
+      employeeId,
+      companyId,
+      baseUrl
+    });
+  };
+
+  const [location, setLocation] = useState({
+    latitude: 0,
+    longitude: 0
+  });
+
+  // Request location permission
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: "Location Permission",
+          message: "App needs access to your location for attendance",
+          buttonNeutral: "Ask Me Later",
+          buttonNegative: "Cancel",
+          buttonPositive: "OK"
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  };
+
+  // Get current location
+  const getCurrentLocation = async () => {
+    try {
+      setIsLocationLoading(true);
+
+      // Check if location service is enabled
+      const enabled = await Geolocation.requestAuthorization('whenInUse');
+      if (!enabled) {
+        setIsLocationLoading(false);
+        setIsGPSEnabled(false);
+        return;
+      }
+
+      // Get current position
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+          
+          console.log('New location:', newLocation);
+          setLocation(newLocation);
+          setCurrentLocation(newLocation);
+          checkLocationRange(newLocation);
+          updateWebViewLocation(newLocation.latitude, newLocation.longitude);
+          setIsLocationLoading(false);
+          setIsGPSEnabled(true);
+        },
+        (error) => {
+          console.error('Location error:', error);
+          setIsLocationLoading(false);
+          setIsGPSEnabled(false);
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+          distanceFilter: 10
+        }
+      );
+    } catch (error) {
+      console.error('Location setup error:', error);
+      setIsLocationLoading(false);
+      setIsGPSEnabled(false);
+    }
+  };
+
+  // Add watchPosition to continuously monitor location
+  const startLocationWatch = () => {
+    const watchId = Geolocation.watchPosition(
+      (position) => {
+        const newLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        };
+        
+        console.log('Location update:', newLocation);
+        setLocation(newLocation);
+        setCurrentLocation(newLocation);
+        checkLocationRange(newLocation);
+        updateWebViewLocation(newLocation.latitude, newLocation.longitude);
+        setIsGPSEnabled(true);
+      },
+      (error) => {
+        console.error('Watch error:', error);
+        setIsGPSEnabled(false);
+      },
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 5, // Update every 5 meters
+        interval: 3000, // Update every 3 seconds
+        fastestInterval: 2000,
+        forceRequestLocation: true,
+        showLocationDialog: true
+      }
+    );
+
+    return watchId;
+  };
+
+  // Update useEffect to use the watcher
+  useEffect(() => {
+    let watchId: number;
+
+    const initLocation = async () => {
+      try {
+        // Get initial location
+        await getCurrentLocation();
+        
+        // Start watching location
+        watchId = startLocationWatch();
+      } catch (error) {
+        console.error('Location initialization error:', error);
+      }
+    };
+
+    initLocation();
+
+    // Cleanup
+    return () => {
+      if (watchId) {
+        Geolocation.clearWatch(watchId);
+        Geolocation.stopObserving();
+      }
+    };
+  }, []);
+
+  // Handle my location button press
+  const handleMyLocationPress = () => {
+    getCurrentLocation();
+  };
+
+  // Check network status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsWifiEnabled(state.isConnected || false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Update your createMapHTML function to use the current location
   const createMapHTML = (currentLat: number, currentLng: number) => `
     <!DOCTYPE html>
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
           #map { height: 100vh; width: 100vw; }
-          body { margin: 0; }
+          body { margin: 0; padding: 0; }
           .custom-marker-label {
             background: none;
             border: none;
@@ -308,35 +744,17 @@ const ATShowMap = ({ route, navigation }: Props) => {
             font-weight: bold;
             font-size: 14px;
           }
-          /* Updated zoom control styles */
-          .leaflet-control-zoom {
-            position: fixed !important;
-            bottom: 180px !important;
-            right: 16px !important;
-            z-index: 1000 !important;
-          }
-          .leaflet-control-zoom a {
-            width: 44px !important;
-            height: 44px !important;
-            line-height: 44px !important;
-            font-size: 24px !important;
-            background-color: white !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-          }
-          .leaflet-control-zoom-in {
-            border-top-left-radius: 8px !important;
-            border-top-right-radius: 8px !important;
-            margin-bottom: 1px !important;
-          }
-          .leaflet-control-zoom-out {
-            border-bottom-left-radius: 8px !important;
-            border-bottom-right-radius: 8px !important;
-          }
         </style>
       </head>
       <body>
         <div id="map"></div>
         <script>
+          const map = L.map('map').setView([${currentLat}, ${currentLng}], 17);
+          
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(map);
+
           // Custom icons
           const userIcon = L.divIcon({
             html: '<div style="background-color: #007AFF; width: 16px; height: 16px; border-radius: 8px; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3);"></div>',
@@ -352,12 +770,7 @@ const ATShowMap = ({ route, navigation }: Props) => {
             iconAnchor: [11, 11],
           });
 
-          const map = L.map('map').setView([${currentLat}, ${currentLng}], 17);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-          }).addTo(map);
-
-          // Add user marker with label
+          // Add markers
           const userMarker = L.marker([${currentLat}, ${currentLng}], {icon: userIcon}).addTo(map);
           userMarker.bindTooltip('${t.yourLocation}', {
             permanent: true,
@@ -366,36 +779,27 @@ const ATShowMap = ({ route, navigation }: Props) => {
             className: 'custom-marker-label'
           });
 
-          // Add office marker with label
-          const officeMarker = L.marker([${officeLocation.latitude}, ${officeLocation.longitude}], {icon: officeIcon}).addTo(map);
+          const officeMarker = L.marker([${officeLocation?.latitude ?? 0}, ${officeLocation?.longitude ?? 0}], {icon: officeIcon}).addTo(map);
           officeMarker.bindTooltip('${t.office}', {
             permanent: true,
             direction: 'top',
             offset: [0, -20],
             className: 'custom-marker-label'
           });
-          
-          // Add radius circle without label
-          L.circle([${officeLocation.latitude}, ${officeLocation.longitude}], {
+          // Add office radius circle
+          L.circle([${officeLocation?.latitude ?? 0}, ${officeLocation?.longitude ?? 0}], {
             radius: ${allowedRadius},
             color: '#FF3B30',
             fillColor: '#FF3B30',
             fillOpacity: 0.15,
-            weight: 3
+            weight: 2
           }).addTo(map);
 
-          // Function to update marker position
+          // Function to update user location
           window.updateLocation = function(lat, lng) {
             userMarker.setLatLng([lat, lng]);
-            map.setView([lat, lng], 17);
+            map.setView([lat, lng], map.getZoom());
           };
-
-          // Fit bounds to show both markers
-          const bounds = L.latLngBounds([
-            [${currentLat}, ${currentLng}],
-            [${officeLocation.latitude}, ${officeLocation.longitude}]
-          ]);
-          map.fitBounds(bounds, { padding: [50, 50] });
         </script>
       </body>
     </html>
@@ -424,50 +828,6 @@ const ATShowMap = ({ route, navigation }: Props) => {
     }
   };
 
-  const checkLocationRange = (location: { latitude: number; longitude: number }) => {
-    const distance = calculateDistance(
-      location.latitude,
-      location.longitude,
-      officeLocation.latitude,
-      officeLocation.longitude
-    );
-
-    setIsWithinRange(distance <= allowedRadius);
-  };
-
-  // Update handleClockAction to ensure companyId is passed
-  const handleClockAction = (action: 'in' | 'out') => {
-    if (!isWithinRange && !authorizedZones[0]?.outOfFenceOverride) {
-      showAlert(t.errorTitle, t.errorRange);
-      return;
-    }
-
-    // Double check required data
-    if (!employeeId || !companyId || !baseUrl) {
-      console.error('Missing required data:', { employeeId, companyId, baseUrl });
-      showAlert(t.errorTitle, 'Missing required data');
-      return;
-    }
-
-    const timeEntry = new Date().toISOString();
-    const currentZone = authorizedZones[0];
-
-    navigation.navigate('ATPhotoCapture', {
-      timeEntry,
-      latitude: currentLocation.latitude,
-      latitudeDelta: 0.0018,
-      longitude: currentLocation.longitude,
-      longitudeDelta: 0.0018,
-      address: `${currentLocation.latitude},${currentLocation.longitude}`,
-      authorizeZoneName: currentZone?.name || '',
-      isOutOfFence: !isWithinRange,
-      gpsNotAvailable,
-      employeeId,
-      companyId,  // Make sure companyId is passed
-      baseUrl
-    });
-  };
-
   const getLocationFromIP = async () => {
     try {
       // Mock location for testing (KL coordinates)
@@ -487,201 +847,353 @@ const ATShowMap = ({ route, navigation }: Props) => {
     }
   };
 
-  const requestLocationPermission = async () => {
-    try {
-      const permissions = Platform.select({
-        android: [
-          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
-          PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION
-        ],
-        ios: [PERMISSIONS.IOS.LOCATION_WHEN_IN_USE],
-      });
-
-      if (!permissions) return false;
-
-      // For Android, check both permissions
-      if (Platform.OS === 'android') {
-        const results = await Promise.all(permissions.map(permission => check(permission)));
+  const checkLocationServices = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
         
-        if (results.includes(RESULTS.DENIED)) {
-          const permissionResults = await Promise.all(permissions.map(permission => request(permission)));
-          return !permissionResults.includes(RESULTS.DENIED);
+        if (!granted) {
+          const permission = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: "Location Permission",
+              message: "This app needs access to your location",
+              buttonNeutral: "Ask Me Later",
+              buttonNegative: "Cancel",
+              buttonPositive: "OK"
+            }
+          );
+          
+          if (permission !== PermissionsAndroid.RESULTS.GRANTED) {
+            return false;
+          }
         }
-
-        return !results.includes(RESULTS.DENIED);
+        return true;
+      } catch (err) {
+        console.warn(err);
+        return false;
       }
-
-      // For iOS, continue with single permission check
-      const result = await check(permissions[0]);
-      if (result === RESULTS.DENIED) {
-        const permissionResult = await request(permissions[0]);
-        return permissionResult === RESULTS.GRANTED;
-      }
-
-      return result === RESULTS.GRANTED;
-    } catch (error) {
-      console.error('Error checking location permission:', error);
-      return false;
     }
-  };
-
-  const checkLocationServices = () => {
-    return new Promise((resolve) => {
-      Geolocation.getCurrentPosition(
-        () => resolve(true),
-        () => resolve(false),
-        { 
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    });
+    return true;
   };
 
   const webViewRef = useRef<WebView>(null);
 
   // Function to update WebView marker
   const updateWebViewLocation = (latitude: number, longitude: number) => {
+    if (!officeLocation) return;
     webViewRef.current?.injectJavaScript(`
       window.updateLocation(${latitude}, ${longitude});
       true;
     `);
   };
 
-  useEffect(() => {
-    let watchId: number;
+  // Add new states
+  const [isWifiEnabled, setIsWifiEnabled] = useState(false);
+  const [isGPSEnabled, setIsGPSEnabled] = useState(false);
 
-    const setupLocation = async () => {
-      try {
-        const hasPermission = await requestLocationPermission();
-        const isLocationEnabled = await checkLocationServices();
+  // Add function to check network status
+  const checkNetworkStatus = async () => {
+    try {
+      const state = await NetInfo.fetch();
+      setIsWifiEnabled(state.isConnected || false);
+      console.log('Network status:', state);
+    } catch (error) {
+      console.error('Network check error:', error);
+    }
+  };
+
+  const checkGPSStatus = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
         
-        setIsGPSEnabled(isLocationEnabled as boolean);
-        
-        if (!hasPermission || !isLocationEnabled) {
-          setIsLocationLoading(false);
-          showAlert(
-            t.gpsNotAvailable, 
-            'Please enable location services and grant location permissions to use this feature'
+        if (!granted) {
+          const permission = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: "Location Permission",
+              message: "This app needs access to your location",
+              buttonNeutral: "Ask Me Later",
+              buttonNegative: "Cancel",
+              buttonPositive: "OK"
+            }
           );
-          return;
+          
+          setIsGPSEnabled(permission === PermissionsAndroid.RESULTS.GRANTED);
+          return permission === PermissionsAndroid.RESULTS.GRANTED;
         }
-
-        // Get initial position with more aggressive settings
-        Geolocation.getCurrentPosition(
-          (position) => {
-            const newLocation = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            };
-            setCurrentLocation(newLocation);
-            setIsInitialLocationSet(true);
-            checkLocationRange(newLocation);
-            setIsLocationLoading(false);
-          },
-          (error) => {
-            console.error('Location error:', error);
-            setIsLocationLoading(false);
-            showAlert(t.errorTitle, 'Unable to get your location. Please check your GPS settings.');
-          },
-          { 
-            enableHighAccuracy: true,
-            timeout: 30000,
-            maximumAge: 0
-          }
-        );
-
-        // Watch position changes with more aggressive settings
-        watchId = Geolocation.watchPosition(
-          (position) => {
-            const newLocation = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            };
-            setCurrentLocation(newLocation);
-            setIsInitialLocationSet(true);
-            checkLocationRange(newLocation);
-            updateWebViewLocation(newLocation.latitude, newLocation.longitude);
-          },
-          (error) => {
-            console.error('Watch position error:', error);
-          },
-          { 
-            enableHighAccuracy: true, 
-            distanceFilter: 5, // Update more frequently
-            timeout: 30000,
-            maximumAge: 1000
-          }
-        );
-      } catch (error) {
-        console.error('Setup location error:', error);
-        setIsLocationLoading(false);
+        
+        setIsGPSEnabled(true);
+        return true;
       }
-    };
+      return true;
+    } catch (error) {
+      console.error('GPS check error:', error);
+      setIsGPSEnabled(false);
+      return false;
+    }
+  };
 
+  // Update setupLocation function with detailed logging
+  const setupLocation = async () => {
+    try {
+      const hasLocationPermission = await checkLocationServices();
+      if (!hasLocationPermission) {
+        setIsGPSEnabled(false);
+        return;
+      }
+
+      const watchId = Geolocation.watchPosition(
+        (position) => {
+          const newLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          setCurrentLocation(newLocation);
+          checkLocationRange(newLocation);
+          setIsLocationLoading(false);
+          setIsGPSEnabled(true);
+        },
+        (error) => {
+          console.log('Location error:', error);
+          setIsGPSEnabled(false);
+        },
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 5,
+          interval: 3000,
+          fastestInterval: 2000,
+          forceRequestLocation: true
+        }
+      );
+
+      return () => Geolocation.clearWatch(watchId);
+    } catch (error) {
+      console.error('Setup error:', error);
+      setIsGPSEnabled(false);
+    }
+  };
+
+  // Update useEffect to handle all checks
+  useEffect(() => {
+    const networkListener = NetInfo.addEventListener(state => {
+      setIsWifiEnabled(state.isConnected || false);
+    });
+
+    checkNetworkStatus();
+    checkGPSStatus();
     setupLocation();
 
     return () => {
-      if (watchId !== undefined) {
+      networkListener();
+    };
+  }, []);
+
+  // Add GPS status check and listener
+  useEffect(() => {
+    const checkGPS = async () => {
+      try {
+        // Initial GPS check
+        Geolocation.getCurrentPosition(
+          () => setIsGPSEnabled(true),
+          () => setIsGPSEnabled(false),
+          { 
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          }
+        );
+      } catch (error) {
+        console.error('GPS check failed:', error);
+      }
+    };
+
+    // Check GPS status initially
+    checkGPS();
+
+    // Set up location watcher to monitor GPS status
+    const watchId = Geolocation.watchPosition(
+      () => setIsGPSEnabled(true),
+      () => setIsGPSEnabled(false),
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 0,
+        interval: 5000,
+        fastestInterval: 2000
+      }
+    );
+
+    // Cleanup
+    return () => {
+      Geolocation.clearWatch(watchId);
+    };
+  }, []);
+
+  // Initialize Geolocation when component mounts
+  useEffect(() => {
+    // Configure Geolocation
+    Geolocation.requestAuthorization('whenInUse');
+
+    // Request permissions
+    requestLocationPermission();
+  }, []);
+
+  // Add getStatusText function
+  const getStatusText = () => {
+    if (gpsNotAvailable) return 'GPS Not Available Mode';
+    if (isLocationLoading) return t.loading;
+    if (!isGPSEnabled) return t.gpsNotAvailable;
+    if (!isWithinRange) return t.outsideRange;
+    return t.withinRange;
+  };
+
+  // Update the useEffect that uses checkGPSStatus
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      if (Platform.OS === 'android') {
+        checkGPSStatus();
+      }
+    }, 5000);
+
+    return () => clearInterval(checkInterval);
+  }, []);
+
+  // Add error handling for Google Play Services
+  const checkPlayServices = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const playServicesAvailable = await checkGooglePlayServices();
+        return playServicesAvailable;
+      }
+      return true;
+    } catch (error) {
+      console.error('Play Services check error:', error);
+      return true; // Continue anyway on error
+    }
+  };
+
+  // Update initializeLocation with better error handling
+  const initializeLocation = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        await checkPlayServices();
+      }
+
+      setIsLocationLoading(true);
+      // Remove the error alert and just update the GPS status
+      const watchId = Geolocation.watchPosition(
+        (position) => {
+          const newLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          
+          if (calculateDistance(
+            newLocation.latitude,
+            newLocation.longitude,
+            currentLocation.latitude,
+            currentLocation.longitude
+          ) > 10) {
+            setCurrentLocation(newLocation);
+            checkLocationRange(newLocation);
+          }
+          setIsGPSEnabled(true);
+        },
+        (error) => {
+          console.error('Location error:', error);
+          setIsGPSEnabled(false);
+        },
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 15,
+          interval: 10000,
+          fastestInterval: 5000,
+          forceRequestLocation: true,
+        }
+      );
+
+      return watchId;
+    } catch (error) {
+      console.error('Location initialization error:', error);
+      setIsGPSEnabled(false);
+      return null;
+    }
+  };
+
+  // Update useEffect
+  useEffect(() => {
+    let watchId: number | null = null;
+    let mounted = true;
+
+    const setup = async () => {
+      try {
+        if (mounted) {
+          const id = await initializeLocation();
+          if (id && mounted) {
+            watchId = id;
+          }
+        }
+      } catch (error) {
+        console.error('Setup error:', error);
+      }
+    };
+
+    setup();
+
+    return () => {
+      mounted = false;
+      if (watchId !== null) {
         Geolocation.clearWatch(watchId);
       }
     };
-  }, [officeLocation, allowedRadius]);
+  }, []);
 
-  // Add states for network and GPS status
-  const [isOnline, setIsOnline] = useState(true);
-  const [isGPSEnabled, setIsGPSEnabled] = useState(true);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-  // Add network check effect
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOnline(state.isConnected ?? false);
+  // Update the Apply for Back Date button handler
+  const handleBackDatePress = () => {
+    navigation.navigate('ATBackDateTLApplication', {
+      employeeId: employeeId,
+      companyId: companyId,
+      baseUrl: baseUrl
     });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Add GPS check in your existing location effect
-  useEffect(() => {
-    const checkGPSStatus = () => {
-      Geolocation.getCurrentPosition(
-        () => setIsGPSEnabled(true),
-        () => setIsGPSEnabled(false),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
-    };
-
-    checkGPSStatus();
-    const interval = setInterval(checkGPSStatus, 10000); // Check every 10 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.instructionContainer, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}>
-        <Text style={[styles.instructionText, { color: '#FFFFFF' }]}>
+      <View style={[
+        styles.instructionContainer, 
+        { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)' }
+      ]}>
+        <Text style={[styles.instructionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
           {t.instruction}
         </Text>
         <View style={styles.statusContainer}>
           <View style={styles.statusItem}>
             <Image 
               source={require('../../../../asset/img/icon/WIFI.png')}
-              style={styles.statusIcon}
+              style={[styles.statusIcon, { opacity: isWifiEnabled ? 1 : 0.5 }]}
+              resizeMode="contain"
             />
             <Image 
-              source={isOnline ? 
+              source={isWifiEnabled ? 
                 require('../../../../asset/img/icon/a-circle-check-filled.png') :
                 require('../../../../asset/img/icon/a-circle-close-filled.png')
               }
-              style={[styles.statusIndicator, { tintColor: isOnline ? '#34C759' : '#FF3B30' }]}
+              style={[styles.statusIndicator, { tintColor: isWifiEnabled ? '#34C759' : '#FF3B30' }]}
             />
           </View>
           <View style={styles.statusItem}>
             <Image 
               source={require('../../../../asset/img/icon/a-location.png')}
-              style={styles.statusIcon}
+              style={[styles.statusIcon, { opacity: isGPSEnabled ? 1 : 0.5 }]}
+              resizeMode="contain"
             />
             <Image 
               source={isGPSEnabled ? 
@@ -694,6 +1206,16 @@ const ATShowMap = ({ route, navigation }: Props) => {
         </View>
       </View>
       
+      <TouchableOpacity 
+        style={styles.myLocationButton}
+        onPress={handleMyLocationPress}
+      >
+        <Image 
+          source={require('../../../../asset/img/icon/a-location.png')}
+          style={styles.locationIcon}
+        />
+      </TouchableOpacity>
+
       <WebView
         ref={webViewRef}
         style={styles.map}
@@ -702,59 +1224,54 @@ const ATShowMap = ({ route, navigation }: Props) => {
         onMessage={handleWebViewMessage}
       />
 
-      <View style={[styles.bottomContainer, { backgroundColor: theme.card }]}>
-        {isLocationLoading ? (
-          <Text style={[styles.statusText, { color: theme.text }]}>
-            {t.loading}
-          </Text>
-        ) : !isInitialLocationSet ? (
-          <Text style={[styles.statusText, { color: theme.text }]}>
-            {t.loading}
-          </Text>
-        ) : (
-          <Text style={[styles.statusText, { color: theme.text }]}>
-            {t.status}: {isWithinRange ? t.withinRange : t.outsideRange}
-          </Text>
-        )}
+      <View style={styles.bottomContainer}>
+        <Text style={styles.locationStatus}>
+          {getStatusText()}
+        </Text>
 
-        <TouchableOpacity
-          style={[styles.optionButton, { backgroundColor: theme.background }]}
-          onPress={() => setGpsNotAvailable(!gpsNotAvailable)}
+        <TouchableOpacity 
+          style={[
+            styles.gpsToggleBar,
+            { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }
+          ]}
+          onPress={handleGPSToggle}
         >
-          <Text style={[styles.optionText, { color: theme.text }]}>
-            {t.gpsNotAvailable}
+          <Text style={[styles.gpsToggleText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+            GPS Not Available
           </Text>
-          <View style={styles.checkbox}>
-            {gpsNotAvailable && <View style={styles.innerCircle} />}
+          <View style={styles.gpsCheckbox}>
+            {gpsNotAvailable && <View style={styles.checkmark} />}
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TouchableOpacity 
           style={[styles.backDateButton, { backgroundColor: theme.primary }]}
-          onPress={() => navigation.navigate('ATBackDateTLApplication', {
-            employeeId,
-            companyId,
-            baseUrl
-          })}
+          onPress={handleBackDatePress}
         >
-          <Text style={styles.buttonText}>{t.backDateApplication}</Text>
+          <Text style={styles.backDateButtonText}>{t.backDateApplication}</Text>
         </TouchableOpacity>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.primary }]}
+        <View style={styles.clockButtonsRow}>
+          <TouchableOpacity 
+            style={[
+              styles.clockButton,
+              (!isWithinRange && !gpsNotAvailable) && styles.disabledButton
+            ]}
             onPress={() => handleClockAction('in')}
-            disabled={isLocationLoading || !isInitialLocationSet}
+            disabled={!isWithinRange && !gpsNotAvailable}
           >
-            <Text style={styles.buttonText}>{t.clockIn}</Text>
+            <Text style={styles.clockButtonText}>Clock In</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.primary }]}
+          
+          <TouchableOpacity 
+            style={[
+              styles.clockButton,
+              (!isWithinRange && !gpsNotAvailable) && styles.disabledButton
+            ]}
             onPress={() => handleClockAction('out')}
-            disabled={isLocationLoading || !isInitialLocationSet}
+            disabled={!isWithinRange && !gpsNotAvailable}
           >
-            <Text style={styles.buttonText}>{t.clockOut}</Text>
+            <Text style={styles.clockButtonText}>Clock Out</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -774,81 +1291,91 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  mapContainer: {
-    flex: 1,
+  instructionContainer: {
+    padding: 16,
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  instructionText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+  },
+  statusIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#000000',
+  },
+  statusIndicator: {
+    width: 16,
+    height: 16,
+    marginLeft: 4,
+  },
+  myLocationButton: {
+    position: 'absolute',
+    right: 16,
+    top: 100,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1,
+  },
+  locationIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#007AFF',
   },
   map: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   bottomContainer: {
     padding: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+  locationStatus: {
+    fontSize: 16,
+    color: '#000000',
+    textAlign: 'center',
     marginBottom: 16,
   },
-  button: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 15,
-    borderRadius: 10,
+  gpsToggleBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  buttonText: {
+  gpsToggleText: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  statusText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  text: {
-    fontSize: 16,
-    marginTop: 10,
-  },
-  errorText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  optionButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    marginHorizontal: 16,
-  },
-  optionText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  checkbox: {
+  gpsCheckbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -857,54 +1384,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  innerCircle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  checkmark: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#007AFF',
   },
-  instructionContainer: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    zIndex: 1,
-    padding: 12,
-    borderRadius: 8,
-  },
-  instructionText: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
-    gap: 16,
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#FFFFFF',
-  },
-  statusIndicator: {
-    width: 16,
-    height: 16,
-  },
   backDateButton: {
-    marginHorizontal: 16,
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  backDateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  clockButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  clockButton: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  clockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

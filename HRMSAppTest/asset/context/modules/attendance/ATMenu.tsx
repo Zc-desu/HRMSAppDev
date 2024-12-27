@@ -41,7 +41,8 @@ const ATMenu = ({ route, navigation }: any) => {
           attendancePendingApplications: 'Kelulusan Kehadiran',
           overtimePendingApplications: 'Kelulusan Kerja Lebih Masa',
           attendanceSection: 'Kehadiran',
-          overtimeManagement: 'Kerja Lebih Masa'
+          overtimeManagement: 'Kerja Lebih Masa',
+          backDateApplication: 'Permohonan Tarikh Lampau',
         }[key] || key;
       
       case 'zh-Hans':
@@ -57,7 +58,8 @@ const ATMenu = ({ route, navigation }: any) => {
           attendancePendingApplications: '考勤审批',
           overtimePendingApplications: '加班审批',
           attendanceSection: '考勤管理',
-          overtimeManagement: '加班管理'
+          overtimeManagement: '加班管理',
+          backDateApplication: '补打卡申请',
         }[key] || key;
       
       case 'zh-Hant':
@@ -73,7 +75,8 @@ const ATMenu = ({ route, navigation }: any) => {
           attendancePendingApplications: '考勤審批',
           overtimePendingApplications: '加班審批',
           attendanceSection: '考勤管理',
-          overtimeManagement: '加班管理'
+          overtimeManagement: '加班管理',
+          backDateApplication: '補打卡申請',
         }[key] || key;
       
       default: // 'en'
@@ -89,7 +92,8 @@ const ATMenu = ({ route, navigation }: any) => {
           attendancePendingApplications: 'Attendance Approvals',
           overtimePendingApplications: 'Overtime Approvals',
           attendanceSection: 'Attendance',
-          overtimeManagement: 'Overtime'
+          overtimeManagement: 'Overtime',
+          backDateApplication: 'Back Date Application',
         }[key] || key;
     }
   };
@@ -134,6 +138,15 @@ const ATMenu = ({ route, navigation }: any) => {
       title: getLocalizedText('timeLogListing'),
       onPress: () => navigation.navigate('ATTimeLogListing', {
         employeeId,
+        baseUrl
+      }),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      title: getLocalizedText('backDateApplication'),
+      onPress: () => navigation.navigate('ATBackDateTLApplication', {
+        employeeId,
+        companyId,
         baseUrl
       }),
       icon: require('../../../../asset/img/icon/arrow-right.png'),
