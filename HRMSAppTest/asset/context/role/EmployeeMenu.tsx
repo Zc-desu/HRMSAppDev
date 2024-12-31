@@ -68,6 +68,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           failedLogout: 'Gagal log keluar',
           companyIdUnavailable: 'ID syarikat tidak tersedia',
           attendance: 'Kehadiran',
+          settings: 'Tetapan',
         }[key] || key;
       
       case 'zh-Hans':
@@ -85,6 +86,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           failedLogout: '登出失败',
           companyIdUnavailable: '公司ID不可用',
           attendance: '考勤',
+          settings: '设置',
         }[key] || key;
       
       case 'zh-Hant':
@@ -102,6 +104,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           failedLogout: '登出失敗',
           companyIdUnavailable: '公司ID不可用',
           attendance: '考勤',
+          settings: '設置',
         }[key] || key;
       
       default: // 'en'
@@ -119,6 +122,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           failedLogout: 'Failed to log out',
           companyIdUnavailable: 'Company ID is not available',
           attendance: 'Attendance',
+          settings: 'Settings',
         }[key] || key;
     }
   };
@@ -490,8 +494,19 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         </View>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={[styles.squareButton, { backgroundColor: theme.card }]}>
-            <Text style={[styles.squareButtonText, { color: theme.text }]}>Button 5</Text>
+          <TouchableOpacity 
+            style={[styles.squareButton, { backgroundColor: theme.card }]}
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <View style={styles.iconTextContainer}>
+              <Image 
+                source={require('../../../asset/img/icon/shezhi.png')} 
+                style={[styles.iconImage, { tintColor: theme.primary }]} 
+              />
+              <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                {getLocalizedText('settings')}
+              </Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.squareButton, styles.logoutButtonStyle, { backgroundColor: theme.card }]}

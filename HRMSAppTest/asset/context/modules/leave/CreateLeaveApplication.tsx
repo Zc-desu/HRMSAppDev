@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,25 @@ interface LeavePolicy {
 }
 
 interface LeaveDate {
+  Date: any;
+  date: string;
+  availableSessions: {
+    id: number;
+    description: string;
+  }[];
+  typeOfDay: string | null;
+  isWorkingDay: boolean;
+  leaveAppList: Array<{
+    leaveCode: string;
+    session: string;
+    approvalStatus: string;
+  }>;
+  isHoliday: boolean;
+  holiday: string | null;
+  isConsecutive: boolean;
+}
+
+interface LeaveApplicationDate {
   Date: string;
   SessionId: number;
 }
@@ -67,6 +86,28 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   const [firstDaySession, setFirstDaySession] = useState('full');
   const [sessions, setSessions] = useState<{[key: string]: number}>({});
   const [excludedDates, setExcludedDates] = useState<string[]>([]);
+  const [leaveDates, setLeaveDates] = useState<LeaveDate[]>([]);
+  const [nonWorkingDays, setNonWorkingDays] = useState<string[]>([]);
+  const [holidays, setHolidays] = useState<string[]>([]);
+  const [consecutiveDays, setConsecutiveDays] = useState<string[]>([]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: {
+        backgroundColor: theme.headerBackground,
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+      headerTintColor: theme.headerText,
+      headerTitleStyle: {
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
+      },
+      headerShadowVisible: false,
+      title: getLocalizedText('title'),
+    });
+  }, [theme, navigation, language]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -166,10 +207,71 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     }
   };
 
+  const fetchLeaveDates = async (leaveCodeId: number, startDate: Date, endDate: Date) => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      if (!userToken || !baseUrl || !employeeId) {
+        throw new Error('Missing required data');
+      }
+
+      const dateFrom = startDate.toISOString();
+      const dateTo = endDate.toISOString();
+
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${dateFrom}&DateTo=${dateTo}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        const leaveDatesData: LeaveDate[] = data.data;
+        setLeaveDates(leaveDatesData);
+        
+        // Process different types of dates
+        const nonWorkingDates = leaveDatesData
+          .filter(date => !date.isWorkingDay)
+          .map(date => date.date.split('T')[0]);
+        
+        const holidayDates = leaveDatesData
+          .filter(date => date.isHoliday)
+          .map(date => date.date.split('T')[0]);
+        
+        const consecutiveDates = leaveDatesData
+          .filter(date => date.isConsecutive)
+          .map(date => date.date.split('T')[0]);
+
+        setNonWorkingDays(nonWorkingDates);
+        setHolidays(holidayDates);
+        setConsecutiveDays(consecutiveDates);
+
+        // Show warning if necessary
+        if (nonWorkingDates.length > 0 || holidayDates.length > 0) {
+          setAlertTitle(getLocalizedText('warning'));
+          setAlertMessage(getLocalizedText('dateValidationWarning'));
+          setShowAlert(true);
+        }
+      } else {
+        setAlertMessage(data.message || 'Failed to fetch leave dates');
+        setShowAlert(true);
+      }
+    } catch (error) {
+      console.error('Error fetching leave dates:', error);
+      setAlertMessage('Error fetching leave dates');
+      setShowAlert(true);
+    }
+  };
+
   const getLocalizedText = (key: string) => {
     switch (language) {
       case 'ms':
         return {
+          title: 'Buat Permohonan Cuti',
           selectLeaveType: 'Pilih Jenis Cuti',
           selectDates: 'Pilih Tarikh',
           reason: 'Sebab',
@@ -203,10 +305,17 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           note: 'Nota',
           policyViolation: 'Pelanggaran Polisi',
           notificationPolicyError: 'Sila mohon cuti {days} hari sebelum tarikh cuti',
+          dateValidation: 'Pengesahan Tarikh',
+          nonWorkingDays: 'Hari Tidak Bekerja',
+          holidays: 'Cuti Umum',
+          consecutiveDays: 'Hari Berturutan',
+          warning: 'Amaran',
+          dateValidationWarning: 'Beberapa tarikh yang dipilih adalah hari cuti atau hari tidak bekerja.',
         }[key] || key;
       
       case 'zh-Hans':
         return {
+          title: '创建休假申请',
           selectLeaveType: '选择休假类型',
           selectDates: '选择日期',
           reason: '原因',
@@ -240,10 +349,61 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           note: '备注',
           policyViolation: '政策违规',
           notificationPolicyError: '请提前{days}天申请休假',
+          dateValidation: '日期验证',
+          nonWorkingDays: '非工作日',
+          holidays: '公共假期',
+          consecutiveDays: '连续日期',
+          warning: '警告',
+          dateValidationWarning: '所选日期中包含假期或非工作日。',
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          title: '創建休假申請',
+          selectLeaveType: '選擇休假類型',
+          selectDates: '選擇日期',
+          reason: '原因',
+          enterReason: '輸入原因',
+          days: '天',
+          fullDay: '全天',
+          firstHalf: '上半天',
+          secondHalf: '下半天',
+          sessionType: '時段類型',
+          submit: '提交',
+          selectLeaveTypeFirst: '請選擇休假類型',
+          enterReasonFirst: '請輸入原因',
+          leaveSubmitSuccess: '休假申請提交成功',
+          leaveSubmitFailed: '休假申請提交失敗',
+          leaveSubmitError: '提交申請時出錯',
+          invalidUserId: '無效的用户 ID',
+          invalidDateRange: '無效的日期範圍',
+          attachments: '附件',
+          addAttachment: '添加文件',
+          attachmentError: '上傳文件失敗',
+          fileTooLarge: '文件大小超過5MB',
+          pdfOnly: '只允許上傳PDF文件',
+          error: '錯誤',
+          initializationError: '初始化錯誤',
+          fromDate: '開始日期',
+          toDate: '結束日期',
+          selectLeaveCode: '選擇假期代碼',
+          exclude: '排除',
+          include: '包含',
+          session: '時段',
+          note: '備註',
+          policyViolation: '政策違規',
+          notificationPolicyError: '請提前{days}天申請休假',
+          dateValidation: '日期驗證',
+          nonWorkingDays: '非工作日',
+          holidays: '公眾假期',
+          consecutiveDays: '連續日期',
+          warning: '警告',
+          dateValidationWarning: '所選日期中包含假期或非工作日。',
         }[key] || key;
       
       default: // 'en'
         return {
+          title: 'Create Leave Application',
           selectLeaveType: 'Select Leave Type',
           selectDates: 'Select Dates',
           reason: 'Reason',
@@ -277,6 +437,12 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           note: 'Note',
           policyViolation: 'Policy Violation',
           notificationPolicyError: 'Please apply leave {days} days in advance',
+          dateValidation: 'Date Validation',
+          nonWorkingDays: 'Non-Working Days',
+          holidays: 'Public Holidays',
+          consecutiveDays: 'Consecutive Days',
+          warning: 'Warning',
+          dateValidationWarning: 'Some selected dates are holidays or non-working days.',
         }[key] || key;
     }
   };
@@ -313,6 +479,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           value={dateFrom}
           mode="date"
           display="default"
+          themeVariant={theme.background === '#000000' ? 'dark' : 'light'}
           onChange={(event, selectedDate) => {
             setShowFromDatePicker(false);
             if (selectedDate) {
@@ -327,6 +494,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           value={dateTo}
           mode="date"
           display="default"
+          themeVariant={theme.background === '#000000' ? 'dark' : 'light'}
           onChange={(event, selectedDate) => {
             setShowToDatePicker(false);
             if (selectedDate) {
@@ -582,7 +750,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         reason
       });
 
-      const leaveDates: LeaveDate[] = [];
+      const leaveDates: LeaveApplicationDate[] = [];
       let currentDate = new Date(dateFrom);
       while (currentDate <= dateTo) {
         leaveDates.push({
@@ -603,17 +771,19 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
       formData.append('Reason', reason);
       formData.append('UserId', userId);
 
-      leaveDates.forEach((date, index) => {
-        formData.append(`LeaveDateList[${index}].Date`, date.Date);
-        formData.append(`LeaveDateList[${index}].SessionId`, date.SessionId.toString());
+      leaveDates.forEach((leaveDate, index) => {
+        formData.append(`LeaveDateList[${index}].Date`, leaveDate.Date);
+        formData.append(`LeaveDateList[${index}].SessionId`, sessions[leaveDate.Date.split('T')[0]]?.toString() || '1');
       });
 
       for (const file of attachments) {
-        formData.append('Attachments', {
+        const fileData = {
           uri: file.uri,
-          type: 'application/pdf',
+          type: file.type || 'application/pdf',
           name: file.name || 'document.pdf',
-        });
+        } as any;  // Use type assertion to bypass FormData type checking
+        
+        formData.append('Attachments', fileData);
       }
 
       console.log('Debug: FormData values:', {
@@ -728,10 +898,15 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           onRequestClose={() => setShowLeaveCodePicker(false)}
         >
           <TouchableOpacity 
-            style={styles.modalOverlay}
+            style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
             onPress={() => setShowLeaveCodePicker(false)}
           >
-            <View style={[styles.pickerContainer, { backgroundColor: theme.card }]}>
+            <View style={[styles.pickerContainer, { 
+              backgroundColor: theme.card,
+              borderTopColor: theme.border,
+              borderLeftColor: theme.border,
+              borderRightColor: theme.border,
+            }]}>
               <ScrollView>
                 {entitlements.map((leave) => (
                   <TouchableOpacity
@@ -774,6 +949,71 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     );
   };
 
+  const renderReasonInput = () => (
+    <View style={[styles.card, { backgroundColor: theme.card }]}>
+      <Text style={[styles.cardTitle, { color: theme.text }]}>
+        {getLocalizedText('reason')}
+      </Text>
+      <TextInput
+        style={[styles.input, { 
+          backgroundColor: theme.background,
+          color: theme.text,
+          borderColor: theme.border,
+        }]}
+        placeholder={getLocalizedText('enterReason')}
+        placeholderTextColor={theme.subText}
+        value={reason}
+        onChangeText={setReason}
+        multiline
+      />
+    </View>
+  );
+
+  const DateValidationInfo = () => {
+    if (!selectedLeave) return null;
+
+    return (
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>
+          {getLocalizedText('dateValidation')}
+        </Text>
+        
+        {nonWorkingDays.length > 0 && (
+          <View style={styles.validationItem}>
+            <Text style={[styles.validationText, { color: theme.error }]}>
+              {getLocalizedText('nonWorkingDays')}:
+            </Text>
+            <Text style={[styles.dateList, { color: theme.subText }]}>
+              {nonWorkingDays.map(date => new Date(date).toLocaleDateString()).join(', ')}
+            </Text>
+          </View>
+        )}
+        
+        {holidays.length > 0 && (
+          <View style={styles.validationItem}>
+            <Text style={[styles.validationText, { color: theme.error }]}>
+              {getLocalizedText('holidays')}:
+            </Text>
+            <Text style={[styles.dateList, { color: theme.subText }]}>
+              {holidays.map(date => new Date(date).toLocaleDateString()).join(', ')}
+            </Text>
+          </View>
+        )}
+        
+        {consecutiveDays.length > 0 && (
+          <View style={styles.validationItem}>
+            <Text style={[styles.validationText, { color: theme.warning }]}>
+              {getLocalizedText('consecutiveDays')}:
+            </Text>
+            <Text style={[styles.dateList, { color: theme.subText }]}>
+              {consecutiveDays.map(date => new Date(date).toLocaleDateString()).join(', ')}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -791,19 +1031,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           {renderSessionType()}
           {renderAttachments()}
           
-          <View style={[styles.card, { backgroundColor: theme.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {getLocalizedText('reason')}
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
-              placeholder={getLocalizedText('enterReason')}
-              placeholderTextColor={theme.subText}
-              value={reason}
-              onChangeText={setReason}
-              multiline
-            />
-          </View>
+          {renderReasonInput()}
 
           <TouchableOpacity
             style={[styles.submitButton, { backgroundColor: theme.primary }]}
@@ -813,6 +1041,8 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
               {getLocalizedText('submit')}
             </Text>
           </TouchableOpacity>
+
+          <DateValidationInfo />
         </>
       )}
 
@@ -969,7 +1199,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   pickerContainer: {
@@ -977,6 +1206,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
   },
   leaveCodeItem: {
     paddingVertical: 16,
@@ -991,6 +1223,7 @@ const styles = StyleSheet.create({
     padding: 12,
     height: 100,
     textAlignVertical: 'top',
+    borderWidth: 1,
   },
   balanceText: {
     fontSize: 14,
@@ -1032,6 +1265,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   noteText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  validationItem: {
+    marginVertical: 8,
+  },
+  validationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateList: {
     fontSize: 14,
     lineHeight: 20,
   },

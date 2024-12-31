@@ -186,7 +186,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: 'Leave',
         noticeBoard: 'Notice Board',
         attendance: 'Attendance',
-        button5: 'Approval'
+        button5: 'Approval',
+        settings: 'Settings',
       },
       'zh-Hans': {
         ok: '确定',
@@ -201,7 +202,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: '请假',
         noticeBoard: '公告栏',
         attendance: '考勤',
-        button5: '审批'
+        button5: '审批',
+        settings: '设置',
       },
       'zh-Hant': {
         ok: '確定',
@@ -216,7 +218,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: '請假',
         noticeBoard: '公告欄',
         attendance: '考勤',
-        button5: '審批'
+        button5: '審批',
+        settings: '設置',
       },
       ms: {
         ok: 'OK',
@@ -231,7 +234,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         leave: 'Cuti',
         noticeBoard: 'Papan Notis',
         attendance: 'Kehadiran',
-        button5: 'Kelulusan'
+        button5: 'Kelulusan',
+        settings: 'Tetapan',
       }
     };
     return translations[language]?.[key] || key;
@@ -362,6 +366,24 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.squareButton, { backgroundColor: theme.card }]}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <View style={styles.iconTextContainer}>
+                <Image 
+                  source={require('../../../asset/img/icon/shezhi.png')} 
+                  style={[styles.iconImage, { tintColor: theme.primary }]} 
+                />
+                <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                  {getLocalizedText('settings')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.squareButton, styles.logoutButtonStyle, { backgroundColor: theme.card }]}
               onPress={handleLogout}
@@ -371,9 +393,12 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                   source={require('../../img/icon/tuichu.png')} 
                   style={[styles.iconImage, { tintColor: theme.error }]} 
                 />
-                <Text style={[styles.squareButtonText, { color: theme.error }]}>{getLocalizedText('logOut')}</Text>
+                <Text style={[styles.squareButtonText, { color: theme.error }]}>
+                  {getLocalizedText('logOut')}
+                </Text>
               </View>
             </TouchableOpacity>
+            <View style={[styles.squareButton, { opacity: 0 }]} />
           </View>
         </View>
       </ScrollView>

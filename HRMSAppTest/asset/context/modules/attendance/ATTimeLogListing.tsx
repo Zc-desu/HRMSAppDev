@@ -21,7 +21,7 @@ const translations = {
     noRecords: 'No records for'
   },
   'ms': {
-    timeLogListing: 'Senarai Log Masa',
+    timeLogListing: 'Sejarah Log Masa',
     error: 'Ralat',
     failedFetch: 'Gagal mendapatkan log masa',
     ok: 'OK',
@@ -33,7 +33,7 @@ const translations = {
     noRecords: 'Tiada rekod untuk'
   },
   'zh-Hans': {
-    timeLogListing: '时间记录列表',
+    timeLogListing: '打卡记录',
     error: '错误',
     failedFetch: '无法获取时间记录',
     ok: '确定',
@@ -45,7 +45,7 @@ const translations = {
     noRecords: '没有记录'
   },
   'zh-Hant': {
-    timeLogListing: '時間記錄列表',
+    timeLogListing: '打卡記錄',
     error: '錯誤',
     failedFetch: '無法獲取時間記錄',
     ok: '確定',

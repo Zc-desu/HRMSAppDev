@@ -128,7 +128,7 @@ const LeaveEntitlementListing = () => {
     switch (language) {
       case 'ms':
         return {
-          leaveEntitlement: 'Kelayakan Cuti',
+          leaveEntitlement: 'Baki Cuti',
           employeeInfo: 'Maklumat Pekerja',
           employeeId: 'ID Pekerja',
           department: 'Jabatan',
@@ -136,7 +136,7 @@ const LeaveEntitlementListing = () => {
           joinDate: 'Tarikh Mula Kerja',
           available: 'Baki',
           taken: 'Diambil',
-          total: 'Jumlah',
+          total: 'Diperolehi',
           carryForward: 'B/H',
           loading: 'Memuat...',
           error: 'Ralat',
@@ -148,7 +148,7 @@ const LeaveEntitlementListing = () => {
 
       case 'zh-Hans':
         return {
-          leaveEntitlement: '休假额度',
+          leaveEntitlement: '查看休假余额',
           employeeInfo: '员工信息',
           employeeId: '员工编号',
           department: '部门',
@@ -156,7 +156,7 @@ const LeaveEntitlementListing = () => {
           joinDate: '入职日期',
           available: '可用',
           taken: '已用',
-          total: '总数',
+          total: '已获得',
           carryForward: '结转',
           loading: '加载中...',
           error: '错误',
@@ -168,7 +168,7 @@ const LeaveEntitlementListing = () => {
 
       case 'zh-Hant':
         return {
-          leaveEntitlement: '休假額度',
+          leaveEntitlement: '查看休假餘額',
           employeeInfo: '員工信息',
           employeeId: '員工編號',
           department: '部門',
@@ -176,7 +176,7 @@ const LeaveEntitlementListing = () => {
           joinDate: '入職日期',
           available: '可用',
           taken: '已用',
-          total: '總數',
+          total: '已獲得',
           carryForward: '結轉',
           loading: '載入中...',
           error: '錯誤',
@@ -188,7 +188,7 @@ const LeaveEntitlementListing = () => {
 
       default: // 'en'
         return {
-          leaveEntitlement: 'Leave Entitlement',
+          leaveEntitlement: 'Leave Balance',
           employeeInfo: 'Employee Information',
           employeeId: 'Employee ID',
           department: 'Department',
@@ -196,7 +196,7 @@ const LeaveEntitlementListing = () => {
           joinDate: 'Join Date',
           available: 'Available',
           taken: 'Taken',
-          total: 'Total',
+          total: 'Earned',
           carryForward: 'C/F',
           loading: 'Loading...',
           error: 'Error',
@@ -354,31 +354,13 @@ const LeaveEntitlementListing = () => {
             <View style={styles.leaveDetails}>
               <View style={styles.detailBox}>
                 <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
-                  {getLocalizedText('available')}
-                </Text>
-                <Text style={[styles.detailBoxValue, { color: theme.success }]}>
-                  {item.balanceDays.toFixed(1)}
-                </Text>
-              </View>
-              
-              <View style={styles.detailBox}>
-                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
-                  {getLocalizedText('taken')}
-                </Text>
-                <Text style={[styles.detailBoxValue, { color: theme.warning }]}>
-                  {item.takenDays.toFixed(1)}
-                </Text>
-              </View>
-              
-              <View style={styles.detailBox}>
-                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
                   {getLocalizedText('total')}
                 </Text>
                 <Text style={[styles.detailBoxValue, { color: theme.primary }]}>
                   {item.earnedDays.toFixed(1)}
                 </Text>
               </View>
-              
+
               {item.carryForwardDays > 0 && (
                 <View style={styles.detailBox}>
                   <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
@@ -389,6 +371,24 @@ const LeaveEntitlementListing = () => {
                   </Text>
                 </View>
               )}
+
+              <View style={styles.detailBox}>
+                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                  {getLocalizedText('taken')}
+                </Text>
+                <Text style={[styles.detailBoxValue, { color: '#FF9500' }]}>
+                  {item.takenDays.toFixed(1)}
+                </Text>
+              </View>
+
+              <View style={styles.detailBox}>
+                <Text style={[styles.detailBoxLabel, { color: theme.subText }]}>
+                  {getLocalizedText('available')}
+                </Text>
+                <Text style={[styles.detailBoxValue, { color: theme.success }]}>
+                  {item.balanceDays.toFixed(1)}
+                </Text>
+              </View>
             </View>
           </View>
         ))}

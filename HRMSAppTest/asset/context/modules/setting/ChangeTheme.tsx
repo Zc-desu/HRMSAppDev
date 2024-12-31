@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomAlert from './CustomAlert';
 import { useTheme } from './ThemeContext';
+import { useLanguage } from './LanguageContext';
 
 // Define theme types
 type ThemeType = 'light' | 'dark' | 'system';
@@ -61,6 +62,7 @@ export const darkTheme = {
 
 const ChangeTheme = ({ navigation }: any) => {
   const { theme, currentTheme, setCurrentTheme } = useTheme();
+  const { language } = useLanguage();
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     title: string;
@@ -71,6 +73,62 @@ const ChangeTheme = ({ navigation }: any) => {
     message: '',
     buttons: [],
   });
+
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          title: 'Tema',
+          themeSettings: 'Tetapan Tema',
+          lightTheme: 'Tema Cerah',
+          darkTheme: 'Tema Gelap',
+          systemDefault: 'Lalai Sistem',
+          themeUpdated: 'Tema Dikemaskini',
+          themeChangedTo: 'Tema telah ditukar kepada mod',
+          systemDefaultMode: 'lalai sistem',
+          ok: 'OK'
+        }[key] || key;
+      
+      case 'zh-Hans':
+        return {
+          title: '主题',
+          themeSettings: '主题设置',
+          lightTheme: '浅色主题',
+          darkTheme: '深色主题',
+          systemDefault: '系统默认',
+          themeUpdated: '主题已更新',
+          themeChangedTo: '主题已更改为',
+          systemDefaultMode: '系统默认',
+          ok: '确定'
+        }[key] || key;
+      
+      case 'zh-Hant':
+        return {
+          title: '主題',
+          themeSettings: '主題設置',
+          lightTheme: '淺色主題',
+          darkTheme: '深色主題',
+          systemDefault: '系統預設',
+          themeUpdated: '主題已更新',
+          themeChangedTo: '主題已更改為',
+          systemDefaultMode: '系統預設',
+          ok: '確定'
+        }[key] || key;
+      
+      default: // 'en'
+        return {
+          title: 'Theme',
+          themeSettings: 'Theme Settings',
+          lightTheme: 'Light Theme',
+          darkTheme: 'Dark Theme',
+          systemDefault: 'System Default',
+          themeUpdated: 'Theme Updated',
+          themeChangedTo: 'Theme has been changed to',
+          systemDefaultMode: 'system default',
+          ok: 'OK'
+        }[key] || key;
+    }
+  };
 
   const showCustomAlert = (title: string, message: string, buttons: AlertButton[] = []) => {
     setAlertConfig({
@@ -91,10 +149,12 @@ const ChangeTheme = ({ navigation }: any) => {
   const handleThemeChange = async (newTheme: ThemeType) => {
     await setCurrentTheme(newTheme);
     showCustomAlert(
-      'Theme Updated',
-      `Theme has been changed to ${newTheme === 'system' ? 'system default' : newTheme} mode.`,
+      getLocalizedText('themeUpdated'),
+      `${getLocalizedText('themeChangedTo')} ${newTheme === 'system' ? 
+        getLocalizedText('systemDefaultMode') : 
+        getLocalizedText(newTheme === 'light' ? 'lightTheme' : 'darkTheme').toLowerCase()} ${language === 'en' ? 'mode' : ''}.`,
       [{
-        text: 'OK',
+        text: getLocalizedText('ok'),
         style: 'default',
       }]
     );
@@ -108,18 +168,23 @@ const ChangeTheme = ({ navigation }: any) => {
         shadowColor: 'transparent', // iOS
         elevation: 0, // Android
       },
-      headerTintColor: theme.text,
+      headerTintColor: theme.headerText,
       headerTitleStyle: {
-        color: theme.text,
+        color: theme.headerText,
+        fontSize: 17,
+        fontWeight: '600',
       },
       headerShadowVisible: false, // iOS
+      title: getLocalizedText('title'),
     });
-  }, [currentTheme, theme]);
+  }, [navigation, theme, language]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.card, { backgroundColor: theme.card }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Theme Settings</Text>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {getLocalizedText('themeSettings')}
+        </Text>
         
         <TouchableOpacity
           style={[
@@ -134,7 +199,9 @@ const ChangeTheme = ({ navigation }: any) => {
               source={require('../../../../asset/img/icon/sun.png')}
               style={[styles.icon, { tintColor: theme.text }]}
             />
-            <Text style={[styles.optionText, { color: theme.text }]}>Light Theme</Text>
+            <Text style={[styles.optionText, { color: theme.text }]}>
+              {getLocalizedText('lightTheme')}
+            </Text>
           </View>
           {currentTheme === 'light' && (
             <Image
@@ -157,7 +224,9 @@ const ChangeTheme = ({ navigation }: any) => {
               source={require('../../../../asset/img/icon/moon.png')}
               style={[styles.icon, { tintColor: theme.text }]}
             />
-            <Text style={[styles.optionText, { color: theme.text }]}>Dark Theme</Text>
+            <Text style={[styles.optionText, { color: theme.text }]}>
+              {getLocalizedText('darkTheme')}
+            </Text>
           </View>
           {currentTheme === 'dark' && (
             <Image
@@ -179,7 +248,9 @@ const ChangeTheme = ({ navigation }: any) => {
               source={require('../../../../asset/img/icon/system.png')}
               style={[styles.icon, { tintColor: theme.text }]}
             />
-            <Text style={[styles.optionText, { color: theme.text }]}>System Default</Text>
+            <Text style={[styles.optionText, { color: theme.text }]}>
+              {getLocalizedText('systemDefault')}
+            </Text>
           </View>
           {currentTheme === 'system' && (
             <Image

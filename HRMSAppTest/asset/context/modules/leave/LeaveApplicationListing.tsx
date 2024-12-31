@@ -65,7 +65,7 @@ const LeaveApplicationListing = () => {
       noApplications: 'No leave applications for',
     },
     ms: {
-      leaveOverview: 'Gambaran Cuti',
+      leaveOverview: 'Lihat Permohonan Cuti',
       leaveApplications: 'Permohonan Cuti',
       error: 'Ralat',
       failedFetch: 'Gagal mendapatkan data cuti',
@@ -82,7 +82,7 @@ const LeaveApplicationListing = () => {
       noApplications: 'Tiada permohonan cuti untuk',
     },
     'zh-Hans': {
-      leaveOverview: '请假概览',
+      leaveOverview: '查看请假申请',
       leaveApplications: '请假申请',
       error: '错误',
       failedFetch: '获取请假数据失败',
@@ -99,7 +99,7 @@ const LeaveApplicationListing = () => {
       noApplications: '没有请假申请',
     },
     'zh-Hant': {
-      leaveOverview: '請假概覽',
+      leaveOverview: '查看請假申請',
       leaveApplications: '請假申請',
       error: '錯誤',
       failedFetch: '獲取請假數據失敗',

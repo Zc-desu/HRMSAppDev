@@ -51,6 +51,7 @@ import ChangeTheme from './asset/context/modules/setting/ChangeTheme';
 import { ThemeProvider } from './asset/context/modules/setting/ThemeContext';
 import { LanguageProvider } from './asset/context/modules/setting/LanguageContext';
 import LanguageSelector from './asset/context/modules/setting/LanguageSelector';
+import Help from './asset/context/modules/setting/Help';
 const Stack = createStackNavigator();
 
 const App = () => {
@@ -487,6 +488,19 @@ const App = () => {
               component={ChangeTheme}
               options={{ 
                 title: 'Change Theme',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="Help"
+              component={Help}
+              options={{
+                title: 'Help',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

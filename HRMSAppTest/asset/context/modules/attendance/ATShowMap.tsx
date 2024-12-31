@@ -204,6 +204,7 @@ const ATShowMap = ({ route, navigation }: Props) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const t = translations[language as keyof typeof translations];
+  const colorScheme = useColorScheme();
 
   // Get params from route with proper type checking
   const routeParams = route.params || {};
@@ -735,15 +736,8 @@ const ATShowMap = ({ route, navigation }: Props) => {
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
-          #map { height: 100vh; width: 100vw; }
           body { margin: 0; padding: 0; }
-          .custom-marker-label {
-            background: none;
-            border: none;
-            box-shadow: none;
-            font-weight: bold;
-            font-size: 14px;
-          }
+          #map { height: 100vh; width: 100vw; }
         </style>
       </head>
       <body>
@@ -751,8 +745,9 @@ const ATShowMap = ({ route, navigation }: Props) => {
         <script>
           const map = L.map('map').setView([${currentLat}, ${currentLng}], 17);
           
+          // Use standard map tiles (not themed)
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '©OpenStreetMap'
           }).addTo(map);
 
           // Custom icons
@@ -1153,15 +1148,11 @@ const ATShowMap = ({ route, navigation }: Props) => {
     };
   }, []);
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  // Update the Apply for Back Date button handler
   const handleBackDatePress = () => {
     navigation.navigate('ATBackDateTLApplication', {
-      employeeId: employeeId,
-      companyId: companyId,
-      baseUrl: baseUrl
+      employeeId,
+      companyId,
+      baseUrl
     });
   };
 
@@ -1169,50 +1160,66 @@ const ATShowMap = ({ route, navigation }: Props) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[
         styles.instructionContainer, 
-        { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)' }
+        { 
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          borderWidth: 1,
+        }
       ]}>
-        <Text style={[styles.instructionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+        <Text style={[styles.instructionText, { color: theme.text }]}>
           {t.instruction}
         </Text>
         <View style={styles.statusContainer}>
           <View style={styles.statusItem}>
             <Image 
               source={require('../../../../asset/img/icon/WIFI.png')}
-              style={[styles.statusIcon, { opacity: isWifiEnabled ? 1 : 0.5 }]}
-              resizeMode="contain"
+              style={[styles.statusIcon, { 
+                opacity: isWifiEnabled ? 1 : 0.5,
+                tintColor: theme.text 
+              }]}
             />
             <Image 
               source={isWifiEnabled ? 
                 require('../../../../asset/img/icon/a-circle-check-filled.png') :
                 require('../../../../asset/img/icon/a-circle-close-filled.png')
               }
-              style={[styles.statusIndicator, { tintColor: isWifiEnabled ? '#34C759' : '#FF3B30' }]}
+              style={[styles.statusIndicator, { 
+                tintColor: isWifiEnabled ? theme.success : theme.error 
+              }]}
             />
           </View>
           <View style={styles.statusItem}>
             <Image 
               source={require('../../../../asset/img/icon/a-location.png')}
-              style={[styles.statusIcon, { opacity: isGPSEnabled ? 1 : 0.5 }]}
-              resizeMode="contain"
+              style={[styles.statusIcon, { 
+                opacity: isGPSEnabled ? 1 : 0.5,
+                tintColor: theme.text 
+              }]}
             />
             <Image 
               source={isGPSEnabled ? 
                 require('../../../../asset/img/icon/a-circle-check-filled.png') :
                 require('../../../../asset/img/icon/a-circle-close-filled.png')
               }
-              style={[styles.statusIndicator, { tintColor: isGPSEnabled ? '#34C759' : '#FF3B30' }]}
+              style={[styles.statusIndicator, { 
+                tintColor: isGPSEnabled ? theme.success : theme.error 
+              }]}
             />
           </View>
         </View>
       </View>
       
       <TouchableOpacity 
-        style={styles.myLocationButton}
+        style={[styles.myLocationButton, {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          borderWidth: 1,
+        }]}
         onPress={handleMyLocationPress}
       >
         <Image 
           source={require('../../../../asset/img/icon/a-location.png')}
-          style={styles.locationIcon}
+          style={[styles.locationIcon, { tintColor: theme.primary }]}
         />
       </TouchableOpacity>
 
@@ -1224,23 +1231,33 @@ const ATShowMap = ({ route, navigation }: Props) => {
         onMessage={handleWebViewMessage}
       />
 
-      <View style={styles.bottomContainer}>
-        <Text style={styles.locationStatus}>
+      <View style={[
+        styles.bottomContainer,
+        {
+          backgroundColor: theme.card,
+          borderTopColor: theme.border,
+          borderTopWidth: 1,
+        }
+      ]}>
+        <Text style={[styles.locationStatus, { color: theme.text }]}>
           {getStatusText()}
         </Text>
 
         <TouchableOpacity 
-          style={[
-            styles.gpsToggleBar,
-            { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }
-          ]}
+          style={[styles.gpsToggleBar, {
+            backgroundColor: theme.background,
+            borderColor: theme.border,
+            borderWidth: 1,
+          }]}
           onPress={handleGPSToggle}
         >
-          <Text style={[styles.gpsToggleText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+          <Text style={[styles.gpsToggleText, { color: theme.text }]}>
             GPS Not Available
           </Text>
-          <View style={styles.gpsCheckbox}>
-            {gpsNotAvailable && <View style={styles.checkmark} />}
+          <View style={[styles.gpsCheckbox, { borderColor: theme.primary }]}>
+            {gpsNotAvailable && (
+              <View style={[styles.checkmark, { backgroundColor: theme.primary }]} />
+            )}
           </View>
         </TouchableOpacity>
 
@@ -1248,30 +1265,34 @@ const ATShowMap = ({ route, navigation }: Props) => {
           style={[styles.backDateButton, { backgroundColor: theme.primary }]}
           onPress={handleBackDatePress}
         >
-          <Text style={styles.backDateButtonText}>{t.backDateApplication}</Text>
+          <Text style={[styles.backDateButtonText, { color: '#FFFFFF' }]}>
+            {t.backDateApplication}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.clockButtonsRow}>
           <TouchableOpacity 
             style={[
               styles.clockButton,
-              (!isWithinRange && !gpsNotAvailable) && styles.disabledButton
+              { backgroundColor: theme.primary },
+              (!isWithinRange && !gpsNotAvailable) && { opacity: 0.5 }
             ]}
             onPress={() => handleClockAction('in')}
             disabled={!isWithinRange && !gpsNotAvailable}
           >
-            <Text style={styles.clockButtonText}>Clock In</Text>
+            <Text style={styles.clockButtonText}>{t.clockIn}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[
               styles.clockButton,
-              (!isWithinRange && !gpsNotAvailable) && styles.disabledButton
+              { backgroundColor: theme.primary },
+              (!isWithinRange && !gpsNotAvailable) && { opacity: 0.5 }
             ]}
             onPress={() => handleClockAction('out')}
             disabled={!isWithinRange && !gpsNotAvailable}
           >
-            <Text style={styles.clockButtonText}>Clock Out</Text>
+            <Text style={styles.clockButtonText}>{t.clockOut}</Text>
           </TouchableOpacity>
         </View>
       </View>

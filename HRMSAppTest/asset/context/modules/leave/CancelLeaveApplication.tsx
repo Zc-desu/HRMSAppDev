@@ -210,12 +210,11 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
         <View style={styles.contentContainer}>
           <View style={[styles.warningCard, {
             backgroundColor: theme.isDark 
-              ? 'rgba(255, 69, 58, 0.1)' 
+              ? 'rgba(255, 69, 58, 0.15)' 
               : 'rgba(255, 59, 48, 0.1)',
             borderColor: theme.isDark 
-              ? 'rgba(255, 69, 58, 0.2)' 
+              ? 'rgba(255, 69, 58, 0.3)' 
               : 'rgba(255, 59, 48, 0.2)',
-            borderWidth: 1,
           }]}>
             <Text style={[styles.warningTitle, { 
               color: theme.isDark ? '#FF453A' : '#FF3B30' 
@@ -231,8 +230,7 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
           <View style={[styles.detailsCard, { 
             backgroundColor: theme.card,
-            borderColor: theme.border,
-            borderWidth: 1,
+            borderColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : theme.border,
           }]}>
             <DetailItem 
               label="Leave Type" 
@@ -278,25 +276,26 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
           <View style={[styles.inputCard, { 
             backgroundColor: theme.card,
-            borderColor: theme.border,
-            borderWidth: 1,
+            borderColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : theme.border,
           }]}>
             <Text style={[styles.inputLabel, { color: theme.text }]}>
-              Cancellation Reason
+              Cancellation Reason*
+            </Text>
+            <Text style={[styles.inputInstruction, { color: theme.subText }]}>
+              Please enter your reason in Bahasa Melayu or English only
             </Text>
             <TextInput
-              style={[styles.input, {
-                backgroundColor: theme.isDark ? '#2C2C2E' : '#F2F2F7',
-                borderColor: theme.border,
+              style={[styles.input, { 
+                backgroundColor: theme.background,
                 color: theme.text,
+                borderColor: theme.isDark ? '#3C3C3E' : '#E5E5EA',
               }]}
-              placeholderTextColor={theme.subText}
               placeholder="Enter your reason for cancellation"
+              placeholderTextColor={theme.subText}
               value={reason}
               onChangeText={setReason}
               multiline
-              numberOfLines={3}
-              textAlignVertical="top"
+              numberOfLines={4}
             />
           </View>
 
@@ -312,15 +311,13 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
               </Text>
             </TouchableOpacity>
             
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.backButton, { 
-                backgroundColor: theme.isDark ? '#3A3A3C' : '#E5E5EA',
+                backgroundColor: theme.isDark ? '#2C2C2E' : '#E5E5E5'
               }]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={[styles.backButtonText, { 
-                color: theme.isDark ? '#FFFFFF' : '#000000' 
-              }]}>
+              <Text style={[styles.backButtonText, { color: theme.text }]}>
                 Go Back
               </Text>
             </TouchableOpacity>
@@ -376,18 +373,25 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  inputInstruction: {
+    fontSize: 13,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   input: {
-    borderRadius: 8,
     borderWidth: 1,
+    borderRadius: 8,
     padding: 12,
-    fontSize: 16,
     minHeight: 100,
+    textAlignVertical: 'top',
+    fontSize: 15,
   },
   buttonContainer: {
     gap: 12,

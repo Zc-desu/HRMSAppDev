@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { useLanguage } from '../setting/LanguageContext';
 
 interface NoticeBoard {
   id: number;
@@ -22,6 +23,7 @@ interface NoticeBoard {
 
 const NBGetList = ({ route, navigation }: any) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const [notices, setNotices] = useState<NoticeBoard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { employeeId, companyId, baseUrl: passedBaseUrl } = route.params;
@@ -40,9 +42,12 @@ const NBGetList = ({ route, navigation }: any) => {
         fontWeight: '600',
       },
       headerShadowVisible: false,
-      title: 'Notice Board',
+      title: language === 'zh-Hans' ? '公告栏' :
+             language === 'zh-Hant' ? '公告欄' :
+             language === 'ms' ? 'Papan Notis' :
+             'Notice Board',
     });
-  }, [navigation, theme]);
+  }, [navigation, theme, language]);
 
   const fetchNotices = async () => {
     try {

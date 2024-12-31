@@ -34,7 +34,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
           leave: 'Cuti',
           viewLeaveApplication: 'Lihat Permohonan Cuti',
           createLeaveApplication: 'Buat Permohonan Cuti',
-          viewLeaveEntitlements: 'Lihat Hak Cuti',
+          viewLeaveEntitlements: 'Lihat Baki Cuti',
           approveLeaveApplication: 'Luluskan Permohonan Cuti',
           error: 'Ralat',
           baseUrlError: 'URL asas tidak tersedia',
@@ -48,7 +48,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
           leave: '请假',
           viewLeaveApplication: '查看请假申请',
           createLeaveApplication: '创建请假申请',
-          viewLeaveEntitlements: '查看请假权利',
+          viewLeaveEntitlements: '查看休假余额',
           approveLeaveApplication: '批准请假申请',
           error: '错误',
           baseUrlError: '基本URL不可用',
@@ -62,7 +62,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
           leave: '請假',
           viewLeaveApplication: '查看請假申請',
           createLeaveApplication: '創建請假申請',
-          viewLeaveEntitlements: '查看請假權利',
+          viewLeaveEntitlements: '查看休假餘額',
           approveLeaveApplication: '批准請假申請',
           error: '錯誤',
           baseUrlError: '基本URL不可用',
@@ -76,7 +76,7 @@ const LeaveMenu = ({ navigation, route }: any) => {
           leave: 'Leave',
           viewLeaveApplication: 'View Leave Application',
           createLeaveApplication: 'Create Leave Application',
-          viewLeaveEntitlements: 'View Leave Entitlements',
+          viewLeaveEntitlements: 'View Leave Balance',
           approveLeaveApplication: 'Approve Leave Application',
           error: 'Error',
           baseUrlError: 'Base URL is not available',
@@ -158,13 +158,13 @@ const LeaveMenu = ({ navigation, route }: any) => {
 
   const baseMenuItems = [
     {
-      title: getLocalizedText('viewLeaveApplication'),
-      screen: 'LeaveApplicationListing',
+      title: getLocalizedText('createLeaveApplication'),
+      screen: 'CreateLeaveApplication',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
     {
-      title: getLocalizedText('createLeaveApplication'),
-      screen: 'CreateLeaveApplication',
+      title: getLocalizedText('viewLeaveApplication'),
+      screen: 'LeaveApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
     },
     {

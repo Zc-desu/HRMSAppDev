@@ -45,7 +45,8 @@ const Settings = ({ navigation }: any) => {
           language: 'Bahasa',
           system: 'Sistem',
           light: 'Cerah',
-          dark: 'Gelap'
+          dark: 'Gelap',
+          help: 'Bantuan'
         }[key] || key;
       
       case 'zh-Hans':
@@ -54,7 +55,8 @@ const Settings = ({ navigation }: any) => {
           language: '语言',
           system: '系统',
           light: '浅色',
-          dark: '深色'
+          dark: '深色',
+          help: '帮助'
         }[key] || key;
       
       case 'zh-Hant':
@@ -63,7 +65,8 @@ const Settings = ({ navigation }: any) => {
           language: '語言',
           system: '系統',
           light: '淺色',
-          dark: '深色'
+          dark: '深色',
+          help: '幫助'
         }[key] || key;
       
       default: // 'en'
@@ -72,7 +75,8 @@ const Settings = ({ navigation }: any) => {
           language: 'Language',
           system: 'System',
           light: 'Light',
-          dark: 'Dark'
+          dark: 'Dark',
+          help: 'Help'
         }[key] || key;
     }
   };
@@ -180,6 +184,27 @@ const Settings = ({ navigation }: any) => {
             <Text style={[styles.themeText, { color: theme.subText }]}>
               {getLanguageText()}
             </Text>
+            <Image
+              source={require('../../../asset/img/icon/arrow-right.png')}
+              style={[styles.arrowIcon, { tintColor: theme.subText }]}
+            />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: theme.divider }]}
+          onPress={() => navigation.navigate('Help')}
+        >
+          <View style={styles.settingLeft}>
+            <Image
+              source={require('../../../asset/img/icon/bangzhu.png')}
+              style={[styles.icon, { tintColor: theme.text }]}
+            />
+            <Text style={[styles.settingText, { color: theme.text }]}>
+              {getLocalizedText('help')}
+            </Text>
+          </View>
+          <View style={styles.settingRight}>
             <Image
               source={require('../../../asset/img/icon/arrow-right.png')}
               style={[styles.arrowIcon, { tintColor: theme.subText }]}

@@ -224,7 +224,11 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
   };
 
   const renderDateSelector = () => (
-    <View style={[styles.selectorCard, { backgroundColor: theme.card }]}>
+    <View style={[styles.selectorCard, { 
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderWidth: 1,
+    }]}>
       <View style={styles.yearMonthSelector}>
         <TouchableOpacity 
           style={styles.arrowButton}
@@ -232,17 +236,17 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
         >
           <Image
             source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
-            style={[styles.icon, { tintColor: '#007AFF' }]}
+            style={[styles.icon, { tintColor: theme.primary }]}
           />
         </TouchableOpacity>
-        <Text style={[styles.yearText, { color: '#FFFFFF' }]}>{year}</Text>
+        <Text style={[styles.yearText, { color: theme.text }]}>{year}</Text>
         <TouchableOpacity 
           style={styles.arrowButton}
           onPress={() => setYear(year + 1)}
         >
           <Image
             source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
-            style={[styles.icon, { tintColor: '#007AFF' }]}
+            style={[styles.icon, { tintColor: theme.primary }]}
           />
         </TouchableOpacity>
       </View>
@@ -252,13 +256,13 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
             key={i + 1}
             style={[
               styles.monthButton,
-              month === i + 1 && { backgroundColor: '#007AFF' }
+              month === i + 1 && { backgroundColor: theme.primary }
             ]}
             onPress={() => setMonth(i + 1)}
           >
             <Text style={[
               styles.monthText,
-              { color: month === i + 1 ? '#FFFFFF' : '#FFFFFF99' }
+              { color: month === i + 1 ? '#FFFFFF' : theme.text }
             ]}>
               {i + 1}
             </Text>
@@ -292,29 +296,33 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#000000' }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderDateSelector()}
       
       <ScrollView style={styles.scrollView}>
         {isLoading ? (
-          <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+          <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
         ) : applications.length > 0 ? (
           applications.map((app) => (
             <TouchableOpacity
               key={app.id}
-              style={[styles.card, { backgroundColor: '#1C1C1E' }]}
+              style={[styles.card, { 
+                backgroundColor: theme.background === '#000000' ? '#1C1C1E' : '#FFFFFF',
+                borderColor: theme.border,
+                borderWidth: 1,
+              }]}
               onPress={() => handleApplicationPress(app.id)}
               activeOpacity={0.7}
             >
               <View style={styles.dateContainer}>
-                <Text style={styles.dateText}>
+                <Text style={[styles.dateText, { color: theme.text }]}>
                   {formatDate(app.attendanceDate)}
                 </Text>
                 <View style={[
                   styles.statusBadge, 
-                  { backgroundColor: app.approvalStatus === 'P' ? '#FFB800' : getStatusColor(app.approvalStatus) }
+                  { backgroundColor: getStatusColor(app.approvalStatus) }
                 ]}>
-                  <Text style={[styles.statusText, { color: '#FFFFFF' }]}>
+                  <Text style={styles.statusText}>
                     {app.approvalStatusDisplay === 'PendingCancellation' 
                       ? t.pendingCancellation 
                       : app.approvalStatusDisplay}
@@ -322,10 +330,10 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
                 </View>
               </View>
               <View style={styles.timeRow}>
-                <Text style={styles.timeText}>
+                <Text style={[styles.timeText, { color: theme.subText }]}>
                   {`Time: ${formatDateTime(app.dateTimeFrom)} - ${formatDateTime(app.dateTimeTo)}`}
                 </Text>
-                <Text style={styles.durationText}>
+                <Text style={[styles.durationText, { color: theme.primary }]}>
                   {calculateDuration(app.dateTimeFrom, app.dateTimeTo)}
                 </Text>
               </View>
@@ -333,7 +341,7 @@ const OTApplicationListing = ({ navigation }: { navigation: NavigationProp }) =>
           ))
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: theme.subText }]}>
               {`${t.noApplications} ${year}/${month}`}
             </Text>
           </View>
@@ -356,10 +364,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectorCard: {
-    margin: 16,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
-    backgroundColor: '#1C1C1E',
+    margin: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   yearMonthSelector: {
     flexDirection: 'row',
@@ -374,7 +385,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginHorizontal: 16,
-    color: '#FFFFFF',
   },
   monthSelector: {
     flexDirection: 'row',
