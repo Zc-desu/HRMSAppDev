@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView, RefreshControl, Animated, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ScrollView, RefreshControl, Animated, Modal, TextInput, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../setting/ThemeContext';
@@ -61,6 +61,7 @@ interface Translation {
   remarksPlaceholder: string;
   remarksRequired: string;
   rejectConfirm: string;
+  title: string;
 }
 
 const ApproveLeaveApplicationListing = () => {
@@ -78,6 +79,19 @@ const ApproveLeaveApplicationListing = () => {
   const [remarks, setRemarks] = useState('');
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [activeSwipeable, setActiveSwipeable] = useState<Swipeable | null>(null);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: any[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: []
+  });
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [years, setYears] = useState<number[]>([]);
 
   const getLocalizedText = (key: string): string => {
     switch (language) {
@@ -106,6 +120,7 @@ const ApproveLeaveApplicationListing = () => {
           remarksPlaceholder: 'Masukkan alasan penolakan...',
           remarksRequired: 'Masukkan alasan penolakan',
           rejectConfirm: 'Adakah anda pasti untuk menolak permohonan cuti ini?',
+          title: 'Kelulusan Cuti',
         }[key] || key;
 
       case 'zh-Hans':
@@ -133,6 +148,7 @@ const ApproveLeaveApplicationListing = () => {
           remarksPlaceholder: '输入拒绝理由...',
           remarksRequired: '输入拒绝理由',
           rejectConfirm: '您确定要拒绝这个休假申请吗？',
+          title: '休假审批',
         }[key] || key;
 
       case 'zh-Hant':
@@ -160,6 +176,7 @@ const ApproveLeaveApplicationListing = () => {
           remarksPlaceholder: '輸入拒絕理由...',
           remarksRequired: '輸入拒絕理由',
           rejectConfirm: '您確定要拒絕這個休假申請嗎？',
+          title: '休假審批',
         }[key] || key;
 
       default: // 'en'
@@ -187,6 +204,7 @@ const ApproveLeaveApplicationListing = () => {
           remarksPlaceholder: 'Enter reject reason...',
           remarksRequired: 'Enter reject reason',
           rejectConfirm: 'Are you sure you want to reject this leave application?',
+          title: 'Leave Approvals',
         }[key] || key;
     }
   };
@@ -212,13 +230,23 @@ const ApproveLeaveApplicationListing = () => {
       try {
         const storedBaseUrl = await AsyncStorage.getItem('baseUrl');
         if (!storedBaseUrl) {
-          Alert.alert(getLocalizedText('error'), getLocalizedText('baseUrlMissing'));
+          setAlertConfig({
+            visible: true,
+            title: getLocalizedText('error'),
+            message: getLocalizedText('baseUrlMissing'),
+            buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+          });
           return;
         }
         setBaseUrl(storedBaseUrl);
         fetchPendingLeaves(storedBaseUrl);
       } catch (error) {
-        Alert.alert(getLocalizedText('error'), getLocalizedText('fetchError'));
+        setAlertConfig({
+          visible: true,
+          title: getLocalizedText('error'),
+          message: getLocalizedText('fetchError'),
+          buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+        });
       }
     };
     fetchInitialData();
@@ -232,17 +260,28 @@ const ApproveLeaveApplicationListing = () => {
     }, [baseUrl])
   );
 
+  const getUniqueYears = (leaves: PendingLeave[]) => {
+    const uniqueYears = [...new Set(leaves.map(leave => 
+      new Date(leave.createdDate).getFullYear()
+    ))];
+    return uniqueYears.sort((a, b) => b - a); // Sort descending
+  };
+
   const fetchPendingLeaves = async (urlBase: string) => {
     try {
       setIsLoading(true);
       const userToken = await AsyncStorage.getItem('userToken');
       if (!userToken) {
-        Alert.alert(getLocalizedText('error'), getLocalizedText('tokenMissing'));
+        setAlertConfig({
+          visible: true,
+          title: getLocalizedText('error'),
+          message: getLocalizedText('tokenMissing'),
+          buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+        });
         return;
       }
 
-      const url = `${urlBase}/apps/api/v1/leaves/approvals/pending-applications`;
-      const response = await fetch(url, {
+      const response = await fetch(`${urlBase}/apps/api/v1/leaves/approvals/pending-applications`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${userToken}`,
@@ -252,19 +291,28 @@ const ApproveLeaveApplicationListing = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          // Sort by created date in descending order
           const sortedData = data.data.sort((a: PendingLeave, b: PendingLeave) => {
             return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime();
           });
           setPendingLeaves(sortedData);
-        } else {
-          Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
+          
+          // Update years list
+          const yearsFromData = getUniqueYears(sortedData);
+          setYears(yearsFromData);
+          
+          // Set selected year to most recent if not already set
+          if (!selectedYear && yearsFromData.length > 0) {
+            setSelectedYear(yearsFromData[0]);
+          }
         }
-      } else {
-        Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
       }
     } catch (error) {
-      Alert.alert(getLocalizedText('error'), getLocalizedText('failedToFetch'));
+      setAlertConfig({
+        visible: true,
+        title: getLocalizedText('error'),
+        message: getLocalizedText('fetchError'),
+        buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+      });
     } finally {
       setIsLoading(false);
     }
@@ -322,7 +370,12 @@ const ApproveLeaveApplicationListing = () => {
     try {
       const userToken = await AsyncStorage.getItem('userToken');
       if (!userToken || !baseUrl) {
-        Alert.alert('Error', 'Missing required data');
+        setAlertConfig({
+          visible: true,
+          title: getLocalizedText('error'),
+          message: getLocalizedText('missingData'),
+          buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+        });
         return;
       }
 
@@ -334,25 +387,33 @@ const ApproveLeaveApplicationListing = () => {
           'Authorization': `Bearer ${userToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ remarks: '' }), // Empty remarks for direct approval
+        body: JSON.stringify({ remarks: '' }),
       });
 
       const data = await response.json();
       if (data.success) {
-        Alert.alert(
-          getLocalizedText('success'),
-          getLocalizedText('approveSuccess'),
-          [{ 
-            text: getLocalizedText('confirm'), 
-            onPress: () => fetchPendingLeaves(baseUrl) // Refresh the list
+        setAlertConfig({
+          visible: true,
+          title: getLocalizedText('success'),
+          message: getLocalizedText('approveSuccess'),
+          buttons: [{
+            text: getLocalizedText('confirm'),
+            onPress: () => {
+              setAlertConfig(prev => ({ ...prev, visible: false }));
+              fetchPendingLeaves(baseUrl);
+            }
           }]
-        );
+        });
       } else {
-        Alert.alert('Error', data.message || 'Failed to approve leave application');
+        throw new Error(data.message || getLocalizedText('approveError'));
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while approving the leave application');
-      console.error('Error:', error);
+      setAlertConfig({
+        visible: true,
+        title: getLocalizedText('error'),
+        message: getLocalizedText('approveError'),
+        buttons: [{ text: getLocalizedText('ok'), onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
+      });
     }
   };
 
@@ -483,46 +544,105 @@ const ApproveLeaveApplicationListing = () => {
     };
   }, []);
 
+  const YearSelector = () => (
+    <View style={[styles.yearSelectorCard, { backgroundColor: theme.card }]}>
+      <TouchableOpacity
+        onPress={() => setSelectedYear(prev => {
+          const currentIndex = years.indexOf(prev);
+          if (currentIndex < years.length - 1) {
+            return years[currentIndex + 1];
+          }
+          return prev;
+        })}
+      >
+        <Image
+          source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+          style={[styles.yearArrow, { tintColor: theme.primary }]}
+        />
+      </TouchableOpacity>
+      
+      <Text style={[styles.yearText, { color: theme.text }]}>{selectedYear}</Text>
+      
+      <TouchableOpacity
+        onPress={() => setSelectedYear(prev => {
+          const currentIndex = years.indexOf(prev);
+          if (currentIndex > 0) {
+            return years[currentIndex - 1];
+          }
+          return prev;
+        })}
+      >
+        <Image
+          source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+          style={[styles.yearArrow, { tintColor: theme.primary }]}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const filteredLeaves = pendingLeaves.filter(leave => 
+    new Date(leave.createdDate).getFullYear() === selectedYear
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.headerCard, { backgroundColor: theme.card }]}>
         <Text style={[styles.title, { color: theme.text }]}>
-          {getLocalizedText('pendingApprovals')}
+          {getLocalizedText('title')}
         </Text>
-      </View>
-
-      <View style={styles.contentContainer}>
-        <ScrollView 
-          contentContainerStyle={styles.leaveList}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.primary}
-              colors={[theme.primary]}
-              progressBackgroundColor={theme.card}
+        
+        <View style={styles.yearSelectorContainer}>
+          <TouchableOpacity
+            onPress={() => setSelectedYear(prev => {
+              const currentIndex = years.indexOf(prev);
+              if (currentIndex < years.length - 1) {
+                return years[currentIndex + 1];
+              }
+              return prev;
+            })}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+              style={[styles.yearArrow, { tintColor: theme.primary }]}
             />
+          </TouchableOpacity>
+          
+          <Text style={[styles.yearText, { color: theme.text }]}>{selectedYear}</Text>
+          
+          <TouchableOpacity
+            onPress={() => setSelectedYear(prev => {
+              const currentIndex = years.indexOf(prev);
+              if (currentIndex > 0) {
+                return years[currentIndex - 1];
+              }
+              return prev;
+            })}
+          >
+            <Image
+              source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+              style={[styles.yearArrow, { tintColor: theme.primary }]}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {isLoading ? (
+        <ActivityIndicator style={styles.loader} size="large" color={theme.primary} />
+      ) : filteredLeaves.length === 0 ? (
+        <Text style={[styles.noData, { color: theme.text }]}>
+          {getLocalizedText('noApprovals')}
+        </Text>
+      ) : (
+        <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {isLoading && !refreshing ? (
-            <View style={styles.messageContainer}>
-              <Text style={[styles.messageText, { color: theme.subText }]}>
-                {getLocalizedText('loading')}
-              </Text>
-            </View>
-          ) : pendingLeaves.length > 0 ? (
-            pendingLeaves.map((leave: PendingLeave, index) => 
-              renderLeaveItem(leave, index)
-            )
-          ) : (
-            <View style={styles.messageContainer}>
-              <Text style={[styles.messageText, { color: theme.subText }]}>
-                {getLocalizedText('noApprovals')}
-              </Text>
-            </View>
+          {filteredLeaves.map((leave: PendingLeave, index) => 
+            renderLeaveItem(leave, index)
           )}
         </ScrollView>
-      </View>
+      )}
 
       <CustomAlert
         visible={showConfirmAlert}
@@ -672,6 +792,13 @@ const ApproveLeaveApplicationListing = () => {
           setRemarks('');
         }}
       />
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+      />
     </View>
   );
 };
@@ -694,8 +821,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     textAlign: 'center',
+    marginBottom: 16,
   },
   contentContainer: {
     flex: 1,
@@ -901,6 +1028,46 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  yearSelectorCard: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  yearArrow: {
+    width: 24,
+    height: 24,
+    marginHorizontal: 20,
+    tintColor: '#007AFF', // Default color, will be overridden by theme.primary
+  },
+  yearText: {
+    fontSize: 18,
+    fontWeight: '600',
+    minWidth: 70,
+    textAlign: 'center',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noData: {
+    textAlign: 'center',
+    fontSize: 16,
+    marginTop: 20,
+  },
+  yearSelectorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

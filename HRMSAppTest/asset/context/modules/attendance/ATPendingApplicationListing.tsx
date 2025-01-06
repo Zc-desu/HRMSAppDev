@@ -47,6 +47,12 @@ type Translation = {
   approveConfirm: string;
   cancel: string;
   confirm: string;
+  success: string;
+  rejectSuccess: string;
+  approveSuccess: string;
+  failedToProcess: string;
+  rejectReasonLanguage: string;
+  ok: string;
 };
 
 const translations: Record<string, Translation> = {
@@ -68,6 +74,12 @@ const translations: Record<string, Translation> = {
     approveConfirm: 'Are you sure you want to approve this application?',
     cancel: 'Cancel',
     confirm: 'Confirm',
+    success: 'Success',
+    rejectSuccess: 'Rejection successful',
+    approveSuccess: 'Approval successful',
+    failedToProcess: 'Failed to process',
+    rejectReasonLanguage: 'Please enter reason in English or Bahasa Melayu only',
+    ok: 'OK',
   },
   'ms': {
     title: 'Kelulusan Kehadiran',
@@ -81,12 +93,18 @@ const translations: Record<string, Translation> = {
     reject: 'Tolak',
     confirmAction: 'Konfirmasi',
     enterRejectReason: 'Masukkan alasan penolakan',
-    remarksPlaceholder: 'Masukkan komen anda di sini',
-    remarksRequired: 'Komen diperlukan',
+    remarksPlaceholder: 'Masukkan sebab anda di sini...',
+    remarksRequired: 'Sila masukkan sebab penolakan',
     rejectConfirm: 'Adakah anda pasti mahu menolak permohonan ini?',
     approveConfirm: 'Adakah anda pasti mahu lulus permohonan ini?',
     cancel: 'Batal',
     confirm: 'Konfirmasi',
+    success: 'Berjaya',
+    rejectSuccess: 'Penolakan berjaya',
+    approveSuccess: 'Kelulusan berjaya',
+    failedToProcess: 'Gagal memproses permintaan',
+    rejectReasonLanguage: 'Sila masukkan sebab dalam Bahasa Inggeris atau Bahasa Melayu sahaja',
+    ok: 'OK',
   },
   'zh-Hans': {
     title: '考勤审批',
@@ -106,6 +124,12 @@ const translations: Record<string, Translation> = {
     approveConfirm: '你确定要批准这个申请吗？',
     cancel: '取消',
     confirm: '确认',
+    success: '成功',
+    rejectSuccess: '拒绝成功',
+    approveSuccess: '批准成功',
+    failedToProcess: '处理失败',
+    rejectReasonLanguage: '在这里输入你的拒绝理由',
+    ok: '确定',
   },
   'zh-Hant': {
     title: '考勤審批',
@@ -125,6 +149,12 @@ const translations: Record<string, Translation> = {
     approveConfirm: '你確定要批准這個申請嗎？',
     cancel: '取消',
     confirm: '確認',
+    success: '成功',
+    rejectSuccess: '拒絕成功',
+    approveSuccess: '批准成功',
+    failedToProcess: '處理失敗',
+    rejectReasonLanguage: '在此輸入你的拒絕理由',
+    ok: '確定',
   },
 };
 
@@ -138,6 +168,19 @@ const formatDateTime = (dateString: string): string => {
   
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
+
+interface AlertButton {
+  text: string;
+  onPress: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+}
+
+interface AlertConfig {
+  visible: boolean;
+  title: string;
+  message: string;
+  buttons: AlertButton[];
+}
 
 const ATPendingApplicationListing = ({ navigation, route }: any) => {
   const { theme } = useTheme();
@@ -153,6 +196,234 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
   const [selectedApplication, setSelectedApplication] = useState<PendingApplication | null>(null);
   const [remarks, setRemarks] = useState('');
   const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: []
+  });
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    yearSelectorContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 12,
+      backgroundColor: theme.card,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      borderRadius: 12,
+    },
+    yearButton: {
+      padding: 8,
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    arrowIcon: {
+      width: 24,
+      height: 24,
+      resizeMode: 'contain',
+    },
+    yearText: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginHorizontal: 16,
+      color: theme.text,
+    },
+    listContainer: {
+      padding: 16,
+    },
+    card: {
+      padding: 16,
+      borderRadius: 12,
+      height: 80,
+      justifyContent: 'center',
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    employeeName: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    date: {
+      fontSize: 14,
+      color: '#666',
+    },
+    reason: {
+      fontSize: 14,
+      color: '#666',
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+    },
+    emptyText: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    rightActions: {
+      flexDirection: 'row',
+      height: 80,
+      marginRight: 16,
+    },
+    actionButton: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: 80,
+      height: '100%',
+    },
+    approveButton: {
+      backgroundColor: '#34C759',
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
+    },
+    rejectButton: {
+      backgroundColor: '#FF3B30',
+      borderTopRightRadius: 12,
+      borderBottomRightRadius: 12,
+    },
+    actionIcon: {
+      width: 24,
+      height: 24,
+      tintColor: '#FFFFFF',
+      marginBottom: 4,
+    },
+    approveIcon: {
+      tintColor: '#FFFFFF',
+    },
+    rejectIcon: {
+      tintColor: '#FFFFFF',
+    },
+    actionButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#FFFFFF',
+      textAlign: 'center',
+    },
+    approveButtonText: {
+      color: '#FFFFFF',
+    },
+    rejectButtonText: {
+      color: '#FFFFFF',
+    },
+    cardWrapper: {
+      marginBottom: 8,
+      width: '100%',
+    },
+    leftActions: {
+      width: 80,
+      height: '100%',
+      position: 'absolute',
+      left: 0,
+    },
+    gradientContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
+      padding: 8,
+    },
+    approveText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    rejectText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      width: '80%',
+      padding: 20,
+      borderRadius: 12,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 16,
+    },
+    modalSubtitle: {
+      fontSize: 14,
+      color: '#666',
+      marginBottom: 16,
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      height: 100,
+      textAlignVertical: 'top',
+      marginBottom: 16,
+    },
+    buttonContainer: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    },
+    button: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+    },
+    leftActionGradient: {
+      width: 80,
+      height: 80,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
+    },
+    rightActionGradient: {
+      width: 80,
+      height: 80,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderTopRightRadius: 12,
+      borderBottomRightRadius: 12,
+    },
+    leftActionContent: {
+      alignItems: 'center',
+    },
+    rightActionContent: {
+      alignItems: 'center',
+    },
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -186,7 +457,20 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
 
       const result = await response.json();
       if (result.success) {
-        setApplications(result.data);
+        const years = [...new Set(result.data.map((app: PendingApplication) => 
+          new Date(app.createDate).getFullYear()
+        ))].sort() as number[];
+        setAvailableYears(years);
+
+        const filteredApplications = result.data.filter((app: PendingApplication) => 
+          new Date(app.createDate).getFullYear() === selectedYear
+        );
+
+        const sortedApplications = filteredApplications.sort((a: PendingApplication, b: PendingApplication) => 
+          new Date(b.createDate).getTime() - new Date(a.createDate).getTime()
+        );
+
+        setApplications(sortedApplications);
         setError(null);
       } else {
         setError(result.message || t.error);
@@ -201,7 +485,7 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
 
   useEffect(() => {
     fetchApplications();
-  }, []);
+  }, [selectedYear]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -318,6 +602,99 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
     };
   }, []);
 
+  const renderYearSelector = () => {
+    return (
+      <View style={styles.yearSelectorContainer}>
+        <TouchableOpacity 
+          style={styles.yearButton}
+          onPress={() => {
+            const prevYear = selectedYear - 1;
+            if (availableYears.includes(prevYear)) {
+              setSelectedYear(prevYear);
+            }
+          }}
+        >
+          <Image 
+            source={require('../../../../asset/img/icon/a-d-arrow-left.png')}
+            style={[styles.arrowIcon, { tintColor: theme.primary }]}
+          />
+        </TouchableOpacity>
+        
+        <Text style={styles.yearText}>{selectedYear}</Text>
+        
+        <TouchableOpacity 
+          style={styles.yearButton}
+          onPress={() => {
+            const nextYear = selectedYear + 1;
+            if (availableYears.includes(nextYear)) {
+              setSelectedYear(nextYear);
+            }
+          }}
+        >
+          <Image 
+            source={require('../../../../asset/img/icon/a-d-arrow-right.png')}
+            style={[styles.arrowIcon, { tintColor: theme.primary }]}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const handleAction = async (application: PendingApplication, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    try {
+      setLoading(true);
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      if (!userToken || !baseUrl) throw new Error('Authentication failed');
+
+      const endpoint = action === 'APPROVE'
+        ? `${baseUrl}/apps/api/v1/time-logs/${application.applicationId}/approve/${application.approvalActionId}`
+        : `${baseUrl}/apps/api/v1/time-logs/${application.applicationId}/reject/${application.approvalActionId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: action === 'REJECT' ? JSON.stringify({ reason }) : undefined,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setAlertConfig({
+          visible: true,
+          title: t.success,
+          message: action === 'APPROVE' ? t.approveSuccess : t.rejectSuccess,
+          buttons: [{
+            text: t.ok,
+            onPress: () => {
+              setAlertConfig(prev => ({ ...prev, visible: false }));
+              fetchApplications();
+            }
+          }]
+        });
+      } else {
+        throw new Error(result.message || t.failedToProcess);
+      }
+    } catch (error) {
+      setAlertConfig({
+        visible: true,
+        title: t.error,
+        message: error instanceof Error ? error.message : t.failedToProcess,
+        buttons: [{
+          text: t.ok,
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+        }]
+      });
+    } finally {
+      setLoading(false);
+      closeSwipeable();
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -328,6 +705,7 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {renderYearSelector()}
       <FlatList
         data={applications}
         renderItem={renderItem}
@@ -375,12 +753,7 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
               closeSwipeable();
               setShowConfirmAlert(false);
               if (selectedApplication) {
-                navigation.navigate('ATPendingApplicationDetails', { 
-                  application: {
-                    ...selectedApplication,
-                    actionType: 'APPROVE'
-                  }
-                });
+                handleAction(selectedApplication, 'APPROVE');
               }
             }
           }
@@ -405,6 +778,9 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               {t.enterRejectReason}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
+              {t.rejectReasonLanguage}
             </Text>
             <TextInput
               style={[styles.input, { 
@@ -438,7 +814,6 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
                     Alert.alert(t.error, t.remarksRequired);
                     return;
                   }
-                  closeSwipeable();
                   setShowRejectInput(false);
                   setShowRejectConfirm(true);
                 }}
@@ -470,13 +845,7 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
               closeSwipeable();
               setShowRejectConfirm(false);
               if (selectedApplication) {
-                navigation.navigate('ATPendingApplicationDetails', { 
-                  application: {
-                    ...selectedApplication,
-                    actionType: 'REJECT',
-                    remarks: remarks
-                  }
-                });
+                handleAction(selectedApplication, 'REJECT', remarks);
               }
               setRemarks('');
             }
@@ -488,195 +857,14 @@ const ATPendingApplicationListing = ({ navigation, route }: any) => {
           setRemarks('');
         }}
       />
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+      />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContainer: {
-    padding: 16,
-  },
-  card: {
-    padding: 16,
-    borderRadius: 12,
-    height: 80,
-    justifyContent: 'center',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  employeeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 14,
-    color: '#666',
-  },
-  reason: {
-    fontSize: 14,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rightActions: {
-    flexDirection: 'row',
-    height: 80,
-    marginRight: 16,
-  },
-  actionButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    height: '100%',
-  },
-  approveButton: {
-    backgroundColor: '#34C759',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-  },
-  rejectButton: {
-    backgroundColor: '#FF3B30',
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  actionIcon: {
-    width: 24,
-    height: 24,
-    tintColor: '#FFFFFF',
-    marginBottom: 4,
-  },
-  approveIcon: {
-    tintColor: '#FFFFFF',
-  },
-  rejectIcon: {
-    tintColor: '#FFFFFF',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  approveButtonText: {
-    color: '#FFFFFF',
-  },
-  rejectButtonText: {
-    color: '#FFFFFF',
-  },
-  cardWrapper: {
-    marginBottom: 8,
-    width: '100%',
-  },
-  leftActions: {
-    width: 80,
-    height: '100%',
-    position: 'absolute',
-    left: 0,
-  },
-  gradientContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-    padding: 8,
-  },
-  approveText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  rejectText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '80%',
-    padding: 20,
-    borderRadius: 12,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    height: 100,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  button: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  leftActionGradient: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-  },
-  rightActionGradient: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  leftActionContent: {
-    alignItems: 'center',
-  },
-  rightActionContent: {
-    alignItems: 'center',
-  },
-});
 
 export default ATPendingApplicationListing;

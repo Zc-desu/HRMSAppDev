@@ -19,11 +19,8 @@ import DocumentPicker, { DocumentPickerResponse, types } from 'react-native-docu
 
 interface LeaveEntitlement {
   leaveCodeId: number;
-  leaveCode: string;
   leaveCodeDesc: string;
   balanceDays: number;
-  effectiveFrom: string;
-  effectiveTo: string;
 }
 
 interface LeavePolicy {
@@ -39,13 +36,12 @@ interface LeavePolicy {
   note: string;
 }
 
-interface LeaveDate {
-  Date: any;
+interface DateInfo {
   date: string;
-  availableSessions: {
+  availableSessions: Array<{
     id: number;
     description: string;
-  }[];
+  }>;
   typeOfDay: string | null;
   isWorkingDay: boolean;
   leaveAppList: Array<{
@@ -61,6 +57,17 @@ interface LeaveDate {
 interface LeaveApplicationDate {
   Date: string;
   SessionId: number;
+}
+
+// Add interface for leave validation
+interface LeaveValidation {
+  unavailableDates: string[];
+  duplicateLeaves: Array<{
+    date: string;
+    leaveCode: string;
+    session: string;
+    approvalStatus: string;
+  }>;
 }
 
 const CreateLeaveApplication = ({ navigation, route }: any) => {
@@ -86,10 +93,15 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   const [firstDaySession, setFirstDaySession] = useState('full');
   const [sessions, setSessions] = useState<{[key: string]: number}>({});
   const [excludedDates, setExcludedDates] = useState<string[]>([]);
-  const [leaveDates, setLeaveDates] = useState<LeaveDate[]>([]);
+  const [initialExclusionsApplied, setInitialExclusionsApplied] = useState(false);
+  const [leaveDates, setLeaveDates] = useState<Array<any>>([]);
   const [nonWorkingDays, setNonWorkingDays] = useState<string[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
   const [consecutiveDays, setConsecutiveDays] = useState<string[]>([]);
+  const [leaveValidation, setLeaveValidation] = useState<LeaveValidation>({
+    unavailableDates: [],
+    duplicateLeaves: []
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -207,63 +219,62 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     }
   };
 
-  const fetchLeaveDates = async (leaveCodeId: number, startDate: Date, endDate: Date) => {
+  const fetchLeaveDates = async (leaveCodeId: number, from: Date, to: Date) => {
     try {
       const userToken = await AsyncStorage.getItem('userToken');
       const baseUrl = await AsyncStorage.getItem('baseUrl');
       
       if (!userToken || !baseUrl || !employeeId) {
-        throw new Error('Missing required data');
+        console.error('Missing required data for fetchLeaveDates');
+        return;
       }
 
-      const dateFrom = startDate.toISOString();
-      const dateTo = endDate.toISOString();
+      // Format dates to include time with Z suffix
+      const dateFrom = `${from.toISOString().split('T')[0]}T00:00:00Z`;
+      const dateTo = `${to.toISOString().split('T')[0]}T00:00:00Z`;
+      
+      const url = `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+      
+      console.log('\n=== Leave Dates Request ===');
+      console.log('URL:', url);
+      console.log('DateFrom:', dateFrom);
+      console.log('DateTo:', dateTo);
 
-      const response = await fetch(
-        `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${dateFrom}&DateTo=${dateTo}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${userToken}`,
-          },
-        }
-      );
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
+      
+      console.log('Leave dates response:', data); // Debug log
+
       if (data.success) {
-        const leaveDatesData: LeaveDate[] = data.data;
-        setLeaveDates(leaveDatesData);
+        setLeaveDates(data.data);
         
-        // Process different types of dates
-        const nonWorkingDates = leaveDatesData
-          .filter(date => !date.isWorkingDay)
-          .map(date => date.date.split('T')[0]);
-        
-        const holidayDates = leaveDatesData
-          .filter(date => date.isHoliday)
-          .map(date => date.date.split('T')[0]);
-        
-        const consecutiveDates = leaveDatesData
-          .filter(date => date.isConsecutive)
-          .map(date => date.date.split('T')[0]);
-
-        setNonWorkingDays(nonWorkingDates);
-        setHolidays(holidayDates);
-        setConsecutiveDays(consecutiveDates);
-
-        // Show warning if necessary
-        if (nonWorkingDates.length > 0 || holidayDates.length > 0) {
-          setAlertTitle(getLocalizedText('warning'));
-          setAlertMessage(getLocalizedText('dateValidationWarning'));
-          setShowAlert(true);
-        }
+        // Initialize sessions for each date
+        const initialSessions: {[key: string]: number} = {};
+        data.data.forEach((dateInfo: DateInfo) => {
+          const dateKey = new Date(dateInfo.date).toISOString().split('T')[0];
+          // Set default session to full day (2103) if available
+          if (dateInfo.availableSessions.some(session => session.id === 2103)) {
+            initialSessions[dateKey] = 2103;
+          }
+        });
+        setSessions(initialSessions);
       } else {
-        setAlertMessage(data.message || 'Failed to fetch leave dates');
-        setShowAlert(true);
+        console.error('Failed to fetch leave dates:', data.message);
       }
     } catch (error) {
-      console.error('Error fetching leave dates:', error);
-      setAlertMessage('Error fetching leave dates');
-      setShowAlert(true);
+      console.error('Error in fetchLeaveDates:', error);
     }
   };
 
@@ -311,6 +322,9 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           consecutiveDays: 'Hari Berturutan',
           warning: 'Amaran',
           dateValidationWarning: 'Beberapa tarikh yang dipilih adalah hari cuti atau hari tidak bekerja.',
+          leaveValidationError: 'Pengesahan Cuti',
+          duplicateLeaveMessage: 'Cuti telah dipohon untuk tarikh berikut:',
+          existingLeave: 'Cuti Sedia Ada',
         }[key] || key;
       
       case 'zh-Hans':
@@ -355,6 +369,9 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           consecutiveDays: '连续日期',
           warning: '警告',
           dateValidationWarning: '所选日期中包含假期或非工作日。',
+          leaveValidationError: '休假验证',
+          duplicateLeaveMessage: '以下日期已申请休假：',
+          existingLeave: '现有休假',
         }[key] || key;
       
       case 'zh-Hant':
@@ -399,6 +416,9 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           consecutiveDays: '連續日期',
           warning: '警告',
           dateValidationWarning: '所選日期中包含假期或非工作日。',
+          leaveValidationError: '休假验证',
+          duplicateLeaveMessage: '以下日期已申请休假：',
+          existingLeave: '现有休假',
         }[key] || key;
       
       default: // 'en'
@@ -443,6 +463,9 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           consecutiveDays: 'Consecutive Days',
           warning: 'Warning',
           dateValidationWarning: 'Some selected dates are holidays or non-working days.',
+          leaveValidationError: 'Leave Validation',
+          duplicateLeaveMessage: 'Leave already applied for the following dates:',
+          existingLeave: 'Existing Leave',
         }[key] || key;
     }
   };
@@ -511,26 +534,25 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
       ...prev,
       [dateKey]: sessionType
     }));
-    console.log('Session updated:', dateKey, sessionType); // For debugging
   };
 
   const calculateTotalDays = () => {
-    const dayDiff = Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 3600 * 24));
+    const dayDiff = Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 3600 * 24)) + 1;
     let total = 0;
 
-    for (let i = 0; i <= dayDiff; i++) {
+    for (let i = 0; i < dayDiff; i++) {
       const currentDate = new Date(dateFrom);
       currentDate.setDate(dateFrom.getDate() + i);
       const dateKey = currentDate.toISOString().split('T')[0];
       
-      // Skip if date is excluded
-      if (excludedDates.includes(dateKey)) continue;
+      // Skip if date is excluded or unavailable
+      if (excludedDates.includes(dateKey) || isDateUnavailable(dateKey)) continue;
 
       // Add days based on session type
-      const sessionType = sessions[dateKey] || 1; // Default to full day
-      if (sessionType === 1) { // Full day
+      const sessionType = sessions[dateKey] || 1;
+      if (sessionType === 1) {
         total += 1;
-      } else { // Half day
+      } else {
         total += 0.5;
       }
     }
@@ -538,18 +560,82 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     return total;
   };
 
+  const isDateUnavailable = (dateKey: string) => {
+    const dateData = leaveDates.find(d => new Date(d.date).toISOString().split('T')[0] === dateKey);
+    
+    // If we can't find the date data, don't mark it as unavailable yet
+    if (!dateData) return false;
+
+    // Check if date has existing leave application
+    if (dateData.leaveAppList && dateData.leaveAppList.length > 0) {
+      return true;
+    }
+
+    // Check if only "None" session is available
+    if (dateData.availableSessions.length === 1 && dateData.availableSessions[0].id === 0) {
+      return true;
+    }
+
+    // Date is available if it has valid sessions
+    return false;
+  };
+
   const toggleDateExclusion = (dateKey: string) => {
-    setExcludedDates(prev => 
-      prev.includes(dateKey) 
-        ? prev.filter(d => d !== dateKey)
-        : [...prev, dateKey]
-    );
+    setExcludedDates(prev => {
+      const isCurrentlyExcluded = prev.includes(dateKey);
+      if (isCurrentlyExcluded) {
+        return prev.filter(d => d !== dateKey);
+      } else {
+        return [...prev, dateKey];
+      }
+    });
   };
 
   const renderSessionType = () => {
-    const dayDiff = Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 3600 * 24));
-    const totalDays = calculateTotalDays();
-    
+    // Calculate the date difference including the end date
+    const dayDiff = Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 3600 * 24)) + 1;
+
+    // Calculate total days excluding special days and holidays
+    const workingDays = Array.from({ length: dayDiff }).reduce((count: number, _, index) => {
+      const currentDate = new Date(dateFrom);
+      currentDate.setDate(dateFrom.getDate() + index);
+      const dateKey = currentDate.toISOString().split('T')[0];
+      const dateData = leaveDates.find(d => new Date(d.date).toISOString().split('T')[0] === dateKey);
+      
+      // Skip if date is excluded
+      if (excludedDates.includes(dateKey)) {
+        return count;
+      }
+
+      // Skip if no date data
+      if (!dateData) {
+        return count;
+      }
+
+      // Skip if it's a special day (unless manually included)
+      const isSpecialDay = ['Public Holiday', 'Rest Day', 'Off Day'].includes(dateData.typeOfDay || '');
+      if (isSpecialDay && excludedDates.includes(dateKey)) {
+        return count;
+      }
+
+      // Get session type (default to full day if not set)
+      const sessionType = sessions[dateKey];
+      if (!sessionType) {
+        return count + 1; // Default to full day
+      }
+
+      // Calculate based on session type
+      switch (sessionType) {
+        case 2104: // First Half
+        case 2105: // Second Half
+          return count + 0.5;
+        case 2103: // Full Day
+          return count + 1;
+        default:
+          return count;
+      }
+    }, 0);
+
     return (
       <View style={[styles.card, { backgroundColor: theme.card }]}>
         <View style={styles.sectionHeader}>
@@ -557,96 +643,121 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
             {getLocalizedText('session')}
           </Text>
           <Text style={[styles.totalDays, { color: theme.primary }]}>
-            {`${totalDays} ${getLocalizedText('days')}`}
+            {`${workingDays} ${getLocalizedText('days')}`}
           </Text>
         </View>
         
-        {Array.from({ length: dayDiff + 1 }).map((_, index) => {
+        {Array.from({ length: dayDiff }).map((_, index) => {
           const currentDate = new Date(dateFrom);
           currentDate.setDate(dateFrom.getDate() + index);
           const dateKey = currentDate.toISOString().split('T')[0];
-          const currentSession = sessions[dateKey] || 1;
-          const isExcluded = excludedDates.includes(dateKey);
+          const dateData = leaveDates.find(d => new Date(d.date).toISOString().split('T')[0] === dateKey);
           
+          if (!dateData) return null;
+
+          const hasLeaveApplication = dateData.leaveAppList?.length > 0;
+          const isExcluded = excludedDates.includes(dateKey);
+          const typeOfDay = dateData.typeOfDay || '';
+          const leaveStatus = hasLeaveApplication 
+            ? `${dateData.leaveAppList[0].leaveCode} - ${dateData.leaveAppList[0].session}`
+            : '';
+
+          // Determine status color and background
+          const getStatusStyle = () => {
+            if (hasLeaveApplication) {
+              return {
+                color: theme.error,
+                backgroundColor: 'rgba(255,59,48,0.1)'
+              };
+            }
+            switch (typeOfDay) {
+              case 'Public Holiday':
+                return {
+                  color: '#FFB800',
+                  backgroundColor: 'rgba(255,184,0,0.1)'
+                };
+              case 'Rest Day':
+                return {
+                  color: '#FF9500',
+                  backgroundColor: 'rgba(255,149,0,0.1)'
+                };
+              case 'Off Day':
+                return {
+                  color: '#FF6B00',
+                  backgroundColor: 'rgba(255,107,0,0.1)'
+                };
+              case 'Working':
+                return {
+                  color: theme.success,
+                  backgroundColor: 'rgba(52,199,89,0.1)'
+                };
+              default:
+                return {
+                  color: theme.text,
+                  backgroundColor: 'transparent'
+                };
+            }
+          };
+
+          const statusStyle = getStatusStyle();
+
           return (
             <View key={index} style={styles.daySessionContainer}>
               <View style={styles.dateHeaderContainer}>
-                <Text style={[styles.dateLabel, { 
-                  color: theme.text,
-                  textDecorationLine: isExcluded ? 'line-through' : 'none'
-                }]}>
+                <Text style={[styles.dateLabel, { color: theme.text }]}>
                   {currentDate.toLocaleDateString()}
                 </Text>
-                <TouchableOpacity 
-                  style={[styles.excludeButton, { 
-                    backgroundColor: isExcluded ? theme.error : theme.background,
-                    borderColor: theme.border
-                  }]}
-                  onPress={() => toggleDateExclusion(dateKey)}
-                >
-                  <Text style={[styles.excludeButtonText, { 
-                    color: isExcluded ? '#FFFFFF' : theme.text 
-                  }]}>
-                    {isExcluded ? getLocalizedText('include') : getLocalizedText('exclude')}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.rightContainer}>
+                  {(typeOfDay || leaveStatus) && (
+                    <View style={[styles.statusContainer, { backgroundColor: statusStyle.backgroundColor }]}>
+                      <Text style={[styles.statusText, { 
+                        color: statusStyle.color,
+                        fontWeight: '600'
+                      }]}>
+                        {leaveStatus || typeOfDay}
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    style={[styles.excludeButton, { 
+                      backgroundColor: isExcluded ? theme.error : 'transparent',
+                      borderColor: isExcluded ? theme.error : theme.border
+                    }]}
+                    onPress={() => toggleDateExclusion(dateKey)}
+                  >
+                    <Text style={[styles.excludeButtonText, { 
+                      color: isExcluded ? '#FFFFFF' : theme.text 
+                    }]}>
+                      {isExcluded ? getLocalizedText('include') : getLocalizedText('exclude')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               
               {!isExcluded && (
                 <View style={styles.sessionButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.sessionButton,
-                      { 
-                        backgroundColor: currentSession === 1 ? theme.primary : theme.background,
-                        borderColor: theme.border 
-                      }
-                    ]}
-                    onPress={() => handleSessionChange(dateKey, 1)}
-                  >
-                    <Text style={[
-                      styles.sessionText, 
-                      { color: currentSession === 1 ? '#FFFFFF' : theme.text }
-                    ]}>
-                      Full
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.sessionButton,
-                      { 
-                        backgroundColor: currentSession === 2 ? theme.primary : theme.background,
-                        borderColor: theme.border 
-                      }
-                    ]}
-                    onPress={() => handleSessionChange(dateKey, 2)}
-                  >
-                    <Text style={[
-                      styles.sessionText,
-                      { color: currentSession === 2 ? '#FFFFFF' : theme.text }
-                    ]}>
-                      First Half
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.sessionButton,
-                      { 
-                        backgroundColor: currentSession === 3 ? theme.primary : theme.background,
-                        borderColor: theme.border 
-                      }
-                    ]}
-                    onPress={() => handleSessionChange(dateKey, 3)}
-                  >
-                    <Text style={[
-                      styles.sessionText,
-                      { color: currentSession === 3 ? '#FFFFFF' : theme.text }
-                    ]}>
-                      Second Half
-                    </Text>
-                  </TouchableOpacity>
+                  {dateData.availableSessions.map((session: any) => (
+                    session.id !== 0 && (
+                      <TouchableOpacity
+                        key={session.id}
+                        style={[
+                          styles.sessionButton,
+                          { 
+                            borderColor: sessions[dateKey] === session.id ? theme.primary : theme.border,
+                            backgroundColor: sessions[dateKey] === session.id ? theme.primary : 'transparent'
+                          }
+                        ]}
+                        onPress={() => handleSessionChange(dateKey, session.id)}
+                      >
+                        <Text style={[
+                          styles.sessionText,
+                          { color: sessions[dateKey] === session.id ? '#FFFFFF' : theme.text }
+                        ]}>
+                          {session.description}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  ))}
                 </View>
               )}
             </View>
@@ -654,6 +765,28 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         })}
       </View>
     );
+  };
+
+  // Helper function to get status message
+  const getStatusMessage = (dateData: DateInfo) => {
+    if (dateData.leaveAppList && dateData.leaveAppList.length > 0) {
+      const leave = dateData.leaveAppList[0];
+      return `${leave.leaveCode} - ${leave.session}`;
+    }
+    
+    if (dateData.typeOfDay === 'Public Holiday') {
+      return `Public Holiday${dateData.holiday ? ` - ${dateData.holiday}` : ''}`;
+    }
+    
+    if (dateData.typeOfDay === 'Rest Day') {
+      return 'Rest Day';
+    }
+    
+    if (dateData.typeOfDay === 'Off Day') {
+      return 'Off Day';
+    }
+    
+    return '';
   };
 
   const handleAttachmentPick = async () => {
@@ -685,6 +818,74 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const checkLeaveAvailability = async (leaveCodeId: number, startDate: Date, endDate: Date) => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      if (!userToken || !baseUrl || !employeeId) {
+        throw new Error('Missing required data');
+      }
+
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${startDate.toISOString()}&DateTo=${endDate.toISOString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        const unavailableDates: string[] = [];
+        const duplicateLeaves: Array<any> = [];
+
+        data.data.forEach((dateInfo: any) => {
+          const date = new Date(dateInfo.date).toLocaleDateString();
+          
+          // Check if date has only "None" available or has existing leave application
+          if (
+            (dateInfo.availableSessions.length === 1 && dateInfo.availableSessions[0].id === 0) ||
+            dateInfo.leaveAppList.length > 0
+          ) {
+            unavailableDates.push(date);
+            
+            if (dateInfo.leaveAppList.length > 0) {
+              duplicateLeaves.push({
+                date,
+                ...dateInfo.leaveAppList[0]
+              });
+            }
+          }
+        });
+
+        setLeaveValidation({ unavailableDates, duplicateLeaves });
+
+        // Return false if there are any unavailable dates
+        if (unavailableDates.length > 0) {
+          const duplicateMessage = duplicateLeaves.map(leave => 
+            `${leave.date}: ${leave.leaveCode} (${leave.session})`
+          ).join('\n');
+
+          setAlertTitle(getLocalizedText('leaveValidationError'));
+          setAlertMessage(
+            `${getLocalizedText('duplicateLeaveMessage')}\n\n${duplicateMessage}`
+          );
+          setShowAlert(true);
+          return false;
+        }
+
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking leave availability:', error);
+      return false;
+    }
   };
 
   const submitLeaveApplication = async () => {
@@ -734,21 +935,20 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         }
       }
 
+      // Check leave availability before submitting
+      const isAvailable = await checkLeaveAvailability(
+        selectedLeave?.leaveCodeId || 0,
+        dateFrom,
+        dateTo
+      );
+
+      if (!isAvailable) {
+        return;
+      }
+
       setLoading(true);
       const userToken = await AsyncStorage.getItem('userToken');
       const baseUrl = await AsyncStorage.getItem('baseUrl');
-      
-      console.log('Debug: Initial Data:', {
-        userToken: userToken ? 'exists' : 'missing',
-        baseUrl,
-        employeeId,
-        userId,
-        selectedLeave,
-        dateFrom: dateFrom.toISOString(),
-        dateTo: dateTo.toISOString(),
-        sessionType,
-        reason
-      });
 
       const leaveDates: LeaveApplicationDate[] = [];
       let currentDate = new Date(dateFrom);
@@ -759,8 +959,6 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         });
         currentDate.setDate(currentDate.getDate() + 1);
       }
-
-      console.log('Debug: Leave Dates:', leaveDates);
 
       const formData = new FormData();
       formData.append('LeaveCodeId', selectedLeave.leaveCodeId.toString());
@@ -786,19 +984,6 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         formData.append('Attachments', fileData);
       }
 
-      console.log('Debug: FormData values:', {
-        LeaveCodeId: selectedLeave.leaveCodeId,
-        Year: new Date().getFullYear(),
-        DateFrom: dateFrom.toISOString(),
-        DateTo: dateTo.toISOString(),
-        TotalDays: leaveDates.length,
-        Reason: reason,
-        UserId: userId,
-        LeaveDateList: leaveDates
-      });
-
-      console.log('Debug: Making API request to:', `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves`);
-
       const response = await fetch(
         `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves`,
         {
@@ -811,17 +996,13 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
         }
       );
 
-      console.log('Debug: Response status:', response.status);
       const data = await response.json();
-      console.log('Debug: Response data:', data);
 
       if (data.success) {
-        console.log('Debug: Submit successful');
         setAlertMessage(getLocalizedText('leaveSubmitSuccess'));
         setShowAlert(true);
         navigation.goBack();
       } else {
-        console.log('Debug: Submit failed with message:', data.message);
         setAlertMessage(data.message || getLocalizedText('leaveSubmitFailed'));
         setShowAlert(true);
       }
@@ -1014,37 +1195,83 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     );
   };
 
-  return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      ) : (
-        <>
-          {renderLeaveCodeDropdown()}
-          {renderLeaveNote()}
-          {renderDateSelection()}
-          {renderSessionType()}
-          {renderAttachments()}
-          
-          {renderReasonInput()}
+  // Add useEffect to fetch leave dates when dates or leave code changes
+  useEffect(() => {
+    if (selectedLeave && dateFrom && dateTo) {
+      setInitialExclusionsApplied(false);
+      setExcludedDates([]); // Reset exclusions
+      fetchLeaveDates(selectedLeave.leaveCodeId, dateFrom, dateTo);
+    }
+  }, [selectedLeave, dateFrom, dateTo]);
 
-          <TouchableOpacity
-            style={[styles.submitButton, { backgroundColor: theme.primary }]}
-            onPress={submitLeaveApplication}
-          >
+  // Update useEffect to properly handle all exclusion cases
+  useEffect(() => {
+    if (leaveDates.length > 0 && !initialExclusionsApplied) {
+      console.log('\n=== Processing Date Exclusions ===');
+      const autoExcludedDates = leaveDates
+        .filter(date => {
+          const dateKey = new Date(date.date).toISOString().split('T')[0];
+          const isSpecialDay = date.typeOfDay === 'Public Holiday' || 
+                             date.typeOfDay === 'Rest Day' || 
+                             date.typeOfDay === 'Off Day';
+          const hasLeave = date.leaveAppList?.length > 0;
+          const shouldExclude = isSpecialDay || hasLeave || date.isHoliday;
+          
+          console.log(`\nProcessing date: ${dateKey}`);
+          console.log(`Type of Day: ${date.typeOfDay}`);
+          console.log(`Has Leave: ${hasLeave}`);
+          console.log(`Is Holiday: ${date.isHoliday}`);
+          console.log(`Should Exclude: ${shouldExclude}`);
+          
+          return shouldExclude;
+        })
+        .map(date => new Date(date.date).toISOString().split('T')[0]);
+
+      console.log('Auto-excluded dates:', autoExcludedDates);
+      
+      setExcludedDates(prev => {
+        const newExclusions = [...new Set([...prev, ...autoExcludedDates])];
+        console.log('Final exclusions:', newExclusions);
+        return newExclusions;
+      });
+      setInitialExclusionsApplied(true);
+    }
+  }, [leaveDates]);
+
+  // Reset exclusions when date range changes
+  useEffect(() => {
+    setInitialExclusionsApplied(false);
+    setExcludedDates([]);
+  }, [dateFrom, dateTo]);
+
+
+  // Add a debug useEffect to monitor state changes
+  useEffect(() => {
+  }, [excludedDates]);
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.content}>
+        {renderLeaveCodeDropdown()}
+        {renderDateSelection()}
+        {selectedLeave && leaveDates.length > 0 && renderSessionType()}
+        {renderAttachments()}
+        {renderReasonInput()}
+        
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: theme.primary }]}
+          onPress={submitLeaveApplication}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
             <Text style={styles.submitButtonText}>
               {getLocalizedText('submit')}
             </Text>
-          </TouchableOpacity>
-
-          <DateValidationInfo />
-        </>
-      )}
+          )}
+        </TouchableOpacity>
+      </View>
 
       <CustomAlert
         visible={showAlert}
@@ -1065,7 +1292,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  contentContainer: {
+  content: {
     padding: 16,
     gap: 16,
   },
@@ -1232,6 +1459,9 @@ const styles = StyleSheet.create({
   },
   daySessionContainer: {
     marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 12,
   },
   dateLabel: {
     fontSize: 14,
@@ -1251,7 +1481,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   excludeButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   sectionHeader: {
@@ -1279,6 +1509,29 @@ const styles = StyleSheet.create({
   dateList: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  unavailableText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 8,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 13,
+    letterSpacing: 0.1,
+    fontWeight: '600',
+  },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

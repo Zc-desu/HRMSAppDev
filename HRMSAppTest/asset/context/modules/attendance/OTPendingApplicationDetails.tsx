@@ -423,12 +423,18 @@ const OTPendingApplicationDetails = ({ route, navigation }: any) => {
       const userToken = await AsyncStorage.getItem('userToken');
       const baseUrl = await AsyncStorage.getItem('baseUrl');
       
+      console.log('Action:', action);
+      console.log('Application ID:', applicationId);
+      console.log('Approval Action ID:', approvalActionId);
+
       if (!userToken || !baseUrl) throw new Error(t.failedToProcess);
 
-      const endpoint = action === 'approve' 
-        ? `${baseUrl}/apps/api/v1/overtime/${applicationId}/approve/${approvalActionId}`
-        : `${baseUrl}/apps/api/v1/overtime/${applicationId}/reject/${approvalActionId}`;
-
+      const endpoint = action === 'approve'
+        ? `${baseUrl}/apps/api/v1/overtime/approvals/pending-applications/${applicationId}/approve/${approvalActionId}`
+        : `${baseUrl}/apps/api/v1/overtime/approvals/pending-applications/${applicationId}/reject/${approvalActionId}`;
+      
+      console.log('Making request to:', endpoint);
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -439,26 +445,36 @@ const OTPendingApplicationDetails = ({ route, navigation }: any) => {
         body: action === 'reject' ? JSON.stringify({ reason }) : undefined,
       });
 
-      const result = await response.json();
-      if (result.success) {
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      if (response.ok) {
         setAlertConfig({
           visible: true,
           title: t.success,
           message: action === 'approve' ? t.approveSuccess : t.rejectSuccess,
-          buttons: [{ text: t.ok, onPress: () => {
-            setAlertConfig({ ...alertConfig, visible: false });
-            navigation.goBack();
-          }}]
+          buttons: [{
+            text: t.ok,
+            onPress: () => {
+              setAlertConfig(prev => ({ ...prev, visible: false }));
+              navigation.goBack();
+            }
+          }]
         });
       } else {
-        throw new Error(result.message || t.failedToProcess);
+        throw new Error(t.failedToProcess);
       }
     } catch (error) {
+      console.error('Full error details:', error);
       setAlertConfig({
         visible: true,
         title: t.error,
-        message: error instanceof Error ? error.message : t.failedToProcess,
-        buttons: [{ text: t.ok, onPress: () => setAlertConfig({ ...alertConfig, visible: false }) }]
+        message: t.failedToProcess,
+        buttons: [{
+          text: t.ok,
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+        }]
       });
     } finally {
       setLoading(false);
