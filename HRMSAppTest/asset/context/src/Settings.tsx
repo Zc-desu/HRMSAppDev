@@ -14,7 +14,7 @@ import { useLanguage } from '../modules/setting/LanguageContext';
 const Settings = ({ navigation }: any) => {
   const systemTheme = useColorScheme();
   const [currentTheme, setCurrentTheme] = useState<string>('system');
-  const { language } = useLanguage();
+  const { language, changeLanguage } = useLanguage();
 
   useEffect(() => {
     loadThemePreference();
@@ -169,7 +169,15 @@ const Settings = ({ navigation }: any) => {
 
         <TouchableOpacity 
           style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: theme.divider }]}
-          onPress={() => navigation.navigate('LanguageSelector')}
+          onPress={async () => {
+            try {
+              await changeLanguage(language);
+              console.log('Language saved in Settings:', language);
+              navigation.navigate('LanguageSelector');
+            } catch (error) {
+              console.error('Error saving language in Settings:', error);
+            }
+          }}
         >
           <View style={styles.settingLeft}>
             <Image

@@ -25,6 +25,23 @@ interface AlertConfig {
   }>;
 }
 
+// Add this interface for module access
+interface ModuleAccess {
+  isAffectESS: boolean;
+  access: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
+interface ModuleAccessResponse {
+  success: boolean;
+  message: string;
+  data: {
+    [key: string]: ModuleAccess;
+  };
+}
+
 const ProfileSwitch = ({ route, navigation }: any) => {
   const { baseUrl: routeBaseUrl, accessToken: routeAccessToken } = route?.params || {};
   const [accessToken, setAccessToken] = useState<string | null>(routeAccessToken || null);
@@ -143,77 +160,115 @@ const ProfileSwitch = ({ route, navigation }: any) => {
             const extractedBaseUrl = storedBaseUrl.split('/apps/api')[0];
             setBaseUrl(extractedBaseUrl);
             navigation.setParams({ baseUrl: extractedBaseUrl });
-          } else {
-            console.error('No base URL found in storage');
-            Alert.alert('Error', 'Please scan QR code again');
-            navigation.navigate('Login');
           }
         }
       } catch (error) {
         console.error('Error fetching auth data:', error);
-        Alert.alert('Error', 'Authentication failed. Please login again.');
-        navigation.navigate('Login');
       }
     };
 
     fetchAuthData();
-  }, [navigation, accessToken, baseUrl]);
+  }, []);
 
   useEffect(() => {
-    if (accessToken && baseUrl) {
-      const fetchUserProfile = async () => {
-        try {
-          const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
-          const data = await response.json();
-          if (data.success) {
-            setUserProfile(data.data[0]);
+    if (accessToken && baseUrl && userProfile) {
 
-            const employeeId = data.data[0]?.employeeId;
-            if (employeeId) {
-              await AsyncStorage.setItem('employeeId', employeeId.toString());
+      const fetchUserToken = async () => {
+        try {
+          const response = await fetch(
+            `${baseUrl}/apps/api/v1/auth/userId/${userProfile.userId}/token?companyId=${userProfile.companies[0]?.companyId}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
             }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            const userToken = data.data.token;
+            await AsyncStorage.setItem('userToken', userToken);
+            
+            // Now fetch module access
+            await fetchModuleAccess();
           } else {
-            console.error('Error fetching user profile:', data.message);
-            Alert.alert(
-              getLocalizedText('error'),
-              getLocalizedText('failedFetchProfile'),
-              [
-                {
-                  text: getLocalizedText('ok'),
-                  onPress: () => {
-                    navigation.navigate('Login');
-                  },
-                },
-              ],
-              { cancelable: false }
-            );
+            console.error('Failed to get user token:', data.message);
           }
         } catch (error) {
-          console.error('Error during API call:', error);
-          Alert.alert(
-            getLocalizedText('error'),
-            getLocalizedText('failedFetchProfile'),
-            [
-              {
-                text: getLocalizedText('ok'),
-                onPress: () => {
-                  navigation.navigate('Login');
-                },
-              },
-            ],
-            { cancelable: false }
-          );
+          console.error('Error fetching user token:', error);
         }
       };
 
-      fetchUserProfile();
-    } else {
-      return;
+      fetchUserToken();
+    }
+  }, [accessToken, baseUrl, userProfile]);
+
+  useEffect(() => {
+    if (accessToken && baseUrl) {
+      
+      const fetchData = async () => {
+        try {
+          await fetchModuleAccess();
+          const fetchUserProfile = async () => {
+            try {
+              const response = await fetch(`${baseUrl}/apps/api/v1/auth/user-profiles`, {
+                method: 'GET',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+              const data = await response.json();
+              if (data.success) {
+                setUserProfile(data.data[0]);
+
+                const employeeId = data.data[0]?.employeeId;
+                if (employeeId) {
+                  await AsyncStorage.setItem('employeeId', employeeId.toString());
+                }
+              } else {
+                console.error('Error fetching user profile:', data.message);
+                Alert.alert(
+                  getLocalizedText('error'),
+                  getLocalizedText('failedFetchProfile'),
+                  [
+                    {
+                      text: getLocalizedText('ok'),
+                      onPress: () => {
+                        navigation.navigate('Login');
+                      },
+                    },
+                  ],
+                  { cancelable: false }
+                );
+              }
+            } catch (error) {
+              console.error('Error during API call:', error);
+              Alert.alert(
+                getLocalizedText('error'),
+                getLocalizedText('failedFetchProfile'),
+                [
+                  {
+                    text: getLocalizedText('ok'),
+                    onPress: () => {
+                      navigation.navigate('Login');
+                    },
+                  },
+                ],
+                { cancelable: false }
+              );
+            }
+          };
+
+          fetchUserProfile();
+        } catch (error) {
+          console.error('Error fetching data:', error);
+        }
+      };
+
+      fetchData();
     }
   }, [accessToken, baseUrl]);
 
@@ -247,7 +302,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
     }, [loggedIn])
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     showAlert(
       getLocalizedText('logOut'),
       getLocalizedText('logOutConfirm'),
@@ -258,55 +313,30 @@ const ProfileSwitch = ({ route, navigation }: any) => {
           onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
         },
         {
-          text: getLocalizedText('ok'),
+          text: getLocalizedText('logOut'),
           style: 'default',
           onPress: async () => {
             try {
-              setLoggedIn(false);
-              setIsLoading(true);
-              
-              const refreshToken = await AsyncStorage.getItem('refreshToken');
-              const accessToken = await AsyncStorage.getItem('accessToken');
-              const baseUrl = await AsyncStorage.getItem('baseUrl');
-
-              if (baseUrl && accessToken && refreshToken) {
-                const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                  },
-                  body: JSON.stringify({ refreshToken })
-                });
-
-                if (!response.ok) {
-                  console.warn('Logout API call failed:', await response.text());
-                }
-              }
-              
-              const scannedData = await AsyncStorage.getItem('scannedData');
-              const themePreference = await AsyncStorage.getItem('themePreference');
-              
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(key => 
-                key !== 'baseUrl' && 
-                key !== 'scannedData' &&
-                key !== 'themePreference'
-              );
-              
-              await AsyncStorage.multiRemove(keysToRemove);
+              // Only clear auth-related items, keep scannedData
+              await AsyncStorage.multiRemove([
+                'userToken',
+                'authToken',
+                'decodedToken',
+                'userId',
+                'companyId',
+                'employeeId'
+              ]);
               
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
-              console.error('Logout error:', error);
-              showAlert(getLocalizedText('error'), getLocalizedText('failedLogout'), [
-                { text: getLocalizedText('ok'), style: 'default' }
-              ]);
-            } finally {
-              setIsLoading(false);
+              console.error('Error during logout:', error);
+              showAlert(getLocalizedText('error'), getLocalizedText('logoutError'), [{ 
+                text: getLocalizedText('ok'), 
+                onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) 
+              }]);
             }
           }
         }
@@ -357,6 +387,7 @@ const ProfileSwitch = ({ route, navigation }: any) => {
         await AsyncStorage.setItem('userRole', role);
 
         if (role === 'Approval') {
+          const moduleAccess = await fetchModuleAccess(); // Get module access
           navigation.reset({
             index: 0,
             routes: [{ 
@@ -368,11 +399,13 @@ const ProfileSwitch = ({ route, navigation }: any) => {
                 employeeId, 
                 decodedToken, 
                 refreshToken,
-                userId
+                userId,
+                moduleAccess  // Pass module access as param
               }
             }],
           });
         } else if (role === 'Employee') {
+          const moduleAccess = await fetchModuleAccess(); // Get module access
           navigation.reset({
             index: 0,
             routes: [{ 
@@ -384,7 +417,8 @@ const ProfileSwitch = ({ route, navigation }: any) => {
                 employeeId, 
                 decodedToken, 
                 refreshToken,
-                userId
+                userId,
+                moduleAccess  // Pass module access as param
               }
             }],
           });
@@ -415,6 +449,51 @@ const ProfileSwitch = ({ route, navigation }: any) => {
 
     return { decodedHeader, decodedPayload };
   }
+
+  // Add this function to check module access
+  const fetchModuleAccess = async () => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+
+      if (!userToken) {
+        console.log('Debug - No userToken found'); // Debug log
+        return;
+      }
+
+      const response = await fetch(`${baseUrl}/apps/api/v2/modules-access`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+      });
+
+      const responseText = await response.text();
+
+      const data: ModuleAccessResponse = JSON.parse(responseText);
+      
+      if (data.success) {
+        // Map the module access to our simplified structure
+        const processedAccess = {
+          applyLeave: data.data.ApplyLeave?.access,
+          clockInOut: data.data.ETimesheetClockTimeApplication?.access,
+          overtime: data.data.ETimesheetOvertimeApplication?.access,
+          noticeBoard: data.data.NoticeBoard?.access, // Make sure this matches the API response
+          payslip: data.data.ProfilePayslip?.access,
+          leaveApplication: data.data.LeaveApplicationListing?.access,
+          leaveBalance: data.data.ProfileLeaveBalance?.access,
+          pendingLeave: data.data.LeavePendingApplicationListing?.access,
+          overtimeApproval: data.data.PendingOvertimeApplicationListing?.access,
+          pendingTimeLog: data.data.PendingClockTimeApplicationListing?.access,
+          timesheet: data.data.Etimesheet?.access
+        };
+        console.log('Processed Module Access:', processedAccess);
+
+        return processedAccess;
+      }
+    } catch (error) {
+      console.error('Error processing module access:', error);
+    }
+  };
 
   return (
     <ScrollView 

@@ -6,41 +6,52 @@ type Language = 'en' | 'ms' | 'zh-Hans' | 'zh-Hant';
 interface LanguageContextProps {
   language: Language;
   setLanguage: (language: Language) => void;
+  changeLanguage: (language: Language) => Promise<void>;
 }
 
 const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>('en');
+export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
+  const [language, setLanguage] = useState<Language>('en');
 
-  // Load saved language preference when app starts
+  // Load saved language on mount
   useEffect(() => {
-    const loadLanguagePreference = async () => {
+    const loadLanguage = async () => {
       try {
-        const savedLanguage = await AsyncStorage.getItem('languagePreference');
-        if (savedLanguage) {
-          setLanguageState(savedLanguage as Language);
+        const savedLanguage = await AsyncStorage.getItem('@user_language');
+        console.log('Loading saved language:', savedLanguage); // Debug log
+        
+        if (savedLanguage && isValidLanguage(savedLanguage)) {
+          setLanguage(savedLanguage as Language);
         }
       } catch (error) {
-        console.error('Error loading language preference:', error);
+        console.error('Error loading language:', error);
       }
     };
 
-    loadLanguagePreference();
-  }, []);
+    loadLanguage();
+  }, []); // Empty dependency array to only run on mount
 
-  // Save language preference when it changes
-  const setLanguage = async (newLanguage: Language) => {
+  const changeLanguage = async (newLanguage: Language) => {
     try {
-      await AsyncStorage.setItem('languagePreference', newLanguage);
-      setLanguageState(newLanguage);
+      await AsyncStorage.setItem('@user_language', newLanguage);
+      setLanguage(newLanguage);
     } catch (error) {
-      console.error('Error saving language preference:', error);
+      console.error('Error saving language:', error);
     }
   };
 
+  // Add type guard
+  const isValidLanguage = (lang: string): lang is Language => {
+    return ['en', 'ms', 'zh-Hans', 'zh-Hant'].includes(lang);
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ 
+      language, 
+      setLanguage,
+      changeLanguage 
+    }}>
       {children}
     </LanguageContext.Provider>
   );

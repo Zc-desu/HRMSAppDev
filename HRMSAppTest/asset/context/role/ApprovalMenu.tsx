@@ -73,6 +73,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   const [loggedIn, setLoggedIn] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const { moduleAccess } = route.params;
   
   // Add states for employee data
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -108,6 +109,11 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         lateOut: 'Late Out',
         logOutConfirm: 'Log Out',
         logOutMessage: 'Are you sure you want to log out?',
+        accessDenied: 'Access Denied',
+        noLeaveAccess: 'You do not have access to the leave module.',
+        noPayslipAccess: 'You do not have access to the payslip module.',
+        noAttendanceAccess: 'You do not have access to the attendance module.',
+        noNoticeBoardAccess: 'You do not have access to the notice board.',
         cancel: 'Cancel',
         ok: 'OK'
       },
@@ -137,6 +143,11 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         lateOut: '迟走',
         logOutConfirm: '退出登录',
         logOutMessage: '确定要退出登录吗？',
+        accessDenied: '拒绝访问',
+        noLeaveAccess: '您没有请假模块的访问权限。',
+        noPayslipAccess: '您没有工资单模块的访问权限。',
+        noAttendanceAccess: '您没有考勤模块的访问权限。',
+        noNoticeBoardAccess: '您没有公告板的访问权限。',
         cancel: '取消',
         ok: '确定'
       },
@@ -165,7 +176,12 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         lateIn: '遲到',
         lateOut: '遲走',
         logOutConfirm: '退出登錄',
-        logOutMessage: '確定要退出登錄�？',
+        logOutMessage: '確定要退出登錄？',
+        accessDenied: '拒絕訪問',
+        noLeaveAccess: '您沒有請假模塊的訪問權限。',
+        noPayslipAccess: '您沒有工資單模塊的訪問權限。',
+        noAttendanceAccess: '您沒有考勤模塊的訪問權限。',
+        noNoticeBoardAccess: '您沒有公告板的訪問權限。',
         cancel: '取消',
         ok: '確定'
       },
@@ -195,6 +211,11 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         lateOut: 'Lewat Keluar',
         logOutConfirm: 'Log Keluar',
         logOutMessage: 'Adakah anda pasti mahu log keluar?',
+        accessDenied: 'Akses Ditolak',
+        noLeaveAccess: 'Anda tidak mempunyai akses kepada modul cuti.',
+        noPayslipAccess: 'Anda tidak mempunyai akses kepada modul slip gaji.',
+        noAttendanceAccess: 'Anda tidak mempunyai akses kepada modul kehadiran.',
+        noNoticeBoardAccess: 'Anda tidak mempunyai akses kepada papan notis.',
         cancel: 'Batal',
         ok: 'OK'
       }
@@ -305,66 +326,42 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   );
 
   // Update handleLogout
-  const handleLogout = () => {
-    setAlertConfig({
-      visible: true,
-      title: getLocalizedText('logOutConfirm'),
-      message: getLocalizedText('logOutMessage'),
-      buttons: [
+  const handleLogout = async () => {
+    showAlert(
+      getLocalizedText('logOutConfirm'),
+      getLocalizedText('logOutMessage'),
+      [
         {
           text: getLocalizedText('cancel'),
           style: 'cancel',
-          onPress: () => {
-            // Close the alert when cancel is pressed
-            setAlertConfig(prev => ({ ...prev, visible: false }));
-          },
+          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
         },
         {
-          text: getLocalizedText('ok'),
+          text: getLocalizedText('logOut'),
+          style: 'default',
           onPress: async () => {
             try {
-              setIsLoading(true);
-              const userToken = await AsyncStorage.getItem('userToken');
-              const refreshToken = await AsyncStorage.getItem('refreshToken');
-              const baseUrl = await AsyncStorage.getItem('baseUrl');
-
-              if (baseUrl && userToken && refreshToken) {
-                const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                  },
-                  body: JSON.stringify({ refreshToken })
-                });
-              }
-
-              const scannedData = await AsyncStorage.getItem('scannedData');
-              const themePreference = await AsyncStorage.getItem('themePreference');
-              
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(key => 
-                key !== 'baseUrl' && 
-                key !== 'scannedData' &&
-                key !== 'themePreference'
-              );
-              
-              await AsyncStorage.multiRemove(keysToRemove);
+              // Only clear auth-related items
+              await AsyncStorage.multiRemove([
+                'userToken',
+                'decodedToken',
+                'userId',
+                'baseUrl',
+                'companyId'
+              ]);
               
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
-              console.error('Logout error:', error);
-              showAlert(getLocalizedText('error'), getLocalizedText('failedLogout'));
-            } finally {
-              setIsLoading(false);
+              console.error('Error during logout:', error);
+              showAlert(getLocalizedText('error'), getLocalizedText('logoutError'));
             }
-          },
-        },
-      ],
-    });
+          }
+        }
+      ]
+    );
   };
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -379,8 +376,6 @@ const ApprovalMenu = ({ route, navigation }: any) => {
       
       // Format date to YYYY-MM-DDT00:00:00Z
       const formattedDate = selectedDate.toISOString().split('T')[0] + 'T00:00:00Z';
-      
-      console.log('Fetching timesheet with formatted date:', formattedDate);
 
       const response = await fetch(
         `${baseUrl}/apps/api/v1/employees/${employeeId}/timesheet/${formattedDate}`,
@@ -392,17 +387,11 @@ const ApprovalMenu = ({ route, navigation }: any) => {
       );
       
       const data = await response.json();
-      console.log('Timesheet API Response:', {
-        success: data.success,
-        timesheet: data.data?.timesheet,
-        fullResponse: data
-      });
 
       if (data.success) {
         setTimesheet(data.data.timesheet);
         setAllowances(data.data.allowances || []);
         setOvertimes(data.data.overtimes || []);
-        console.log('Updated timesheet state:', data.data.timesheet);
       } else {
         console.warn('Timesheet fetch failed:', data.message || 'No error message provided');
       }
@@ -414,12 +403,6 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   };
 
   useEffect(() => {
-    console.log('useEffect triggered with:', {
-      hasBaseUrl: !!baseUrl,
-      hasEmployeeId: !!employeeId,
-      selectedDate: selectedDate.toISOString()
-    });
-
     if (baseUrl && employeeId) {
       fetchTimesheet();
     }
@@ -1089,6 +1072,73 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     },
   });
 
+  // Handle button press with access check
+  const handleButtonPress = (module: string) => {
+    switch (module) {
+      case 'payslip':
+        if (moduleAccess?.payslip) {
+          navigation.navigate('Payslip', { baseUrl, employeeId });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noPayslipAccess')
+          );
+        }
+        break;
+
+      case 'leave':
+        if (moduleAccess?.pendingLeave) {
+          navigation.navigate('LeaveMenu', { baseUrl, employeeId });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noLeaveAccess')
+          );
+        }
+        break;
+
+      case 'noticeBoard':
+        if (moduleAccess?.noticeBoard) {
+          const companyIdToUse = route.params?.companyId || route.params?.employeeData?.company_id;
+          if (!companyIdToUse || !baseUrl) {
+            showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
+            return;
+          }
+          navigation.navigate('NBGetList', {
+            employeeId,
+            companyId: companyIdToUse,
+            baseUrl
+          });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noNoticeBoardAccess')
+          );
+        }
+        break;
+
+      case 'attendance':
+        if (moduleAccess?.clockInOut || moduleAccess?.overtime) {
+          const companyIdToUse = route.params?.companyId || route.params?.employeeData?.company_id;
+          if (!companyIdToUse || !baseUrl) {
+            showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
+            return;
+          }
+          navigation.navigate('ATMenu', {
+            employeeId,
+            companyId: companyIdToUse,
+            baseUrl
+          });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noAttendanceAccess')
+          );
+        }
+        break;
+    }
+  };
+
   return (
     <View style={styles.containerWrapper}>
       <TouchableOpacity
@@ -1139,11 +1189,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    if (employeeId && baseUrl) {
-                      navigation.navigate('Payslip', { baseUrl, employeeId });
-                    }
-                  }}
+                  onPress={() => handleButtonPress('payslip')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/gongzidan.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
@@ -1154,11 +1200,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    if (employeeId && baseUrl) {
-                      navigation.navigate('LeaveMenu', { baseUrl, employeeId });
-                    }
-                  }}
+                  onPress={() => handleButtonPress('leave')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/leave2.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
@@ -1170,20 +1212,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
               </View>
 
               <View style={styles.buttonRow}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    const companyIdToUse = route.params?.companyId || route.params?.employeeData?.company_id;
-                    if (!companyIdToUse || !baseUrl) {
-                      showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
-                      return;
-                    }
-                    navigation.navigate('NBGetList', {
-                      employeeId,
-                      companyId: companyIdToUse,
-                      baseUrl
-                    });
-                  }}
+                  onPress={() => handleButtonPress('noticeBoard')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/noticeboard.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
@@ -1192,20 +1223,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                     </Text>
                   </View>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    const companyIdToUse = route.params?.companyId || route.params?.employeeData?.company_id;
-                    if (!companyIdToUse || !baseUrl) {
-                      showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
-                      return;
-                    }
-                    navigation.navigate('ATMenu', {
-                      employeeId,
-                      companyId: companyIdToUse,
-                      baseUrl
-                    });
-                  }}
+                  onPress={() => handleButtonPress('attendance')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/attendance.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />

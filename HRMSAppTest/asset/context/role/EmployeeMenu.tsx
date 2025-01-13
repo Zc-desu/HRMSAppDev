@@ -117,7 +117,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
   const [overtimes, setOvertimes] = useState<Overtime[]>([]);
 
   // Extract companyId, baseUrl, and decodedToken from route params
-  const { companyId, baseUrl: passedBaseUrl, decodedToken } = route.params;
+  const { companyId, baseUrl: passedBaseUrl, decodedToken, moduleAccess } = route.params;
 
   const showAlert = (title: string, message: string, buttons: CustomAlertButton[] = []) => {
     setAlertConfig({
@@ -157,6 +157,11 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         lateOut: 'Late Out',
         logOutConfirm: 'Log Out',
         logOutMessage: 'Are you sure you want to log out?',
+        accessDenied: 'Access Denied',
+        noLeaveAccess: 'You do not have access to the leave module.',
+        noPayslipAccess: 'You do not have access to the payslip module.',
+        noAttendanceAccess: 'You do not have access to the attendance module.',
+        noNoticeBoardAccess: 'You do not have access to the notice board.',
         cancel: 'Cancel',
         ok: 'OK'
       },
@@ -185,6 +190,11 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         lateOut: '迟走',
         logOutConfirm: '退出登录',
         logOutMessage: '确定要退出登录吗？',
+        accessDenied: '拒绝访问',
+        noLeaveAccess: '您没有请假模块的访问权限。',
+        noPayslipAccess: '您没有工资单模块的访问权限。',
+        noAttendanceAccess: '您没有考勤模块的访问权限。',
+        noNoticeBoardAccess: '您没有公告板的访问权限。',
         cancel: '取消',
         ok: '确定'
       },
@@ -213,6 +223,11 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         lateOut: '遲走',
         logOutConfirm: '退出登錄',
         logOutMessage: '確定要退出登錄嗎？',
+        accessDenied: '拒絕訪問',
+        noLeaveAccess: '您沒有請假模塊的訪問權限。',
+        noPayslipAccess: '您沒有工資單模塊的訪問權限。',
+        noAttendanceAccess: '您沒有考勤模塊的訪問權限。',
+        noNoticeBoardAccess: '您沒有公告板的訪問權限。',
         cancel: '取消',
         ok: '確定'
       },
@@ -241,6 +256,11 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         lateOut: 'Lewat Keluar',
         logOutConfirm: 'Log Keluar',
         logOutMessage: 'Adakah anda pasti mahu log keluar?',
+        accessDenied: 'Akses Ditolak',
+        noLeaveAccess: 'Anda tidak mempunyai akses kepada modul cuti.',
+        noPayslipAccess: 'Anda tidak mempunyai akses kepada modul slip gaji.',
+        noAttendanceAccess: 'Anda tidak mempunyai akses kepada modul kehadiran.',
+        noNoticeBoardAccess: 'Anda tidak mempunyai akses kepada papan notis.',
         cancel: 'Batal',
         ok: 'OK'
       }
@@ -334,8 +354,9 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
   // Modified handleLogout
   const handleLogout = async () => {
+    // Show confirmation dialog first
     showAlert(
-      getLocalizedText('logOut'),
+      getLocalizedText('logOutConfirm'),
       getLocalizedText('logOutMessage'),
       [
         {
@@ -344,50 +365,27 @@ const EmployeeMenu = ({ route, navigation }: any) => {
           onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
         },
         {
-          text: getLocalizedText('ok'),
+          text: getLocalizedText('logOut'),
+          style: 'default',
           onPress: async () => {
             try {
-              setIsLoading(true);
-              const userToken = await AsyncStorage.getItem('userToken');
-              const refreshToken = await AsyncStorage.getItem('refreshToken');
-              const baseUrl = await AsyncStorage.getItem('baseUrl');
-
-              // Call logout API
-              if (baseUrl && userToken && refreshToken) {
-                const response = await fetch(`${baseUrl}/apps/api/v1/auth/logout`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                  },
-                  body: JSON.stringify({ refreshToken })
-                });
-              }
-
-              // Store necessary data
-              const scannedData = await AsyncStorage.getItem('scannedData');
-              const themePreference = await AsyncStorage.getItem('themePreference');
+              // Only clear auth-related items
+              await AsyncStorage.multiRemove([
+                'userToken',
+                'decodedToken',
+                'userId',
+                'baseUrl',
+                'companyId'
+              ]);
               
-              // Get all keys and filter out the ones we want to keep
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(key => 
-                key !== 'baseUrl' && 
-                key !== 'scannedData' &&
-                key !== 'themePreference'
-              );
-              
-              // Remove auth-related items including decodedToken
-              await AsyncStorage.multiRemove(keysToRemove);
-              
+              // Navigate back to login
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
-              console.error('Logout error:', error);
-              showAlert(getLocalizedText('error'), getLocalizedText('failedLogout'));
-            } finally {
-              setIsLoading(false);
+              console.error('Error during logout:', error);
+              showAlert(getLocalizedText('error'), getLocalizedText('logoutError'));
             }
           }
         }
@@ -471,15 +469,12 @@ const EmployeeMenu = ({ route, navigation }: any) => {
     const loadUserData = async () => {
       try {
         // Get from route params first
-        console.log('EmployeeMenu - Route params userId:', route.params?.userId);
         if (route.params?.userId) {
           setUserId(route.params.userId.toString());
           await AsyncStorage.setItem('userId', route.params.userId.toString());
-          console.log('EmployeeMenu - Stored userId from params:', route.params.userId);
         } else {
           // Fallback to AsyncStorage
           const storedUserId = await AsyncStorage.getItem('userId');
-          console.log('EmployeeMenu - Retrieved userId from storage:', storedUserId);
           if (storedUserId) {
             setUserId(storedUserId);
           }
@@ -496,27 +491,17 @@ const EmployeeMenu = ({ route, navigation }: any) => {
 
   // Add fetchTimesheet function
   const fetchTimesheet = async () => {
-    console.log('\n=== Dashboard Debug Info ===');
     
     // Format date to always use 00:00:00Z
     const formattedDate = new Date(selectedDate)
       .toISOString()
       .split('T')[0] + 'T00:00:00Z';
 
-    console.log('Request Parameters:', {
-      baseUrl,
-      employeeId,
-      originalDate: selectedDate.toISOString(),
-      formattedDate: formattedDate // This should now always end with T00:00:00Z
-    });
-
     setIsLoading(true);
     try {
       const userToken = await AsyncStorage.getItem('userToken');
       const requestUrl = `${baseUrl}/apps/api/v1/employees/${employeeId}/timesheet/${formattedDate}`;
       
-      console.log('Request URL:', requestUrl);
-      console.log('Auth Token Status:', userToken ? 'Present' : 'Missing');
 
       const response = await fetch(requestUrl, {
         method: 'GET',
@@ -529,26 +514,10 @@ const EmployeeMenu = ({ route, navigation }: any) => {
       
       const data = await response.json();
       
-      // Add detailed response logging
-      console.log('Raw API Response:', JSON.stringify(data, null, 2));
-      console.log('Response Status:', response.status);
-      console.log('Timesheet Data Check:', {
-        hasData: !!data.data,
-        hasTimesheet: !!data.data?.timesheet,
-        scheduleIn: data.data?.timesheet?.scheduleIn,
-        scheduleOut: data.data?.timesheet?.scheduleOut,
-        workHour: data.data?.timesheet?.workHour
-      });
 
       if (data.success && data.data?.timesheet) {
         const timesheetData = data.data.timesheet;
-        console.log('Setting Timesheet State:', {
-          scheduleIn: timesheetData.scheduleIn,
-          scheduleOut: timesheetData.scheduleOut,
-          workHour: timesheetData.workHour,
-          scheduleCode: timesheetData.scheduleCode,
-          typeOfDay: timesheetData.typeOfDay
-        });
+
         
         setTimesheet(timesheetData);
         setAllowances(data.data.allowances || []);
@@ -567,14 +536,6 @@ const EmployeeMenu = ({ route, navigation }: any) => {
       });
     } finally {
       setIsLoading(false);
-      // Add final state check
-      console.log('Final Timesheet State:', {
-        hasTimesheet: !!timesheet,
-        scheduleIn: timesheet?.scheduleIn || '00:00:00',
-        scheduleOut: timesheet?.scheduleOut || '00:00:00',
-        workHour: timesheet?.workHour || '00:00:00'
-      });
-      console.log('=== End Dashboard Debug Info ===\n');
     }
   };
 
@@ -904,6 +865,76 @@ const EmployeeMenu = ({ route, navigation }: any) => {
         ))}
       </View>
     );
+  };
+
+  // Handle button presses with access check
+  const handleButtonPress = (module: string) => {
+    switch (module) {
+      case 'leave':
+        if (moduleAccess?.applyLeave || moduleAccess?.leaveApplication || moduleAccess?.leaveBalance) {
+          navigation.navigate('LeaveMenu', { baseUrl, employeeId, userId });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noLeaveAccess')
+          );
+        }
+        break;
+
+      case 'payslip':
+        if (moduleAccess?.payslip) {
+          navigation.navigate('Payslip', { baseUrl, employeeId });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noPayslipAccess')
+          );
+        }
+        break;
+
+      case 'attendance':
+        if (moduleAccess?.clockInOut || moduleAccess?.overtime) {
+          const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
+          if (!companyIdToUse || !baseUrl) {
+            showAlert(
+              getLocalizedText('error'),
+              getLocalizedText('companyIdUnavailable')
+            );
+            return;
+          }
+          navigation.navigate('ATMenu', {
+            employeeId: employeeId,
+            companyId: companyIdToUse,
+            baseUrl: baseUrl
+          });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noAttendanceAccess')
+          );
+        }
+        break;
+
+      case 'noticeBoard':
+        if (moduleAccess?.noticeBoard) {
+          const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
+          if (!companyIdToUse) {
+            showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
+            return;
+          }
+          navigation.navigate('NBGetList', {
+            employeeId: employeeId,
+            companyId: companyIdToUse,
+            baseUrl: baseUrl
+          });
+        } else {
+          showAlert(
+            getLocalizedText('accessDenied'),
+            getLocalizedText('noNoticeBoardAccess')
+          );
+        }
+        break;
+    }
   };
 
   const styles = StyleSheet.create({
@@ -1358,27 +1389,22 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => navigation.navigate('Payslip', { baseUrl, employeeId })}
+                  onPress={() => handleButtonPress('payslip')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image 
                       source={require('../../../asset/img/icon/gongzidan.png')} 
                       style={[styles.iconImage, { tintColor: theme.primary }]} 
                     />
-                    <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('payslip')}</Text>
+                    <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                      {getLocalizedText('payslip')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    console.log('EmployeeMenu - Navigating to LeaveMenu with userId:', userId);
-                    navigation.navigate('LeaveMenu', { 
-                      baseUrl, 
-                      employeeId,
-                      userId 
-                    });
-                  }}
+                  onPress={() => handleButtonPress('leave')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image 
@@ -1395,18 +1421,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
               <View style={styles.buttonRow}>
                 <TouchableOpacity 
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
-                    if (!companyIdToUse) {
-                      showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
-                      return;
-                    }
-                    navigation.navigate('NBGetList', {
-                      employeeId: employeeId,
-                      companyId: companyIdToUse,
-                      baseUrl: baseUrl
-                    });
-                  }}
+                  onPress={() => handleButtonPress('noticeBoard')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image 
@@ -1420,18 +1435,7 @@ const EmployeeMenu = ({ route, navigation }: any) => {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.squareButton, { backgroundColor: theme.card }]}
-                  onPress={() => {
-                    const companyIdToUse = companyId || decodedToken?.decodedPayload?.company_id;
-                    if (!companyIdToUse) {
-                      showAlert(getLocalizedText('error'), getLocalizedText('companyIdUnavailable'));
-                      return;
-                    }
-                    navigation.navigate('ATMenu', {
-                      employeeId: employeeId,
-                      companyId: companyIdToUse,
-                      baseUrl: baseUrl
-                    });
-                  }}
+                  onPress={() => handleButtonPress('attendance')}
                 >
                   <View style={styles.iconTextContainer}>
                     <Image 
