@@ -564,10 +564,11 @@ const ATShowMap = ({ route, navigation }: Props) => {
       return;
     }
 
-    // Proceed with clock action
-    const timeEntry = new Date().toISOString();
+    // Create reason with clock action
+    const clockAction = action === 'in' ? 'Clock In' : 'Clock Out';
+
     navigation.navigate('ATPhotoCapture', {
-      timeEntry,
+      timeEntry: new Date().toISOString(),
       latitude: currentLocation.latitude,
       longitude: currentLocation.longitude,
       latitudeDelta: 0.0018,
@@ -578,7 +579,8 @@ const ATShowMap = ({ route, navigation }: Props) => {
       gpsNotAvailable,
       employeeId,
       companyId,
-      baseUrl
+      baseUrl,
+      autoReason: clockAction // Pass the clock action as reason
     });
   };
 

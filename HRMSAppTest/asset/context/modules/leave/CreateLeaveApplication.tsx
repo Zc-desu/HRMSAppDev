@@ -70,6 +70,36 @@ interface LeaveValidation {
   }>;
 }
 
+interface LeaveSettings {
+  allowBackdate: boolean;
+  requireAttachment: boolean;
+  isConsecutiveDay: boolean;
+  maxDaysPerApplication: number;
+  allowHalfDay: boolean;
+}
+
+interface LeaveSession {
+  id: number;
+  description: string;
+}
+
+interface LeaveApplication {
+  leaveCode: string;
+  session: string;
+  approvalStatus: string;
+}
+
+interface LeaveDate {
+  date: string;
+  availableSessions: LeaveSession[];
+  typeOfDay: string | null;
+  isWorkingDay: boolean;
+  leaveAppList: LeaveApplication[];
+  isHoliday: boolean;
+  holiday: string | null;
+  isConsecutive: boolean;
+}
+
 const CreateLeaveApplication = ({ navigation, route }: any) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -94,7 +124,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   const [sessions, setSessions] = useState<{[key: string]: number}>({});
   const [excludedDates, setExcludedDates] = useState<string[]>([]);
   const [initialExclusionsApplied, setInitialExclusionsApplied] = useState(false);
-  const [leaveDates, setLeaveDates] = useState<Array<any>>([]);
+  const [leaveDates, setLeaveDates] = useState<LeaveDate[]>([]);
   const [nonWorkingDays, setNonWorkingDays] = useState<string[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
   const [consecutiveDays, setConsecutiveDays] = useState<string[]>([]);
@@ -102,6 +132,8 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     unavailableDates: [],
     duplicateLeaves: []
   });
+  const [showSessionPopup, setShowSessionPopup] = useState<string | null>(null); // stores dateKey of active popup
+  const [leaveSettings, setLeaveSettings] = useState<LeaveSettings | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -124,16 +156,12 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   useEffect(() => {
     const initialize = async () => {
       try {
-        console.log('CreateLeaveApplication - Route params:', route.params);
         const routeUserId = route.params?.userId;
-        console.log('CreateLeaveApplication - Route userId:', routeUserId);
         
         if (routeUserId) {
           setUserId(routeUserId.toString());
-          console.log('CreateLeaveApplication - Set userId from params:', routeUserId);
         } else {
           const storedUserId = await AsyncStorage.getItem('userId');
-          console.log('CreateLeaveApplication - Stored userId:', storedUserId);
           setUserId(storedUserId);
         }
 
@@ -219,62 +247,148 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
     }
   };
 
-  const fetchLeaveDates = async (leaveCodeId: number, from: Date, to: Date) => {
+  const fetchLeaveSettings = async (leaveCodeId: number) => {
     try {
       const userToken = await AsyncStorage.getItem('userToken');
       const baseUrl = await AsyncStorage.getItem('baseUrl');
       
-      if (!userToken || !baseUrl || !employeeId) {
-        console.error('Missing required data for fetchLeaveDates');
-        return;
-      }
-
-      // Format dates to include time with Z suffix
-      const dateFrom = `${from.toISOString().split('T')[0]}T00:00:00Z`;
-      const dateTo = `${to.toISOString().split('T')[0]}T00:00:00Z`;
+      console.log('Fetching leave settings for leaveCodeId:', leaveCodeId);
       
-      const url = `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-      
-      console.log('\n=== Leave Dates Request ===');
-      console.log('URL:', url);
-      console.log('DateFrom:', dateFrom);
-      console.log('DateTo:', dateTo);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/leaves/settings/${leaveCodeId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
 
       const data = await response.json();
       
-      console.log('Leave dates response:', data); // Debug log
-
       if (data.success) {
-        setLeaveDates(data.data);
+        const settings = {
+          allowBackdate: data.data.allowBackdate,
+          requireAttachment: data.data.requireAttachment,
+          isConsecutiveDay: data.data.isConsecutiveDay,
+          maxDaysPerApplication: data.data.maxDaysPerApplication,
+          allowHalfDay: data.data.allowHalfDay
+        };
         
-        // Initialize sessions for each date
-        const initialSessions: {[key: string]: number} = {};
-        data.data.forEach((dateInfo: DateInfo) => {
-          const dateKey = new Date(dateInfo.date).toISOString().split('T')[0];
-          // Set default session to full day (2103) if available
-          if (dateInfo.availableSessions.some(session => session.id === 2103)) {
-            initialSessions[dateKey] = 2103;
-          }
-        });
-        setSessions(initialSessions);
-      } else {
-        console.error('Failed to fetch leave dates:', data.message);
+        setLeaveSettings(settings);
+        
+        // Handle consecutive days
+        if (data.data.isConsecutiveDay) {
+          console.log('Consecutive day is enabled, auto-selecting dates');
+          
+          // Only exclude dates that have existing leaves
+          const newExcludedDates = leaveDates
+            .filter(date => {    
+              // For consecutive days, ONLY exclude if there's an existing leave
+              const shouldExclude = date.leaveAppList.length > 0;
+              console.log('Should Exclude:', shouldExclude);
+              
+              return shouldExclude;
+            })
+            .map(date => new Date(date.date).toISOString().split('T')[0]);
+          setExcludedDates(newExcludedDates);
+        } else {
+          // For non-consecutive leaves, exclude special days as well
+          const newExcludedDates = leaveDates
+            .filter(date => 
+              date.leaveAppList.length > 0 || 
+              (date.typeOfDay && date.typeOfDay !== 'Working') ||
+              date.availableSessions.length === 1 && date.availableSessions[0].id === 0
+            )
+            .map(date => new Date(date.date).toISOString().split('T')[0]);
+          
+          setExcludedDates(newExcludedDates);
+        }
       }
     } catch (error) {
-      console.error('Error in fetchLeaveDates:', error);
+      console.error('Error fetching leave settings:', error);
+    }
+  };
+
+  const fetchLeaveDates = async (leaveCodeId: number, startDate: Date, endDate: Date) => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      const formatDate = (date: Date) => {
+        return date.toISOString().split('T')[0] + 'T00:00:00Z';
+      };
+      
+      const response = await fetch(
+        `${baseUrl}/apps/api/v1/employees/${employeeId}/leaves/leave-dates?LeaveCodeId=${leaveCodeId}&DateFrom=${formatDate(startDate)}&DateTo=${formatDate(endDate)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('Leave dates response:', data.data);
+        setLeaveDates(data.data);
+        
+        if (leaveSettings) {
+          console.log('Checking dates with settings:', leaveSettings);
+          
+          const excludedDatesArray: string[] = [];
+          
+          data.data.forEach((date: LeaveDate) => {
+            const dateStr = new Date(date.date).toISOString().split('T')[0];
+            console.log('\nProcessing date:', dateStr);
+            console.log('Type of Day:', date.typeOfDay);
+            console.log('Has Leave:', date.leaveAppList.length > 0);
+            console.log('Is Consecutive:', date.isConsecutive);
+            
+            let shouldExclude = false;
+            
+            if (date.isConsecutive) {
+              // For consecutive leaves:
+              // Only exclude if there's an existing leave
+              shouldExclude = date.leaveAppList.length > 0;
+              console.log('Consecutive Day - Should Exclude (has leave):', shouldExclude);
+            } else {
+              // For non-consecutive leaves:
+              // 1. Exclude if has existing leave
+              const hasLeave = date.leaveAppList.length > 0;
+              
+              // 2. Exclude if special day (Public Holiday, Rest Day, Off Day)
+              const isSpecialDay = date.typeOfDay === 'Public Holiday' || 
+                                 date.typeOfDay === 'Rest Day' || 
+                                 date.typeOfDay === 'Off Day';
+              
+              // 3. Include if Working Day or no type specified
+              const isWorkingDay = date.typeOfDay === 'Working' || 
+                                 date.typeOfDay === null || 
+                                 date.isWorkingDay;
+              
+              shouldExclude = hasLeave || isSpecialDay || !isWorkingDay;
+              
+              console.log('Non-consecutive Day - Details:', {
+                hasLeave,
+                isSpecialDay,
+                isWorkingDay,
+                shouldExclude
+              });
+            }
+            
+            if (shouldExclude) {
+              excludedDatesArray.push(dateStr);
+            }
+          });
+          
+          console.log('Final excluded dates:', excludedDatesArray);
+          setExcludedDates(excludedDatesArray);
+        } else {
+          console.log('Leave settings not available yet');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching leave dates:', error);
     }
   };
 
@@ -291,6 +405,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           fullDay: 'Sehari Penuh',
           firstHalf: 'Separuh Pertama',
           secondHalf: 'Separuh Kedua',
+          none: 'Tiada',
           sessionType: 'Jenis Sesi',
           submit: 'Hantar',
           selectLeaveTypeFirst: 'Sila pilih jenis cuti',
@@ -325,6 +440,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           leaveValidationError: 'Pengesahan Cuti',
           duplicateLeaveMessage: 'Cuti telah dipohon untuk tarikh berikut:',
           existingLeave: 'Cuti Sedia Ada',
+          remark: 'Catatan',
         }[key] || key;
       
       case 'zh-Hans':
@@ -338,6 +454,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           fullDay: '全天',
           firstHalf: '上半天',
           secondHalf: '下半天',
+          none: '无',
           sessionType: '时段类型',
           submit: '提交',
           selectLeaveTypeFirst: '请选择休假类型',
@@ -372,6 +489,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           leaveValidationError: '休假验证',
           duplicateLeaveMessage: '以下日期已申请休假：',
           existingLeave: '现有休假',
+          remark: '备注',
         }[key] || key;
       
       case 'zh-Hant':
@@ -385,6 +503,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           fullDay: '全天',
           firstHalf: '上半天',
           secondHalf: '下半天',
+          none: '無',
           sessionType: '時段類型',
           submit: '提交',
           selectLeaveTypeFirst: '請選擇休假類型',
@@ -419,6 +538,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           leaveValidationError: '休假验证',
           duplicateLeaveMessage: '以下日期已申请休假：',
           existingLeave: '现有休假',
+          remark: '備註',
         }[key] || key;
       
       default: // 'en'
@@ -432,6 +552,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           fullDay: 'Full Day',
           firstHalf: 'First Half',
           secondHalf: 'Second Half',
+          none: 'None',
           sessionType: 'Session Type',
           submit: 'Submit',
           selectLeaveTypeFirst: 'Please select leave type',
@@ -466,6 +587,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           leaveValidationError: 'Leave Validation',
           duplicateLeaveMessage: 'Leave already applied for the following dates:',
           existingLeave: 'Existing Leave',
+          remark: 'Remark',
         }[key] || key;
     }
   };
@@ -704,61 +826,107 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
           return (
             <View key={index} style={styles.daySessionContainer}>
               <View style={styles.dateHeaderContainer}>
+                <TouchableOpacity 
+                  style={[styles.checkbox, { 
+                    borderColor: theme.border,
+                    backgroundColor: 'transparent'
+                  }]}
+                  onPress={() => toggleDateExclusion(dateKey)}
+                >
+                  {!isExcluded && (
+                    <Image 
+                      source={require('../../../../asset/img/icon/a-check.png')}
+                      style={[styles.checkIcon, { tintColor: theme.primary }]}
+                    />
+                  )}
+                </TouchableOpacity>
+
                 <Text style={[styles.dateLabel, { color: theme.text }]}>
                   {currentDate.toLocaleDateString()}
                 </Text>
-                <View style={styles.rightContainer}>
-                  {(typeOfDay || leaveStatus) && (
-                    <View style={[styles.statusContainer, { backgroundColor: statusStyle.backgroundColor }]}>
-                      <Text style={[styles.statusText, { 
-                        color: statusStyle.color,
-                        fontWeight: '600'
-                      }]}>
-                        {leaveStatus || typeOfDay}
-                      </Text>
-                    </View>
-                  )}
-                  <TouchableOpacity 
-                    style={[styles.excludeButton, { 
-                      backgroundColor: isExcluded ? theme.error : 'transparent',
-                      borderColor: isExcluded ? theme.error : theme.border
+
+                <TouchableOpacity 
+                  style={[styles.sessionButton, { borderColor: theme.border }]}
+                  onPress={() => setShowSessionPopup(showSessionPopup === dateKey ? null : dateKey)}
+                >
+                  <Text style={[styles.sessionText, { color: theme.text }]}>
+                    {isExcluded ? getLocalizedText('none') : 
+                      sessions[dateKey] === 2103 ? getLocalizedText('fullDay') : 
+                      sessions[dateKey] === 2104 ? getLocalizedText('firstHalf') : 
+                      sessions[dateKey] === 2105 ? getLocalizedText('secondHalf') : getLocalizedText('fullDay')}
+                  </Text>
+                  <Image 
+                    source={require('../../../../asset/img/icon/a-arrow-down.png')}
+                    style={[styles.arrowIcon, { 
+                      tintColor: theme.text,
+                      transform: [{ rotate: showSessionPopup === dateKey ? '180deg' : '0deg' }]
                     }]}
-                    onPress={() => toggleDateExclusion(dateKey)}
-                  >
-                    <Text style={[styles.excludeButtonText, { 
-                      color: isExcluded ? '#FFFFFF' : theme.text 
-                    }]}>
-                      {isExcluded ? getLocalizedText('include') : getLocalizedText('exclude')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  />
+                </TouchableOpacity>
               </View>
               
-              {!isExcluded && (
-                <View style={styles.sessionButtons}>
-                  {dateData.availableSessions.map((session: any) => (
-                    session.id !== 0 && (
-                      <TouchableOpacity
-                        key={session.id}
-                        style={[
-                          styles.sessionButton,
-                          { 
-                            borderColor: sessions[dateKey] === session.id ? theme.primary : theme.border,
-                            backgroundColor: sessions[dateKey] === session.id ? theme.primary : 'transparent'
-                          }
-                        ]}
-                        onPress={() => handleSessionChange(dateKey, session.id)}
-                      >
-                        <Text style={[
-                          styles.sessionText,
-                          { color: sessions[dateKey] === session.id ? '#FFFFFF' : theme.text }
-                        ]}>
-                          {session.description}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  ))}
-                </View>
+              {/* Remark row - always show */}
+              <View style={styles.remarkContainer}>
+                <Text style={[styles.remarkLabel, { color: theme.subText }]}>
+                  {getLocalizedText('remark')}: {
+                    (() => {
+                      const dateData = leaveDates.find(d => 
+                        new Date(d.date).toISOString().split('T')[0] === dateKey
+                      );
+                      
+                      if (!dateData) return getLocalizedText('none');
+                      
+                      // Show leave application if exists
+                      if (dateData.leaveAppList && dateData.leaveAppList.length > 0) {
+                        const leave = dateData.leaveAppList[0];
+                        return `${leave.leaveCode} - ${leave.session}`;
+                      }
+                      
+                      // Show type of day if it's a special day
+                      if (dateData.typeOfDay && dateData.typeOfDay !== 'Working') {
+                        return dateData.typeOfDay;
+                      }
+                      
+                      return getLocalizedText('none');
+                    })()
+                  }
+                </Text>
+              </View>
+
+              {/* Session Popup */}
+              {showSessionPopup === dateKey && (
+                <Modal
+                  visible={true}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={() => setShowSessionPopup(null)}
+                >
+                  <TouchableOpacity 
+                    style={styles.modalOverlay}
+                    onPress={() => setShowSessionPopup(null)}
+                  >
+                    <View style={[styles.pickerContainer, { backgroundColor: theme.card }]}>
+                      {[
+                        { id: 2103, description: getLocalizedText('fullDay') },
+                        { id: 2104, description: getLocalizedText('firstHalf') },
+                        { id: 2105, description: getLocalizedText('secondHalf') }
+                      ].map((session) => (
+                        <TouchableOpacity
+                          key={session.id}
+                          style={styles.leaveCodeItem}
+                          onPress={() => {
+                            handleSessionChange(dateKey, session.id);
+                            setShowSessionPopup(null);
+                          }}
+                        >
+                          <Text style={[styles.leaveCodeText, { color: theme.text }]}>
+                            {session.description}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </TouchableOpacity>
+                </Modal>
               )}
             </View>
           );
@@ -907,13 +1075,6 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
       if (!selectedLeave) {
         console.log('Debug: No leave type selected');
         setAlertMessage(getLocalizedText('selectLeaveTypeFirst'));
-        setShowAlert(true);
-        return;
-      }
-
-      if (!reason.trim()) {
-        console.log('Debug: No reason provided');
-        setAlertMessage(getLocalizedText('enterReasonFirst'));
         setShowAlert(true);
         return;
       }
@@ -1094,8 +1255,7 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
                     key={leave.leaveCodeId}
                     style={[styles.leaveCodeItem, { borderBottomColor: theme.border }]}
                     onPress={() => {
-                      setSelectedLeave(leave);
-                      fetchLeavePolicy(leave.leaveCodeId);
+                      handleLeaveCodeSelect(leave);
                       setShowLeaveCodePicker(false);
                     }}
                   >
@@ -1207,7 +1367,6 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   // Update useEffect to properly handle all exclusion cases
   useEffect(() => {
     if (leaveDates.length > 0 && !initialExclusionsApplied) {
-      console.log('\n=== Processing Date Exclusions ===');
       const autoExcludedDates = leaveDates
         .filter(date => {
           const dateKey = new Date(date.date).toISOString().split('T')[0];
@@ -1215,23 +1374,14 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
                              date.typeOfDay === 'Rest Day' || 
                              date.typeOfDay === 'Off Day';
           const hasLeave = date.leaveAppList?.length > 0;
-          const shouldExclude = isSpecialDay || hasLeave || date.isHoliday;
-          
-          console.log(`\nProcessing date: ${dateKey}`);
-          console.log(`Type of Day: ${date.typeOfDay}`);
-          console.log(`Has Leave: ${hasLeave}`);
-          console.log(`Is Holiday: ${date.isHoliday}`);
-          console.log(`Should Exclude: ${shouldExclude}`);
+          const shouldExclude = isSpecialDay || hasLeave || date.isHoliday;      
           
           return shouldExclude;
         })
         .map(date => new Date(date.date).toISOString().split('T')[0]);
-
-      console.log('Auto-excluded dates:', autoExcludedDates);
       
       setExcludedDates(prev => {
         const newExclusions = [...new Set([...prev, ...autoExcludedDates])];
-        console.log('Final exclusions:', newExclusions);
         return newExclusions;
       });
       setInitialExclusionsApplied(true);
@@ -1248,6 +1398,64 @@ const CreateLeaveApplication = ({ navigation, route }: any) => {
   // Add a debug useEffect to monitor state changes
   useEffect(() => {
   }, [excludedDates]);
+
+  // Update the leave code selection handler
+  const handleLeaveCodeSelect = async (entitlement: LeaveEntitlement) => {
+    try {
+      console.log('Selected new leave code:', entitlement.leaveCodeDesc);
+      
+      // Clear existing data first
+      setSessions({});
+      setExcludedDates([]);
+      setLeaveDates([]);
+      
+      // Set the new selected leave
+      setSelectedLeave(entitlement);
+      setShowLeaveCodePicker(false);
+
+      // Fetch leave settings first
+      const userToken = await AsyncStorage.getItem('userToken');
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      
+      const settingsResponse = await fetch(
+        `${baseUrl}/apps/api/v1/leaves/settings/${entitlement.leaveCodeId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      const settingsData = await settingsResponse.json();
+      if (settingsData.success) {
+        const settings = {
+          allowBackdate: settingsData.data.allowBackdate,
+          requireAttachment: settingsData.data.requireAttachment,
+          isConsecutiveDay: settingsData.data.isConsecutiveDay,
+          maxDaysPerApplication: settingsData.data.maxDaysPerApplication,
+          allowHalfDay: settingsData.data.allowHalfDay
+        };
+        
+        setLeaveSettings(settings);
+        
+        // If we have dates, immediately fetch leave dates with new settings
+        if (dateFrom && dateTo) {
+          await fetchLeaveDates(entitlement.leaveCodeId, dateFrom, dateTo);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling leave code selection:', error);
+    }
+  };
+
+  // Remove the selectedLeave useEffect since we're handling it in handleLeaveCodeSelect
+  // Keep the date change useEffect
+  useEffect(() => {
+    if (selectedLeave?.leaveCodeId && dateFrom && dateTo) {
+      console.log('Dates changed, fetching new leave dates');
+      fetchLeaveDates(selectedLeave.leaveCodeId, dateFrom, dateTo);
+    }
+  }, [dateFrom, dateTo]);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -1335,16 +1543,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sessionButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    gap: 8,
+    width: 120,
+    justifyContent: 'space-between',
   },
   sessionText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -1464,21 +1675,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   dateLabel: {
+    flex: 1,
+    marginHorizontal: 12,
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
   },
   dateHeaderContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   excludeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    padding: 8,
+    borderRadius: 8,
     borderWidth: 1,
+    minWidth: 40,
   },
   excludeButtonText: {
     fontSize: 13,
@@ -1517,12 +1729,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    padding: 6,
+    borderRadius: 6,
+    marginRight: 12,
   },
   statusText: {
     fontSize: 13,
@@ -1532,6 +1741,30 @@ const styles = StyleSheet.create({
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  arrowIcon: {
+    width: 16,
+    height: 16,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 1,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  checkIcon: {
+    width: 16,
+    height: 16,
+  },
+  remarkContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  remarkLabel: {
+    fontSize: 14,
   },
 });
 

@@ -18,23 +18,54 @@ interface AlertConfig {
   }>;
 }
 
+interface Allowance {
+  allowanceCode: string;
+  amount: number;
+}
+
+interface Overtime {
+  overtimeCode: string;
+  hourMinute: number;
+}
+
 interface Timesheet {
   scheduleCode: string;
   scheduleDescription: string;
   typeOfDay: string;
-  scheduleDate: string;
+  timeLog: string;
   workHour: string;
   scheduleIn: string;
   scheduleOut: string;
-  lateIn: string;
   earlyIn: string;
   earlyOut: string;
+  lateIn: string;
   lateOut: string;
   absent: boolean;
   outstation: boolean;
   oddClocking: boolean;
   leave: string | null;
+  undefinedSchedule: boolean;
+  totalOvertimeInMinutes: number;
+  totalAllowance: number;
 }
+
+interface StatusIndicator {
+  label: string;
+  color: string;
+}
+
+const getTypeOfDayFullName = (type: string): string => {
+  switch (type) {
+    case 'W':
+      return 'Working Day';
+    case 'R':
+      return 'Rest Day';
+    case 'H':
+      return 'Holiday';
+    default:
+      return type;
+  }
+};
 
 const ApprovalMenu = ({ route, navigation }: any) => {
   const { theme } = useTheme();
@@ -52,148 +83,120 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   const getLocalizedText = (key: string) => {
     const translations = {
       'en': {
+        scheduleCode: 'Schedule Code',
+        description: 'Description',
+        typeOfDay: 'Type of Day',
+        workHour: 'Work Hour',
+        allowances: 'Allowances',
+        overtimes: 'Overtimes',
+        totalHours: 'Total Hours',
+        total: 'Total',
+        workingDay: 'Working Day',
+        timesheet: 'Timesheet',
         dashboard: 'Dashboard',
-        schedule: 'Schedule',
-        workHours: 'Work Hours',
-        timeIn: 'Time In',
-        timeOut: 'Time Out',
-        status: 'Status',
-        absent: 'Absent',
-        present: 'Present',
-        outstation: 'Outstation',
-        oddClocking: 'Odd Clocking',
-        onLeave: 'On Leave',
-        loading: 'Loading...',
-        errorLoading: 'Error loading timesheet',
         payslip: 'Payslip',
         leave: 'Leave',
         noticeBoard: 'Notice Board',
         attendance: 'Attendance',
-        button5: 'Approvals',
         settings: 'Settings',
         logOut: 'Log Out',
-        scheduleCode: 'Schedule Code',
-        scheduleDesc: 'Description',
-        typeOfDay: 'Type of Day',
-        workingHours: 'Working Hours',
-        lateIn: 'Late In',
+        approvals: 'Approvals',
+        timeLogs: 'Time Logs',
         earlyIn: 'Early In',
         earlyOut: 'Early Out',
+        lateIn: 'Late In',
         lateOut: 'Late Out',
-        logOutConfirm: 'Are you sure you want to log out?',
+        logOutConfirm: 'Log Out',
+        logOutMessage: 'Are you sure you want to log out?',
         cancel: 'Cancel',
-        ok: 'OK',
-        timesheet: 'Timesheet',
-        Description: 'Description',
-        clockInNow: 'Clock In Now',
+        ok: 'OK'
       },
       'zh-Hans': {
+        scheduleCode: '班次代码',
+        description: '描述',
+        typeOfDay: '日期类型',
+        workHour: '工作时间',
+        allowances: '津贴',
+        overtimes: '加班',
+        totalHours: '总时数',
+        total: '总计',
+        workingDay: '工作日',
+        timesheet: '考勤表',
         dashboard: '仪表板',
-        schedule: '日程',
-        workHours: '工作时间',
-        timeIn: '上班时间',
-        timeOut: '下班时间',
-        status: '状态',
-        absent: '缺勤',
-        present: '出勤',
-        outstation: '外勤',
-        oddClocking: '加班',
-        onLeave: '请假',
-        loading: '加载中...',
-        errorLoading: '加载时间表错误',
         payslip: '工资单',
-        leave: '休假',
+        leave: '请假',
         noticeBoard: '公告栏',
         attendance: '考勤',
-        button5: '审批',
         settings: '设置',
-        logOut: '登出',
-        scheduleCode: '班次代码',
-        scheduleDesc: '描述',
-        typeOfDay: '日期类型',
-        workingHours: '工作时间',
-        lateIn: '迟到',
+        logOut: '退出',
+        approvals: '审批',
+        timeLogs: '打卡记录',
         earlyIn: '提早到',
-        earlyOut: '早退',
-        lateOut: '迟退',
-        logOutConfirm: '确定要登出吗？',
+        earlyOut: '提早走',
+        lateIn: '迟到',
+        lateOut: '迟走',
+        logOutConfirm: '退出登录',
+        logOutMessage: '确定要退出登录吗？',
         cancel: '取消',
-        ok: '确定',
-        timesheet: '时间表',
-        Description: '描述',
-        clockInNow: '现在打卡',
+        ok: '确定'
       },
       'zh-Hant': {
+        scheduleCode: '班次代碼',
+        description: '描述',
+        typeOfDay: '日期類型',
+        workHour: '工作時間',
+        allowances: '津貼',
+        overtimes: '加班',
+        totalHours: '總時數',
+        total: '總計',
+        workingDay: '工作日',
+        timesheet: '考勤表',
         dashboard: '儀表板',
-        schedule: '日程',
-        workHours: '工作時間',
-        timeIn: '上班時間',
-        timeOut: '下班時間',
-        status: '狀態',
-        absent: '缺勤',
-        present: '出勤',
-        outstation: '外勤',
-        oddClocking: '加班',
-        onLeave: '請假',
-        loading: '加載中...',
-        errorLoading: '加載時間表錯誤',
         payslip: '工資單',
-        leave: '休假',
+        leave: '請假',
         noticeBoard: '公告欄',
         attendance: '考勤',
-        button5: '審批',
         settings: '設置',
-        logOut: '登出',
-        scheduleCode: '班次代碼',
-        scheduleDesc: '描述',
-        typeOfDay: '日期類型',
-        workingHours: '工作時間',
-        lateIn: '遲到',
+        logOut: '退出',
+        approvals: '審批',
+        timeLogs: '打卡記錄',
         earlyIn: '提早到',
-        earlyOut: '早退',
-        lateOut: '遲退',
-        logOutConfirm: '確定要登出嗎？',
+        earlyOut: '提早走',
+        lateIn: '遲到',
+        lateOut: '遲走',
+        logOutConfirm: '退出登錄',
+        logOutMessage: '確定要退出登錄�？',
         cancel: '取消',
-        ok: '確定',
-        timesheet: '時間表',
-        Description: '描述',
-        clockInNow: '現在打卡',
+        ok: '確定'
       },
       'ms': {
+        scheduleCode: 'Kod Jadual',
+        description: 'Keterangan',
+        typeOfDay: 'Jenis Hari',
+        workHour: 'Waktu Kerja',
+        allowances: 'Elaun',
+        overtimes: 'Kerja Lebih Masa',
+        totalHours: 'Jumlah Jam',
+        total: 'Jumlah',
+        workingDay: 'Hari Bekerja',
+        timesheet: 'Jadual Waktu',
         dashboard: 'Papan Pemuka',
-        schedule: '日程',
-        workHours: 'Waktu Kerja',
-        timeIn: 'Masa Masuk',
-        timeOut: 'Masa Keluar',
-        status: 'Status',
-        absent: 'Tidak Hadir',
-        present: 'Hadir',
-        outstation: 'Luar Stesen',
-        oddClocking: 'Perakaman Ganjil',
-        onLeave: 'Cuti',
-        loading: 'Memuat...',
-        errorLoading: 'Ralat memuat jadual waktu',
         payslip: 'Slip Gaji',
         leave: 'Cuti',
         noticeBoard: 'Papan Notis',
         attendance: 'Kehadiran',
-        button5: 'Kelulusan',
         settings: 'Tetapan',
         logOut: 'Log Keluar',
-        scheduleCode: 'Kod Jadual',
-        scheduleDesc: 'Keterangan',
-        typeOfDay: 'Jenis Hari',
-        workingHours: 'Waktu Kerja',
-        lateIn: 'Lewat Masuk',
+        approvals: 'Kelulusan',
+        timeLogs: 'Log Masa',
         earlyIn: 'Awal Masuk',
         earlyOut: 'Awal Keluar',
+        lateIn: 'Lewat Masuk',
         lateOut: 'Lewat Keluar',
-        logOutConfirm: 'Adakah anda pasti mahu log keluar?',
+        logOutConfirm: 'Log Keluar',
+        logOutMessage: 'Adakah anda pasti mahu log keluar?',
         cancel: 'Batal',
-        ok: 'OK',
-        timesheet: 'Jadual Waktu',
-        Description: 'Keterangan',
-        clockInNow: 'Daftar Masuk Sekarang',
+        ok: 'OK'
       }
     };
     return translations[language]?.[key] || key;
@@ -214,7 +217,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   const [userId, setUserId] = useState<string | null>(null);
 
   // Keep these declarations at the component level
-  const [activeTab, setActiveTab] = useState('timesheet');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const scrollViewRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
 
@@ -303,14 +306,18 @@ const ApprovalMenu = ({ route, navigation }: any) => {
 
   // Update handleLogout
   const handleLogout = () => {
-    showAlert(
-      getLocalizedText('logOut'),
-      getLocalizedText('logOutConfirm'),
-      [
+    setAlertConfig({
+      visible: true,
+      title: getLocalizedText('logOutConfirm'),
+      message: getLocalizedText('logOutMessage'),
+      buttons: [
         {
           text: getLocalizedText('cancel'),
           style: 'cancel',
-          onPress: () => setAlertConfig(prev => ({ ...prev, visible: false }))
+          onPress: () => {
+            // Close the alert when cancel is pressed
+            setAlertConfig(prev => ({ ...prev, visible: false }));
+          },
         },
         {
           text: getLocalizedText('ok'),
@@ -354,14 +361,16 @@ const ApprovalMenu = ({ route, navigation }: any) => {
             } finally {
               setIsLoading(false);
             }
-          }
-        }
-      ]
-    );
+          },
+        },
+      ],
+    });
   };
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [timesheet, setTimesheet] = useState<Timesheet | null>(null);
+  const [allowances, setAllowances] = useState<Allowance[]>([]);
+  const [overtimes, setOvertimes] = useState<Overtime[]>([]);
 
   const fetchTimesheet = async () => {
     setIsLoading(true);
@@ -391,6 +400,8 @@ const ApprovalMenu = ({ route, navigation }: any) => {
 
       if (data.success) {
         setTimesheet(data.data.timesheet);
+        setAllowances(data.data.allowances || []);
+        setOvertimes(data.data.overtimes || []);
         console.log('Updated timesheet state:', data.data.timesheet);
       } else {
         console.warn('Timesheet fetch failed:', data.message || 'No error message provided');
@@ -415,20 +426,13 @@ const ApprovalMenu = ({ route, navigation }: any) => {
   }, [selectedDate, baseUrl, employeeId]);
 
   const DashboardView = () => {
-    console.log('Rendering DashboardView with timesheet:', timesheet);
-    
-    const [showDatePicker, setShowDatePicker] = useState(false);
-
-    const onDateChange = (event: any, selectedDate?: Date) => {
-      setShowDatePicker(false);
-      if (selectedDate && event.type !== 'dismissed') {
-        setSelectedDate(selectedDate);
-        fetchTimesheet();
-      }
-    };
-
     return (
-      <View style={[styles.dashboardCard, { backgroundColor: theme.card }]}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Date Selector */}
         <View style={styles.dateSelector}>
           <TouchableOpacity
             style={styles.dateArrowButton}
@@ -466,6 +470,16 @@ const ApprovalMenu = ({ route, navigation }: any) => {
               style={[styles.dateArrow, { tintColor: theme.primary }]}
             />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={() => fetchTimesheet()}
+          >
+            <Image
+              source={require('../../../asset/img/icon/shuaxin.png')}
+              style={[styles.refreshIcon, { tintColor: theme.primary }]}
+            />
+          </TouchableOpacity>
         </View>
 
         {showDatePicker && (
@@ -474,185 +488,198 @@ const ApprovalMenu = ({ route, navigation }: any) => {
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onDateChange}
-            style={styles.datePicker}
           />
         )}
 
-        {isLoading ? (
-          <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
-        ) : timesheet ? (
-          <View style={styles.timesheetContainer}>
-            <View style={styles.scheduleCard}>
-              <View style={styles.scheduleRow}>
-                <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
-                  {getLocalizedText('scheduleCode')}
-                </Text>
-                <Text style={[styles.scheduleValue, { color: theme.text }]}>
-                  {timesheet.scheduleCode || '--'}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.scheduleRow}>
-                <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
-                  {getLocalizedText('Description')}
-                </Text>
-                <Text style={[styles.scheduleValue, { color: theme.text }]}>
-                  {timesheet.scheduleDescription || '--'}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.scheduleRow}>
-                <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
-                  {getLocalizedText('typeOfDay')}
-                </Text>
-                <Text style={[styles.scheduleValue, { color: theme.text }]}>
-                  {getTypeOfDayText(timesheet.typeOfDay)}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.timeContainer}>
-              <View style={[styles.timeBox, { backgroundColor: theme.background }]}>
-                <Text style={[styles.timeLabel, { color: theme.subText }]}>
-                  {getLocalizedText('timeIn')}
-                </Text>
-                <Text style={[styles.timeValue, { color: theme.text }]}>
-                  {timesheet.scheduleIn || '00:00:00'}
-                </Text>
-              </View>
-              <View style={[styles.timeBox, { backgroundColor: theme.background }]}>
-                <Text style={[styles.timeLabel, { color: theme.subText }]}>
-                  {getLocalizedText('timeOut')}
-                </Text>
-                <Text style={[styles.timeValue, { color: theme.text }]}>
-                  {timesheet.scheduleOut || '00:00:00'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.workingHoursSection}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                {getLocalizedText('workingHours')}
+        <View style={styles.timesheetContainer}>
+          {/* Schedule Info */}
+          <View style={[styles.scheduleCard, { backgroundColor: theme.card }]}>
+            <View style={styles.scheduleRow}>
+              <Text style={[styles.scheduleLabel, { color: theme.text }]}>
+                {getLocalizedText('scheduleCode')}
               </Text>
-              <View style={[styles.workingHoursBox, { backgroundColor: theme.background }]}>
-                <Text style={[styles.hourValue, { color: theme.text }]}>
-                  {timesheet?.workHour || '00:00:00'}
+              <Text style={[styles.scheduleValue, { color: theme.text }]}>
+                {timesheet?.scheduleCode || ''}
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={styles.scheduleRow}>
+              <Text style={[styles.scheduleLabel, { color: theme.text }]}>
+                {getLocalizedText('description')}
+              </Text>
+              <Text style={[styles.scheduleValue, { color: theme.text }]}>
+                {timesheet?.scheduleDescription || ''}
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={styles.scheduleRow}>
+              <Text style={[styles.scheduleLabel, { color: theme.text }]}>
+                {getLocalizedText('typeOfDay')}
+              </Text>
+              <Text style={[styles.scheduleValue, { color: theme.text }]}>
+                {getLocalizedText('workingDay')}
+              </Text>
+            </View>
+          </View>
+
+          {/* Status Indicators */}
+          <View style={styles.statusContainer}>
+            {timesheet && getStatusIndicators(timesheet).map((indicator, index) => (
+              <View 
+                key={index}
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: indicator.color + '20' }
+                ]}
+              >
+                <Text style={[styles.statusText, { color: indicator.color }]}>
+                  {indicator.label}
                 </Text>
               </View>
+            ))}
+          </View>
 
-              <View style={styles.statusContainer}>
-                <View style={styles.timeRow}>
-                  <View style={[styles.hourBox, { backgroundColor: theme.background }]}>
-                    <Text style={[styles.hourLabel, { color: theme.subText }]}>
-                      {getLocalizedText('earlyIn')}
-                    </Text>
-                    <Text style={[styles.hourValue, { color: '#4CAF50' }]}>
-                      {timesheet?.earlyIn || '00:00:00'}
-                    </Text>
-                  </View>
-                  <View style={[styles.hourBox, { backgroundColor: theme.background }]}>
-                    <Text style={[styles.hourLabel, { color: theme.subText }]}>
-                      {getLocalizedText('lateIn')}
-                    </Text>
-                    <Text style={[styles.hourValue, { color: '#F44336' }]}>
-                      {timesheet?.lateIn || '00:00:00'}
-                    </Text>
-                  </View>
+          {/* Time Logs */}
+          <View style={styles.timeLogsContainer}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              {getLocalizedText('timeLogs')}
+            </Text>
+            <View style={styles.timeLogsList}>
+              {timesheet?.timeLog?.split(' ').map((time, index) => (
+                <View 
+                  key={index} 
+                  style={[styles.timeLogItem, { backgroundColor: theme.card }]}
+                >
+                  <Text style={[styles.timeLogValue, { color: theme.text }]}>
+                    {time}
+                  </Text>
                 </View>
-                <View style={styles.timeRow}>
-                  <View style={[styles.hourBox, { backgroundColor: theme.background }]}>
-                    <Text style={[styles.hourLabel, { color: theme.subText }]}>
-                      {getLocalizedText('earlyOut')}
-                    </Text>
-                    <Text style={[styles.hourValue, { color: '#FFC107' }]}>
-                      {timesheet?.earlyOut || '00:00:00'}
-                    </Text>
-                  </View>
-                  <View style={[styles.hourBox, { backgroundColor: theme.background }]}>
-                    <Text style={[styles.hourLabel, { color: theme.subText }]}>
-                      {getLocalizedText('lateOut')}
-                    </Text>
-                    <Text style={[styles.hourValue, { color: '#F44336' }]}>
-                      {timesheet?.lateOut || '00:00:00'}
-                    </Text>
-                  </View>
-                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Work Hour */}
+          <View style={[styles.workingHoursBox, { backgroundColor: theme.card }]}>
+            <Text style={[styles.workingHoursLabel, { color: theme.subText }]}>
+              {getLocalizedText('workHour')}
+            </Text>
+            <Text style={[styles.workingHoursValue, { color: theme.text }]}>
+              {timesheet?.workHour || '00:00:00'}
+            </Text>
+          </View>
+
+          {/* Early/Late Times */}
+          <View style={[styles.timingContainer, { marginBottom: 16 }]}>
+            <View style={styles.timingGrid}>
+              <View style={[styles.timingItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.timingLabel, { color: theme.subText }]}>{getLocalizedText('earlyIn')}</Text>
+                <Text style={[styles.timingValue, { color: '#4CAF50' }]}>
+                  {timesheet?.earlyIn || '00:00:00'}
+                </Text>
+              </View>
+              <View style={[styles.timingItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.timingLabel, { color: theme.subText }]}>{getLocalizedText('earlyOut')}</Text>
+                <Text style={[styles.timingValue, { color: '#FF3B30' }]}>
+                  {timesheet?.earlyOut || '00:00:00'}
+                </Text>
               </View>
             </View>
-
-            {timesheet?.scheduleIn === '00:00:00' && timesheet?.scheduleOut === '00:00:00' && (
-              <TouchableOpacity 
-                style={styles.clockInButton}
-                onPress={handleClockInPress}
-              >
-                <Text style={styles.clockInButtonText}>
-                  {getLocalizedText('clockInNow')}
+            
+            <View style={styles.timingGrid}>
+              <View style={[styles.timingItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.timingLabel, { color: theme.subText }]}>{getLocalizedText('lateIn')}</Text>
+                <Text style={[styles.timingValue, { color: '#FF3B30' }]}>
+                  {timesheet?.lateIn || '00:00:00'}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
+              <View style={[styles.timingItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.timingLabel, { color: theme.subText }]}>{getLocalizedText('lateOut')}</Text>
+                <Text style={[styles.timingValue, { color: '#4CAF50' }]}>
+                  {timesheet?.lateOut || '00:00:00'}
+                </Text>
+              </View>
+            </View>
           </View>
-        ) : (
-          <Text style={[styles.errorText, { color: theme.error }]}>
-            {getLocalizedText('errorLoading')}
-          </Text>
-        )}
-      </View>
+
+          {/* Allowances Section */}
+          {allowances && allowances.length > 0 && (
+            <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{getLocalizedText('allowances')}</Text>
+              {allowances.map((allowance, index) => (
+                <View key={index} style={styles.itemRow}>
+                  <Text style={[styles.itemCode, { color: theme.text }]}>{allowance.allowanceCode}</Text>
+                  <Text style={[styles.itemAmount, { color: theme.text }]}>
+                    {allowance.amount.toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Overtimes Section */}
+          {overtimes && overtimes.length > 0 && (
+            <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{getLocalizedText('overtimes')}</Text>
+              {overtimes.map((overtime, index) => (
+                <View key={index} style={styles.itemRow}>
+                  <Text style={[styles.itemCode, { color: theme.text }]}>{overtime.overtimeCode}</Text>
+                  <Text style={[styles.itemAmount, { color: theme.text }]}>
+                    {overtime.hourMinute.toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+
+          
+        </View>
+      </ScrollView>
     );
   };
 
-  const getTypeOfDayText = (typeOfDay: string) => {
-    switch (typeOfDay) {
-      case 'P':
-        return 'Public Holiday';
-      case 'W':
-        return 'Work Day';
-      default:
-        return typeOfDay || '--';
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+
+  // Also add the date picker handler
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
     }
   };
 
-  const handleClockInPress = async () => {
-    setIsLoading(true);
-    try {
-      const userToken = await AsyncStorage.getItem('userToken');
-      const response = await fetch(
-        `${baseUrl}/apps/api/v1/employees/${employeeId}/clock-in`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${userToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            date: selectedDate.toISOString(),
-          }),
-        }
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        showAlert(
-          getLocalizedText('success'),
-          getLocalizedText('clockInSuccess')
-        );
-        // Refresh timesheet data after successful clock in
-        fetchTimesheet();
-      } else {
-        showAlert(
-          getLocalizedText('error'),
-          data.message || getLocalizedText('clockInFailed')
-        );
-      }
-    } catch (error) {
-      console.error('Clock in error:', error);
-      showAlert(
-        getLocalizedText('error'),
-        getLocalizedText('clockInFailed')
-      );
-    } finally {
-      setIsLoading(false);
+  const getStatusIndicators = (timesheet: Timesheet): StatusIndicator[] => {
+    const indicators: StatusIndicator[] = [];
+    
+    if (timesheet.absent) {
+      indicators.push({ label: 'Absent', color: '#FF3B30' });
     }
+    if (timesheet.outstation) {
+      indicators.push({ label: 'Outstation', color: '#007AFF' });
+    }
+    if (timesheet.oddClocking) {
+      indicators.push({ label: 'Odd Clocking', color: '#FF9500' });
+    }
+    if (timesheet.undefinedSchedule) {
+      indicators.push({ label: 'Undefined Schedule', color: '#FF2D55' });
+    }
+    if (timesheet.leave) {
+      indicators.push({ label: timesheet.leave, color: '#5856D6' });
+    }
+
+    return indicators;
   };
+
+  // Add useEffect to set initial scroll position to Dashboard when component mounts
+  useEffect(() => {
+    // Small delay to ensure the scroll happens after render
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ 
+        x: Dimensions.get('window').width, 
+        animated: false 
+      });
+    }, 100);
+  }, []); // Empty dependency array means this runs once on mount
 
   const styles = StyleSheet.create({
     containerWrapper: {
@@ -801,7 +828,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 24,
+      marginBottom: 16,
     },
     dateArrowButton: {
       padding: 8,
@@ -809,6 +836,13 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     dateArrow: {
       width: 24,
       height: 24,
+    },
+    dateButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: 'rgba(0,0,0,0.05)',
+      minWidth: 100,
+      alignItems: 'center',
     },
     dateText: {
       fontSize: 16,
@@ -821,46 +855,45 @@ const ApprovalMenu = ({ route, navigation }: any) => {
       paddingBottom: 12,
     },
     scheduleCard: {
-      backgroundColor: 'rgba(255,255,255,0.05)',
-      borderRadius: 8,
+      borderRadius: 16,
       padding: 12,
-      marginBottom: 12,
+      marginBottom: 16,
     },
     scheduleRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 6,
+      paddingVertical: 8,
     },
     scheduleLabel: {
-      fontSize: 13,
+      fontSize: 14,
+      fontWeight: '500',
     },
     scheduleValue: {
-      fontSize: 13,
-      fontWeight: '500',
+      fontSize: 14,
+      fontWeight: '600',
     },
     divider: {
       height: 1,
-      backgroundColor: 'rgba(0,0,0,0.1)',
-      marginVertical: 6,
+      opacity: 0.1,
     },
     timeContainer: {
       flexDirection: 'row',
       gap: 8,
-      marginBottom: 12,
+      marginBottom: 16,
     },
     timeBox: {
       flex: 1,
-      borderRadius: 8,
-      padding: 12,
+      borderRadius: 12,
+      padding: 16,
       alignItems: 'center',
     },
     timeLabel: {
-      fontSize: 13,
-      marginBottom: 6,
+      fontSize: 14,
+      marginBottom: 8,
     },
     timeValue: {
-      fontSize: 20,
+      fontSize: 24,
       fontWeight: '600',
     },
     workingHoursSection: {
@@ -872,82 +905,76 @@ const ApprovalMenu = ({ route, navigation }: any) => {
       marginBottom: 6,
     },
     workingHoursBox: {
-      borderRadius: 8,
+      width: '100%',
+      borderRadius: 12,
       padding: 12,
+      marginBottom: 16,
       alignItems: 'center',
-      marginBottom: 12,
+    },
+    workingHoursLabel: {
+      fontSize: 14,
+      marginBottom: 4,
+    },
+    workingHoursValue: {
+      fontSize: 24,
+      fontWeight: '600',
     },
     statusContainer: {
-      gap: 8,
-    },
-    timeRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 8,
     },
-    hourBox: {
-      flex: 1,
-      borderRadius: 8,
-      padding: 8,
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    hourLabel: {
-      fontSize: 11,
-      marginBottom: 3,
+    statusText: {
+      fontSize: 12,
+      fontWeight: '600',
     },
-    hourValue: {
+    timeLogsContainer: {
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    timeLogsList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    timeLogItem: {
+      padding: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      width: '22%',
+    },
+    timeLogValue: {
       fontSize: 14,
       fontWeight: '600',
     },
-    errorText: {
-      textAlign: 'center',
-      fontSize: 14,
+    timingContainer: {
+      marginTop: 16,
+      gap: 8,
     },
-    dateButton: {
-      padding: 8,
-      borderRadius: 8,
-      backgroundColor: 'rgba(0,0,0,0.05)',
-      minWidth: 100,
-      alignItems: 'center',
-    },
-    datePicker: {
-      backgroundColor: 'white',
-    },
-    bottomMenu: {
+    timingGrid: {
       flexDirection: 'row',
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 60,
-      borderTopWidth: 1,
-      borderTopColor: 'rgba(0, 0, 0, 0.05)',
-      backgroundColor: theme.card,
-      elevation: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      gap: 8,
     },
-    menuItem: {
+    timingItem: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingVertical: 8,
+      borderRadius: 12,
+      padding: 12,
+      alignItems: 'flex-start',
     },
-    activeMenuItem: {
-      borderTopWidth: 2,
-      borderTopColor: theme.primary,
-    },
-    menuIcon: {
-      width: 24,
-      height: 24,
+    timingLabel: {
+      fontSize: 14,
       marginBottom: 4,
-      resizeMode: 'contain',
     },
-    menuText: {
-      fontSize: 12,
-      fontWeight: '500',
-      textAlign: 'center',
+    timingValue: {
+      fontSize: 16,
+      fontWeight: '600',
     },
     clockInButton: {
       backgroundColor: theme.primary,
@@ -958,6 +985,105 @@ const ApprovalMenu = ({ route, navigation }: any) => {
     },
     clockInButtonText: {
       color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    sectionLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    refreshButton: {
+      padding: 8,
+      marginLeft: 8,
+    },
+    refreshIcon: {
+      width: 24,
+      height: 24,
+    },
+    bottomMenu: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      backgroundColor: theme.card,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+    },
+    menuItem: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    menuIcon: {
+      width: 24,
+      height: 24,
+    },
+    menuText: {
+      fontSize: 12,
+      marginTop: 4,
+    },
+    activeIndicator: {
+      position: 'absolute',
+      bottom: 0,
+      width: '100%',
+      height: 3,
+      backgroundColor: '#007AFF',
+    },
+    sectionContainer: {
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    itemCode: {
+      fontSize: 14,
+    },
+    itemAmount: {
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    totalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(0,0,0,0.1)',
+    },
+    totalLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    totalAmount: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    timeLogs: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    earlyIn: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    earlyOut: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    lateIn: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    lateOut: {
       fontSize: 14,
       fontWeight: '600',
     },
@@ -1021,7 +1147,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/gongzidan.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
-                    <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('payslip')}</Text>
+                    <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                      {getLocalizedText('payslip')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1034,7 +1162,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/leave2.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
-                    <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('leave')}</Text>
+                    <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                      {getLocalizedText('leave')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -1057,7 +1187,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/noticeboard.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
-                    <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('noticeBoard')}</Text>
+                    <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                      {getLocalizedText('noticeBoard')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -1077,7 +1209,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                 >
                   <View style={styles.iconTextContainer}>
                     <Image source={require('../../img/icon/attendance.png')} style={[styles.iconImage, { tintColor: theme.primary }]} />
-                    <Text style={[styles.squareButtonText, { color: theme.text }]}>{getLocalizedText('attendance')}</Text>
+                    <Text style={[styles.squareButtonText, { color: theme.text }]}>
+                      {getLocalizedText('attendance')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -1093,7 +1227,7 @@ const ApprovalMenu = ({ route, navigation }: any) => {
                       style={[styles.iconImage, { tintColor: theme.primary }]} 
                     />
                     <Text style={[styles.squareButtonText, { color: theme.text }]}>
-                      {getLocalizedText('button5')}
+                      {getLocalizedText('approvals')}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1150,9 +1284,9 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         ))}
       </View>
 
-      <View style={[styles.bottomMenu, { backgroundColor: theme.card }]}>
+      <View style={styles.bottomMenu}>
         <TouchableOpacity 
-          style={[styles.menuItem, activeTab === 'timesheet' && styles.activeMenuItem]}
+          style={styles.menuItem}
           onPress={() => {
             setActiveTab('timesheet');
             scrollViewRef.current?.scrollTo({ x: 0, animated: true });
@@ -1160,27 +1294,29 @@ const ApprovalMenu = ({ route, navigation }: any) => {
         >
           <Image
             source={require('../../../asset/img/icon/timesheet.png')}
-            style={[styles.menuIcon, { tintColor: activeTab === 'timesheet' ? theme.primary : theme.subText }]}
+            style={[styles.menuIcon, { tintColor: activeTab === 'timesheet' ? '#007AFF' : '#8E8E93' }]}
           />
-          <Text style={[styles.menuText, { color: activeTab === 'timesheet' ? theme.primary : theme.subText }]}>
+          <Text style={[styles.menuText, { color: activeTab === 'timesheet' ? '#007AFF' : '#8E8E93' }]}>
             {getLocalizedText('timesheet')}
           </Text>
+          {activeTab === 'timesheet' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.menuItem, activeTab === 'dashboard' && styles.activeMenuItem]}
+          style={styles.menuItem}
           onPress={() => {
             setActiveTab('dashboard');
-            scrollViewRef.current?.scrollTo({ x: screenWidth, animated: true });
+            scrollViewRef.current?.scrollTo({ x: Dimensions.get('window').width, animated: true });
           }}
         >
           <Image
             source={require('../../../asset/img/icon/dashboard.png')}
-            style={[styles.menuIcon, { tintColor: activeTab === 'dashboard' ? theme.primary : theme.subText }]}
+            style={[styles.menuIcon, { tintColor: activeTab === 'dashboard' ? '#007AFF' : '#8E8E93' }]}
           />
-          <Text style={[styles.menuText, { color: activeTab === 'dashboard' ? theme.primary : theme.subText }]}>
+          <Text style={[styles.menuText, { color: activeTab === 'dashboard' ? '#007AFF' : '#8E8E93' }]}>
             {getLocalizedText('dashboard')}
           </Text>
+          {activeTab === 'dashboard' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
       </View>
 

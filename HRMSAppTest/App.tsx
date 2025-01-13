@@ -42,6 +42,8 @@ import OTCreateApplication from './asset/context/modules/attendance/OTCreateAppl
 import OTCancelApplication from './asset/context/modules/attendance/OTCancelApplication';
 import OTPendingApplicationListing from './asset/context/modules/attendance/OTPendingApplicationListing';
 import OTPendingApplicationDetails from './asset/context/modules/attendance/OTPendingApplicationDetails';
+import ATDutyRoasterCalendar from './asset/context/modules/attendance/ATDutyRoasterCalendar';
+
 // Import Approve Module
 import ApproveManagement from './asset/context/modules/approve/ApproveManagement';
 
@@ -449,6 +451,19 @@ const App = () => {
               component={OTPendingApplicationDetails}
               options={{
                 title: 'Pending Overtime Application Details',
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#333',
+                },
+                headerTitleAlign: 'center',
+              }}
+            />
+            <Stack.Screen
+              name="ATDutyRoasterCalendar"
+              component={ATDutyRoasterCalendar}
+              options={{
+                title: 'Duty Roaster Calendar',
                 headerTitleStyle: {
                   fontSize: 20,
                   fontWeight: '600',

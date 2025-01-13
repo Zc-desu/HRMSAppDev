@@ -37,12 +37,13 @@ const ATMenu = ({ route, navigation }: any) => {
           timeLogListing: 'Sejarah Log Masa',
           pendingApplications: 'Permohonan Tertunda',
           overtimeApplications: 'Sejarah Kerja Lebih Masa',
-          createOvertime: 'Cipta Kerja Lebih Masa',
-          attendancePendingApplications: 'Kelulusan Kehadiran',
+          createOvertime: 'Buat Kerja Lebih Masa',
+          attendancePendingApplications: 'Kelulusan Log Masa',
           overtimePendingApplications: 'Kelulusan Kerja Lebih Masa',
           attendanceSection: 'Kehadiran',
           overtimeManagement: 'Kerja Lebih Masa',
           backDateApplication: 'Permohonan Tarikh Lampau',
+          dutyRosterCalendar: 'Kalendar Jadual Tugas',
         }[key] || key;
       
       case 'zh-Hans':
@@ -60,6 +61,7 @@ const ATMenu = ({ route, navigation }: any) => {
           attendanceSection: '考勤管理',
           overtimeManagement: '加班管理',
           backDateApplication: '补打卡申请',
+          dutyRosterCalendar: '值班日历',
         }[key] || key;
       
       case 'zh-Hant':
@@ -77,6 +79,7 @@ const ATMenu = ({ route, navigation }: any) => {
           attendanceSection: '考勤管理',
           overtimeManagement: '加班管理',
           backDateApplication: '補打卡申請',
+          dutyRosterCalendar: '值班日曆',
         }[key] || key;
       
       default: // 'en'
@@ -89,11 +92,12 @@ const ATMenu = ({ route, navigation }: any) => {
           pendingApplications: 'Pending Applications',
           overtimeApplications: 'Overtime History',
           createOvertime: 'Create Overtime',
-          attendancePendingApplications: 'Attendance Approvals',
+          attendancePendingApplications: 'Time Log Approvals',
           overtimePendingApplications: 'Overtime Approvals',
           attendanceSection: 'Attendance',
           overtimeManagement: 'Overtime',
           backDateApplication: 'Back Date Application',
+          dutyRosterCalendar: 'Duty Roster Calendar',
         }[key] || key;
     }
   };
@@ -145,6 +149,15 @@ const ATMenu = ({ route, navigation }: any) => {
     {
       title: getLocalizedText('backDateApplication'),
       onPress: () => navigation.navigate('ATBackDateTLApplication', {
+        employeeId,
+        companyId,
+        baseUrl
+      }),
+      icon: require('../../../../asset/img/icon/arrow-right.png'),
+    },
+    {
+      title: getLocalizedText('dutyRosterCalendar'),
+      onPress: () => navigation.navigate('ATDutyRoasterCalendar', {
         employeeId,
         companyId,
         baseUrl

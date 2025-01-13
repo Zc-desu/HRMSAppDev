@@ -10,7 +10,7 @@ interface Translation {
   approvalManagement: string;
   approval: string;
   leaveApprovals: string;
-  attendanceApprovals: string;
+  timeLogApprovals: string;
   overtimeApprovals: string;
 }
 
@@ -113,7 +113,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approvalManagement: 'Pengurusan Kelulusan',
           approval: 'Kelulusan',
           leaveApprovals: 'Kelulusan Cuti',
-          attendanceApprovals: 'Kelulusan Kehadiran',
+          timeLogApprovals: 'Kelulusan Log Masa',
           overtimeApprovals: 'Kelulusan Kerja Lebih Masa',
         }[key] || key;
 
@@ -122,7 +122,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approvalManagement: '审批管理',
           approval: '审批',
           leaveApprovals: '请假审批',
-          attendanceApprovals: '考勤审批',
+          timeLogApprovals: '考勤审批',
           overtimeApprovals: '加班审批',
         }[key] || key;
 
@@ -131,7 +131,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approvalManagement: '審批管理',
           approval: '審批',
           leaveApprovals: '請假審批',
-          attendanceApprovals: '考勤審批',
+          timeLogApprovals: '考勤審批',
           overtimeApprovals: '加班審批',
         }[key] || key;
 
@@ -140,7 +140,7 @@ const ApproveManagement = ({ navigation }: any) => {
           approvalManagement: 'Approval Management',
           approval: 'Approval',
           leaveApprovals: 'Leave Approvals',
-          attendanceApprovals: 'Attendance Approvals',
+          timeLogApprovals: 'Time Log Approvals',
           overtimeApprovals: 'Overtime Approvals',
         }[key] || key;
     }
@@ -170,7 +170,7 @@ const ApproveManagement = ({ navigation }: any) => {
       count: counts.leave
     },
     {
-      title: getLocalizedText('attendanceApprovals'),
+      title: getLocalizedText('timeLogApprovals'),
       screen: 'ATPendingApplicationListing',
       icon: require('../../../../asset/img/icon/arrow-right.png'),
       count: counts.attendance

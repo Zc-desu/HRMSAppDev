@@ -244,14 +244,33 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1C1C1E',
-    maxHeight: '80%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '50%',
+  },
+  modalHeader: {
     padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  locationList: {
+    paddingHorizontal: 16,
+  },
+  locationItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  locationItemText: {
+    fontSize: 16,
   },
   timePickerContainer: {
     width: '80%',
@@ -259,28 +278,46 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  timePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
   timePickerContent: {
-    flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 20,
   },
-  timeColumn: {
+  timeText: {
+    fontSize: 20,
+    fontWeight: '500',
+  },
+  arrowContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-around',
+    paddingHorizontal: 40,
+  },
+  arrow: {
+    fontSize: 24,
+    padding: 10,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  button: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 5,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  timeScroller: {
-    height: 40,
-  },
-  timeText: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  timeSeparator: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginHorizontal: 10,
-  },
-  arrowButton: {
-    padding: 10,
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   calendarContainer: {
     borderRadius: 12,
@@ -292,35 +329,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#1C1C1E',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  timePickerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  timeTextContainer: {
-    marginVertical: 10,
-  },
-  arrowText: {
-    fontSize: 20,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   locationContainer: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#1C1C1E',
+    marginBottom: 16,
+  },
+  locationButton: {
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  locationButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locationIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+  },
+  locationText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  chevronIcon: {
+    width: 16,
+    height: 16,
   },
   picker: {
     marginTop: 8,
@@ -352,23 +388,56 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 12,
   },
-  locationButton: {
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 160,
+    justifyContent: 'center',
   },
-  locationText: {
-    fontSize: 16,
+  columnContainer: {
+    height: 120,
+    width: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  scrollColumn: {
+    height: 120,
+  },
+  timeItem: {
+    height: 40,
+    width: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  separator: {
+    fontSize: 24,
     fontWeight: '600',
+    marginHorizontal: 15,
   },
-  locationItem: {
+  selectionHighlight: {
+    position: 'absolute',
+    width: '100%',
+    height: 40,
+    borderRadius: 8,
+  },
+  paddingView: {
+    height: 40,
+  },
+  locationModalContent: {
+    width: '80%',
+    maxHeight: '50%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  locationModalHeader: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#CCCCCC',
   },
-  locationItemText: {
-    fontSize: 16,
+  locationModalTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
@@ -389,6 +458,62 @@ interface TimePickerProps {
 const TimePicker = ({ visible, onClose, onSelect, initialTime, theme, t }: TimePickerProps) => {
   const [hours, setHours] = useState(initialTime.getHours());
   const [minutes, setMinutes] = useState(initialTime.getMinutes());
+  const hourScrollViewRef = React.useRef<ScrollView>(null);
+  const minuteScrollViewRef = React.useRef<ScrollView>(null);
+  const itemHeight = 40;
+
+  // Generate arrays for hours (0-23) and minutes (0-59)
+  const hoursArray = Array.from({ length: 24 }, (_, i) => i);
+  const minutesArray = Array.from({ length: 60 }, (_, i) => i);
+
+  // Handle initial scroll position
+  React.useEffect(() => {
+    if (visible) {
+      setTimeout(() => {
+        hourScrollViewRef.current?.scrollTo({
+          y: hours * itemHeight,
+          animated: false,
+        });
+        minuteScrollViewRef.current?.scrollTo({
+          y: minutes * itemHeight,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [visible]);
+
+  const handleHourScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const selectedHour = Math.round(offsetY / itemHeight);
+    if (selectedHour >= 0 && selectedHour <= 23) {
+      setHours(selectedHour);
+    }
+  };
+
+  const handleMinuteScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const selectedMinute = Math.round(offsetY / itemHeight);
+    if (selectedMinute >= 0 && selectedMinute <= 59) {
+      setMinutes(selectedMinute);
+    }
+  };
+
+  // Add wheel event handlers
+  const handleHourWheel = (event: any) => {
+    const delta = Math.sign(event.nativeEvent.deltaY);
+    setHours(h => {
+      const newHour = (h + delta + 24) % 24;
+      return newHour;
+    });
+  };
+
+  const handleMinuteWheel = (event: any) => {
+    const delta = Math.sign(event.nativeEvent.deltaY);
+    setMinutes(m => {
+      const newMinute = (m + delta + 60) % 60;
+      return newMinute;
+    });
+  };
 
   return (
     <Modal
@@ -402,83 +527,86 @@ const TimePicker = ({ visible, onClose, onSelect, initialTime, theme, t }: TimeP
         activeOpacity={1} 
         onPress={onClose}
       >
-        <View style={[styles.timePickerContainer, { backgroundColor: theme.card }]}>
-          <Text style={[styles.timePickerTitle, { color: theme.text }]}>
-            {t.selectTime}
-          </Text>
-          
-          <View style={styles.timePickerContent}>
-            {/* Hours */}
-            <View style={styles.timeColumn}>
-              <TouchableOpacity 
-                style={styles.arrowButton}
-                onPress={() => setHours(h => (h + 1) % 24)}
-              >
-                <Text style={[styles.arrowText, { color: theme.text }]}>▲</Text>
-              </TouchableOpacity>
-              
-              <View style={styles.timeTextContainer}>
-                <Text style={[styles.timeText, { color: theme.text }]}>
-                  {hours.toString().padStart(2, '0')}
-                </Text>
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={[styles.timePickerContainer, { backgroundColor: theme.card }]}>
+            <Text style={[styles.timePickerTitle, { color: theme.text }]}>
+              {t.selectTime}
+            </Text>
+            
+            <View style={styles.pickerContainer}>
+              {/* Hours */}
+              <View style={styles.columnContainer}>
+                <View style={[styles.selectionHighlight, { backgroundColor: theme.primary + '20' }]} />
+                <ScrollView
+                  ref={hourScrollViewRef}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={itemHeight}
+                  onMomentumScrollEnd={handleHourScroll}
+                  onScroll={handleHourWheel}  // Add wheel support
+                  style={styles.scrollColumn}
+                >
+                  <View style={styles.paddingView} />
+                  {hoursArray.map((hour) => (
+                    <View key={hour} style={styles.timeItem}>
+                      <Text style={[styles.timeText, { color: theme.text }]}>
+                        {hour.toString().padStart(2, '0')}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={styles.paddingView} />
+                </ScrollView>
               </View>
-              
-              <TouchableOpacity 
-                style={styles.arrowButton}
-                onPress={() => setHours(h => (h - 1 + 24) % 24)}
-              >
-                <Text style={[styles.arrowText, { color: theme.text }]}>▼</Text>
-              </TouchableOpacity>
+
+              <Text style={[styles.separator, { color: theme.text }]}>:</Text>
+
+              {/* Minutes */}
+              <View style={styles.columnContainer}>
+                <View style={[styles.selectionHighlight, { backgroundColor: theme.primary + '20' }]} />
+                <ScrollView
+                  ref={minuteScrollViewRef}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={itemHeight}
+                  onMomentumScrollEnd={handleMinuteScroll}
+                  onScroll={handleMinuteWheel}  // Add wheel support
+                  style={styles.scrollColumn}
+                >
+                  <View style={styles.paddingView} />
+                  {minutesArray.map((minute) => (
+                    <View key={minute} style={styles.timeItem}>
+                      <Text style={[styles.timeText, { color: theme.text }]}>
+                        {minute.toString().padStart(2, '0')}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={styles.paddingView} />
+                </ScrollView>
+              </View>
             </View>
 
-            <Text style={[styles.timeSeparator, { color: theme.text }]}>:</Text>
-
-            {/* Minutes */}
-            <View style={styles.timeColumn}>
+            <View style={styles.buttonContainer}>
               <TouchableOpacity 
-                style={styles.arrowButton}
-                onPress={() => setMinutes(m => (m + 5) % 60)}
+                style={[styles.button, { backgroundColor: theme.primary }]}
+                onPress={() => {
+                  const newTime = new Date();
+                  newTime.setHours(hours, minutes);
+                  onSelect(newTime);
+                  onClose();
+                }}
               >
-                <Text style={[styles.arrowText, { color: theme.text }]}>▲</Text>
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>OK</Text>
               </TouchableOpacity>
-              
-              <View style={styles.timeTextContainer}>
-                <Text style={[styles.timeText, { color: theme.text }]}>
-                  {minutes.toString().padStart(2, '0')}
-                </Text>
-              </View>
-              
               <TouchableOpacity 
-                style={styles.arrowButton}
-                onPress={() => setMinutes(m => (m - 5 + 60) % 60)}
+                style={styles.button}
+                onPress={onClose}
               >
-                <Text style={[styles.arrowText, { color: theme.text }]}>▼</Text>
+                <Text style={[styles.buttonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: theme.primary }]}
-              onPress={() => {
-                const newTime = new Date();
-                newTime.setHours(hours, minutes);
-                onSelect(newTime);
-                onClose();
-              }}
-            >
-              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>{t.ok}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: theme.card }]}
-              onPress={onClose}
-            >
-              <Text style={[styles.buttonText, { color: theme.text }]}>
-                {t.cancel}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
   );
@@ -521,8 +649,6 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [frontPhoto, setFrontPhoto] = useState<PhotoData | null>(null);
-  const [backPhoto, setBackPhoto] = useState<PhotoData | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -547,6 +673,13 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
   useEffect(() => {
     fetchLocations();
   }, []);
+
+  useEffect(() => {
+    // Only set initial reason when clock type changes
+    const clockTypeText = clockType === 'in' ? 'Clock In' : 'Clock Out';
+    const initialReason = `Missing ${clockTypeText};`;
+    setReason(initialReason);
+  }, [clockType]);
 
   const fetchLocations = async () => {
     try {
@@ -584,32 +717,6 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
       showAlert(t.error, t.locationFetchError);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const takePhoto = async (type: 'front' | 'back') => {
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      saveToPhotos: false,
-    };
-
-    try {
-      const result = await launchCamera(options);
-      if (result.assets && result.assets[0]) {
-        const photo: PhotoData = {
-          uri: result.assets[0].uri!,
-          type: 'image/jpeg',
-          fileName: result.assets[0].fileName || 'photo.jpg',
-        };
-        if (type === 'front') {
-          setFrontPhoto(photo);
-        } else {
-          setBackPhoto(photo);
-        }
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
     }
   };
 
@@ -668,24 +775,6 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
         formData.append('Latitude', selectedLocation.latitude.toString());
         formData.append('Longitude', selectedLocation.longitude.toString());
         formData.append('AuthorizeZoneName', selectedLocation.name);
-      }
-
-      if (frontPhoto) {
-        const photoFile = {
-          uri: frontPhoto.uri,
-          type: frontPhoto.type,
-          name: frontPhoto.fileName,
-        } as any;
-        formData.append('FrontPhoto', photoFile);
-      }
-
-      if (backPhoto) {
-        const photoFile = {
-          uri: backPhoto.uri,
-          type: backPhoto.type,
-          name: backPhoto.fileName,
-        } as any;
-        formData.append('BackPhoto', photoFile);
       }
 
       const response = await fetch(
@@ -821,9 +910,10 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
             placeholder={t.reasonPlaceholder}
             placeholderTextColor={theme.subText}
             value={reason}
-            onChangeText={setReason}
+            editable={true} // Make it editable
             multiline
             numberOfLines={4}
+            onChangeText={setReason} // Allow user edits
           />
         </View>
 
@@ -834,41 +924,20 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
             style={[styles.locationButton, { backgroundColor: theme.background }]}
             onPress={() => setShowLocationPicker(true)}
           >
-            <Text style={[styles.locationText, { color: theme.text }]}>
-              {selectedLocation?.name || t.selectLocation}
-            </Text>
+            <View style={styles.locationButtonContent}>
+              <Image 
+                source={require('../../../img/icon/a-location.png')} 
+                style={[styles.locationIcon, { tintColor: theme.text }]}
+              />
+              <Text style={[styles.locationText, { color: theme.text }]}>
+                {selectedLocation?.name || t.selectLocation}
+              </Text>
+              <Image 
+                source={require('../../../img/icon/a-arrow-right.png')}
+                style={[styles.chevronIcon, { tintColor: theme.subText }]}
+              />
+            </View>
           </TouchableOpacity>
-        </View>
-
-        {/* Photo Section */}
-        <View style={[styles.photoContainer, { backgroundColor: theme.card }]}>
-          <Text style={[styles.label, { color: theme.text }]}>{t.photos}</Text>
-          <View style={styles.photoButtons}>
-            <TouchableOpacity
-              style={[styles.photoButton, { backgroundColor: theme.background }]}
-              onPress={() => takePhoto('front')}
-            >
-              {frontPhoto ? (
-                <Image source={{ uri: frontPhoto.uri }} style={styles.photoPreview} />
-              ) : (
-                <Text style={[styles.photoButtonText, { color: theme.text }]}>
-                  {t.takeFrontPhoto}
-                </Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.photoButton, { backgroundColor: theme.background }]}
-              onPress={() => takePhoto('back')}
-            >
-              {backPhoto ? (
-                <Image source={{ uri: backPhoto.uri }} style={styles.photoPreview} />
-              ) : (
-                <Text style={[styles.photoButtonText, { color: theme.text }]}>
-                  {t.takeBackPhoto}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Submit Button */}
@@ -913,7 +982,7 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
         <Modal
           visible={showLocationPicker}
           transparent
-          animationType="slide"
+          animationType="fade"
           onRequestClose={() => setShowLocationPicker(false)}
         >
           <TouchableOpacity 
@@ -921,29 +990,35 @@ const ATBackDateTLApplication = ({ route, navigation }: any) => {
             activeOpacity={1}
             onPress={() => setShowLocationPicker(false)}
           >
-            <TouchableOpacity 
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-                <ScrollView>
-                  {locations.map((location) => (
-                    <TouchableOpacity
-                      key={location.id}
-                      style={styles.locationItem}
-                      onPress={() => {
-                        setSelectedLocation(location);
-                        setShowLocationPicker(false);
-                      }}
-                    >
-                      <Text style={[styles.locationItemText, { color: theme.text }]}>
-                        {location.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            <View style={[styles.locationModalContent, { backgroundColor: theme.card }]}>
+              <View style={[styles.locationModalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.locationModalTitle, { color: theme.text }]}>
+                  {t.selectLocation}
+                </Text>
               </View>
-            </TouchableOpacity>
+              <ScrollView style={styles.locationList}>
+                {locations.map((location) => (
+                  <TouchableOpacity
+                    key={location.id}
+                    style={[styles.locationItem, { 
+                      backgroundColor: selectedLocation?.id === location.id ? theme.primary + '20' : 'transparent',
+                      borderBottomColor: theme.border 
+                    }]}
+                    onPress={() => {
+                      setSelectedLocation(location);
+                      setShowLocationPicker(false);
+                    }}
+                  >
+                    <Text style={[styles.locationItemText, { 
+                      color: theme.text,
+                      fontWeight: selectedLocation?.id === location.id ? '600' : '400'
+                    }]}>
+                      {location.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           </TouchableOpacity>
         </Modal>
       )}

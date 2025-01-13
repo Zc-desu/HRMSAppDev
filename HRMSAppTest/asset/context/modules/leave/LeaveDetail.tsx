@@ -2,6 +2,7 @@ import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
 
 const LeaveDetail = ({ route, navigation }: any) => {
   const { theme } = useTheme();
@@ -9,6 +10,7 @@ const LeaveDetail = ({ route, navigation }: any) => {
   const [leaveDetail, setLeaveDetail] = useState<any>(null);
   const [approvalDetails, setApprovalDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { language } = useLanguage();
 
   useEffect(() => {
     const fetchLeaveDetails = async () => {
@@ -65,8 +67,12 @@ const LeaveDetail = ({ route, navigation }: any) => {
         color: theme.text,
       },
       headerShadowVisible: false,
+      title: language === 'zh-Hans' ? '请假详情' :
+             language === 'zh-Hant' ? '請假詳情' :
+             language === 'ms' ? 'Butiran Cuti' :
+             'Leave Detail',
     });
-  }, [navigation, theme]);
+  }, [navigation, theme, language]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -156,6 +162,94 @@ const LeaveDetail = ({ route, navigation }: any) => {
     ));
   };
 
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          leaveDetails: 'Butiran Cuti',
+          appliedOn: 'Tarikh Permohonan',
+          department: 'Jabatan',
+          position: 'Jawatan',
+          totalDays: 'Jumlah Hari',
+          reason: 'Sebab',
+          backupPerson: 'Orang Ganti',
+          leaveSessions: 'Sesi Cuti',
+          approvalDetails: 'Butiran Kelulusan',
+          approver: 'Pelulus',
+          decision: 'Keputusan',
+          respondDate: 'Tarikh Respons',
+          noSessionDetails: 'Tiada butiran sesi.',
+          noApprovalDetails: 'Tiada butiran kelulusan tersedia.',
+          cancelLeave: 'Batal Cuti',
+          days: 'hari',
+          leaveDetailsNotFound: 'Butiran cuti tidak dijumpai.',
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          leaveDetails: '请假详情',
+          appliedOn: '申请日期',
+          department: '部门',
+          position: '职位',
+          totalDays: '总天数',
+          reason: '原因',
+          backupPerson: '替班人',
+          leaveSessions: '请假时段',
+          approvalDetails: '审批详情',
+          approver: '审批人',
+          decision: '决定',
+          respondDate: '回复日期',
+          noSessionDetails: '没有时段详情。',
+          noApprovalDetails: '暂无审批详情。',
+          cancelLeave: '取消请假',
+          days: '天',
+          leaveDetailsNotFound: '未找到请假详情。',
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          leaveDetails: '請假詳情',
+          appliedOn: '申請日期',
+          department: '部門',
+          position: '職位',
+          totalDays: '總天數',
+          reason: '原因',
+          backupPerson: '替班人',
+          leaveSessions: '請假時段',
+          approvalDetails: '審批詳情',
+          approver: '審批人',
+          decision: '決定',
+          respondDate: '回覆日期',
+          noSessionDetails: '沒有時段詳情。',
+          noApprovalDetails: '暫無審批詳情。',
+          cancelLeave: '取消請假',
+          days: '天',
+          leaveDetailsNotFound: '未找到請假詳情。',
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          leaveDetails: 'Leave Details',
+          appliedOn: 'Applied On',
+          department: 'Department',
+          position: 'Position',
+          totalDays: 'Total Days',
+          reason: 'Reason',
+          backupPerson: 'Backup Person',
+          leaveSessions: 'Leave Sessions',
+          approvalDetails: 'Approval Details',
+          approver: 'Approver',
+          decision: 'Decision',
+          respondDate: 'Respond Date',
+          noSessionDetails: 'No session details available.',
+          noApprovalDetails: 'No approval details available.',
+          cancelLeave: 'Cancel Leave',
+          days: 'day(s)',
+          leaveDetailsNotFound: 'Leave details not found.',
+        }[key] || key;
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -204,15 +298,15 @@ const LeaveDetail = ({ route, navigation }: any) => {
           shadowColor: theme.shadowColor,
         }]}>
           <DetailItem 
-            label="Applied On" 
+            label={getLocalizedText('appliedOn')} 
             value={formatDate(leaveDetail.createdDate)}
             theme={theme}
           />
-          <DetailItem label="Department" value={leaveDetail.departmentDesc} theme={theme} />
-          <DetailItem label="Position" value={leaveDetail.jobTitleDesc} theme={theme} />
-          <DetailItem label="Total Days" value={`${leaveDetail.totalDays} day(s)`} theme={theme} />
-          <DetailItem label="Reason" value={leaveDetail.reason || '--'} theme={theme} />
-          <DetailItem label="Backup Person" value={leaveDetail.backupPersonEmployeeName || '--'} theme={theme} />
+          <DetailItem label={getLocalizedText('department')} value={leaveDetail.departmentDesc} theme={theme} />
+          <DetailItem label={getLocalizedText('position')} value={leaveDetail.jobTitleDesc} theme={theme} />
+          <DetailItem label={getLocalizedText('totalDays')} value={`${leaveDetail.totalDays} ${getLocalizedText('days')}`} theme={theme} />
+          <DetailItem label={getLocalizedText('reason')} value={leaveDetail.reason || '--'} theme={theme} />
+          <DetailItem label={getLocalizedText('backupPerson')} value={leaveDetail.backupPersonEmployeeName || '--'} theme={theme} />
         </View>
 
         <View style={[styles.sessionCard, { 
@@ -220,13 +314,13 @@ const LeaveDetail = ({ route, navigation }: any) => {
           shadowColor: theme.shadowColor,
         }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Leave Sessions
+            {getLocalizedText('leaveSessions')}
           </Text>
           {leaveDetail.leaveDates && leaveDetail.leaveDates.length > 0 ? (
             renderLeaveSession(leaveDetail.leaveDates)
           ) : (
             <Text style={[styles.messageText, { color: theme.subText }]}>
-              No session details available.
+              {getLocalizedText('noSessionDetails')}
             </Text>
           )}
         </View>
@@ -236,7 +330,7 @@ const LeaveDetail = ({ route, navigation }: any) => {
           shadowColor: theme.shadowColor,
         }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Approval Details
+            {getLocalizedText('approvalDetails')}
           </Text>
           {approvalDetails && approvalDetails.length > 0 ? (
             approvalDetails.map((approval: any, index: number) => (
@@ -249,7 +343,7 @@ const LeaveDetail = ({ route, navigation }: any) => {
             ))
           ) : (
             <Text style={[styles.messageText, { color: theme.subText }]}>
-              No approval details available.
+              {getLocalizedText('noApprovalDetails')}
             </Text>
           )}
         </View>
@@ -266,7 +360,7 @@ const LeaveDetail = ({ route, navigation }: any) => {
             style={[styles.cancelButton, { backgroundColor: theme.error }]}
             onPress={handleCancelLeave}
           >
-            <Text style={styles.cancelButtonText}>Cancel Leave</Text>
+            <Text style={styles.cancelButtonText}>{getLocalizedText('cancelLeave')}</Text>
           </TouchableOpacity>
         </View>
       )}

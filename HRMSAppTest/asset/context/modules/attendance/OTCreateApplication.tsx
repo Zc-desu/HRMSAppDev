@@ -51,7 +51,7 @@ const translations = {
     instruction: 'Please use English or Malay language only',
   },
   'ms': {
-    title: 'Cipta Kerja Lebih Masa',
+    title: 'Buat Kerja Lebih Masa',
     date: 'Tarikh',
     selectDate: 'Pilih Tarikh',
     time: 'Masa',

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput,
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomAlert from '../setting/CustomAlert';
 import { useTheme } from '../setting/ThemeContext';
+import { useLanguage } from '../setting/LanguageContext';
 
 interface AlertButton {
   text: string;
@@ -46,6 +47,7 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
     message: '',
     buttons: [],
   });
+  const { language } = useLanguage();
 
   useEffect(() => {
     const getLeaveDetail = async () => {
@@ -69,8 +71,9 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
         color: theme.text,
       },
       headerShadowVisible: false,
+      title: getLocalizedText('cancelLeave'),
     });
-  }, [navigation, theme]);
+  }, [navigation, theme, language]);
 
   const formatDate = (dateString: string) => {
     const months = [
@@ -104,12 +107,9 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
   const cancelLeave = async () => {
     if (!reason.trim()) {
       showCustomAlert(
-        'Required',
-        'Please provide a reason for cancellation.',
-        [{ 
-          text: 'OK',
-          style: 'default'
-        }]
+        getLocalizedText('required'),
+        getLocalizedText('pleaseProvideReason'),
+        [{ text: 'OK', style: 'default' }]
       );
       return;
     }
@@ -134,8 +134,8 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
         const data = await response.json();
         if (data.success) {
           showCustomAlert(
-            'Success',
-            'Leave has been cancelled successfully.',
+            getLocalizedText('success'),
+            getLocalizedText('cancelSuccess'),
             [{ 
               text: 'OK',
               style: 'default',
@@ -170,20 +170,168 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
 
   const handleCancelPress = () => {
     showCustomAlert(
-      'Confirm Cancellation',
-      'Are you sure you want to cancel this leave application?',
+      getLocalizedText('confirmCancellation'),
+      getLocalizedText('confirmCancel'),
       [
         {
-          text: 'No',
+          text: getLocalizedText('no'),
           style: 'cancel'
         },
         {
-          text: 'Yes',
+          text: getLocalizedText('yes'),
           style: 'destructive',
           onPress: cancelLeave
         }
       ]
     );
+  };
+
+  const getLocalizedText = (key: string) => {
+    switch (language) {
+      case 'ms':
+        return {
+          cancelLeave: 'Batal Cuti',
+          cancelApplication: 'Pembatalan Permohonan Cuti',
+          confirmCancel: 'Adakah anda pasti mahu membatalkan permohonan cuti ini?',
+          leaveType: 'Jenis Cuti',
+          status: 'Status',
+          appliedOn: 'Tarikh Permohonan',
+          startDate: 'Tarikh Mula',
+          endDate: 'Tarikh Tamat',
+          duration: 'Tempoh',
+          reason: 'Sebab',
+          backupPerson: 'Orang Ganti',
+          days: 'hari',
+          cancelReason: 'Sebab Pembatalan*',
+          languageInstruction: 'Sila masukkan sebab dalam Bahasa Melayu atau Bahasa Inggeris sahaja',
+          required: 'Diperlukan',
+          pleaseProvideReason: 'Sila berikan sebab pembatalan.',
+          success: 'Berjaya',
+          cancelSuccess: 'Cuti telah dibatalkan dengan jayanya.',
+          error: 'Ralat',
+          cancelError: 'Gagal membatalkan cuti.',
+          systemError: 'Ralat sistem semasa membatalkan cuti.',
+          confirmCancellation: 'Sahkan Pembatalan',
+          yes: 'Ya',
+          no: 'Tidak',
+          goBack: 'Kembali',
+          detailsNotFound: 'Butiran cuti tidak dijumpai.',
+          enterCancelReason: {
+            'en': 'Enter your reason for cancellation',
+            'ms': 'Masukkan sebab pembatalan',
+            'zh-Hans': '请输入取消原因',
+            'zh-Hant': '請輸入取消原因'
+          }[language] || 'Enter your reason for cancellation'
+        }[key] || key;
+
+      case 'zh-Hans':
+        return {
+          cancelLeave: '取消请假',
+          cancelApplication: '取消请假申请',
+          confirmCancel: '您确定要取消此请假申请吗？',
+          leaveType: '请假类型',
+          status: '状态',
+          appliedOn: '申请日期',
+          startDate: '开始日期',
+          endDate: '结束日期',
+          duration: '时长',
+          reason: '原因',
+          backupPerson: '替班人',
+          days: '天',
+          cancelReason: '取消原因*',
+          languageInstruction: '请用马来语或英语填写原因',
+          required: '必填',
+          pleaseProvideReason: '请提供取消原因。',
+          success: '成功',
+          cancelSuccess: '请假已成功取消。',
+          error: '错误',
+          cancelError: '取消请假失败。',
+          systemError: '取消请假时发生系统错误。',
+          confirmCancellation: '确认取消',
+          yes: '是',
+          no: '否',
+          goBack: '返回',
+          detailsNotFound: '未找到请假详情。',
+          enterCancelReason: {
+            'en': 'Enter your reason for cancellation',
+            'ms': 'Masukkan sebab pembatalan',
+            'zh-Hans': '请输入取消原因',
+            'zh-Hant': '請輸入取消原因'
+          }[language] || 'Enter your reason for cancellation'
+        }[key] || key;
+
+      case 'zh-Hant':
+        return {
+          cancelLeave: '取消請假',
+          cancelApplication: '取消請假申請',
+          confirmCancel: '您確定要取消此請假申請嗎？',
+          leaveType: '請假類型',
+          status: '狀態',
+          appliedOn: '申請日期',
+          startDate: '開始日期',
+          endDate: '結束日期',
+          duration: '時長',
+          reason: '原因',
+          backupPerson: '替班人',
+          days: '天',
+          cancelReason: '取消原因*',
+          languageInstruction: '請用馬來語或英語填寫原因',
+          required: '必填',
+          pleaseProvideReason: '請提供取消原因。',
+          success: '成功',
+          cancelSuccess: '請假已成功取消。',
+          error: '錯誤',
+          cancelError: '取消請假失敗。',
+          systemError: '取消請假時發生系統錯誤。',
+          confirmCancellation: '確認取消',
+          yes: '是',
+          no: '否',
+          goBack: '返回',
+          detailsNotFound: '未找到請假詳情。',
+          enterCancelReason: {
+            'en': 'Enter your reason for cancellation',
+            'ms': 'Masukkan sebab pembatalan',
+            'zh-Hans': '请输入取消原因',
+            'zh-Hant': '請輸入取消原因'
+          }[language] || 'Enter your reason for cancellation'
+        }[key] || key;
+
+      default: // 'en'
+        return {
+          cancelLeave: 'Cancel Leave',
+          cancelApplication: 'Cancel Leave Application',
+          confirmCancel: 'Are you sure you want to cancel this leave application?',
+          leaveType: 'Leave Type',
+          status: 'Status',
+          appliedOn: 'Applied On',
+          startDate: 'Start Date',
+          endDate: 'End Date',
+          duration: 'Duration',
+          reason: 'Reason',
+          backupPerson: 'Backup Person',
+          days: 'day(s)',
+          cancelReason: 'Cancellation Reason*',
+          languageInstruction: 'Please enter your reason in Bahasa Melayu or English only',
+          required: 'Required',
+          pleaseProvideReason: 'Please provide a reason for cancellation.',
+          success: 'Success',
+          cancelSuccess: 'Leave has been cancelled successfully.',
+          error: 'Error',
+          cancelError: 'Failed to cancel the leave.',
+          systemError: 'An error occurred while cancelling the leave.',
+          confirmCancellation: 'Confirm Cancellation',
+          yes: 'Yes',
+          no: 'No',
+          goBack: 'Go Back',
+          detailsNotFound: 'Leave details not found.',
+          enterCancelReason: {
+            'en': 'Enter your reason for cancellation',
+            'ms': 'Masukkan sebab pembatalan',
+            'zh-Hans': '请输入取消原因',
+            'zh-Hant': '請輸入取消原因'
+          }[language] || 'Enter your reason for cancellation'
+        }[key] || key;
+    }
   };
 
   if (loading) {
@@ -219,12 +367,12 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
             <Text style={[styles.warningTitle, { 
               color: theme.isDark ? '#FF453A' : '#FF3B30' 
             }]}>
-              Cancel Leave Application
+              {getLocalizedText('cancelApplication')}
             </Text>
             <Text style={[styles.warningText, { 
               color: theme.isDark ? '#FF453A' : '#FF3B30' 
             }]}>
-              Are you sure you want to cancel this leave application?
+              {getLocalizedText('confirmCancel')}
             </Text>
           </View>
 
@@ -233,42 +381,42 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
             borderColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : theme.border,
           }]}>
             <DetailItem 
-              label="Leave Type" 
+              label={getLocalizedText('leaveType')} 
               value={leaveDetail.leaveCodeDesc}
               theme={theme}
             />
             <DetailItem 
-              label="Status" 
+              label={getLocalizedText('status')} 
               value={leaveDetail.approvalStatusDisplay}
               theme={theme}
             />
             <DetailItem 
-              label="Applied On" 
+              label={getLocalizedText('appliedOn')} 
               value={formatDate(leaveDetail.createdDate)}
               theme={theme}
             />
             <DetailItem 
-              label="Start Date" 
+              label={getLocalizedText('startDate')} 
               value={formatDate(leaveDetail.dateFrom)}
               theme={theme}
             />
             <DetailItem 
-              label="End Date" 
+              label={getLocalizedText('endDate')} 
               value={formatDate(leaveDetail.dateTo)}
               theme={theme}
             />
             <DetailItem 
-              label="Duration" 
-              value={`${leaveDetail.totalDays} day(s)`}
+              label={getLocalizedText('duration')} 
+              value={`${leaveDetail.totalDays} ${getLocalizedText('days')}`}
               theme={theme}
             />
             <DetailItem 
-              label="Reason" 
+              label={getLocalizedText('reason')} 
               value={leaveDetail.reason || '--'}
               theme={theme}
             />
             <DetailItem 
-              label="Backup Person" 
+              label={getLocalizedText('backupPerson')} 
               value={leaveDetail.backupPersonEmployeeName || '--'}
               theme={theme}
             />
@@ -279,10 +427,10 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
             borderColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : theme.border,
           }]}>
             <Text style={[styles.inputLabel, { color: theme.text }]}>
-              Cancellation Reason*
+              {getLocalizedText('cancelReason')}
             </Text>
             <Text style={[styles.inputInstruction, { color: theme.subText }]}>
-              Please enter your reason in Bahasa Melayu or English only
+              {getLocalizedText('languageInstruction')}
             </Text>
             <TextInput
               style={[styles.input, { 
@@ -290,7 +438,7 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
                 color: theme.text,
                 borderColor: theme.isDark ? '#3C3C3E' : '#E5E5EA',
               }]}
-              placeholder="Enter your reason for cancellation"
+              placeholder={getLocalizedText('enterCancelReason')}
               placeholderTextColor={theme.subText}
               value={reason}
               onChangeText={setReason}
@@ -300,25 +448,26 @@ const CancelLeaveApplication = ({ route, navigation }: any) => {
           </View>
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.cancelButton, { 
-                backgroundColor: theme.error,
+                backgroundColor: theme.error 
               }]}
               onPress={handleCancelPress}
             >
               <Text style={[styles.cancelButtonText, { color: '#FFFFFF' }]}>
-                Confirm Cancellation
+                {getLocalizedText('cancelLeave')}
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={[styles.backButton, { 
-                backgroundColor: theme.isDark ? '#2C2C2E' : '#E5E5E5'
+                backgroundColor: theme.isDark ? '#3A3A3C' : '#E5E5E5'
               }]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={[styles.backButtonText, { color: theme.text }]}>
-                Go Back
+              <Text style={[styles.backButtonText, { 
+                color: theme.isDark ? '#FFFFFF' : theme.text 
+              }]}>
+                {getLocalizedText('goBack')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -409,6 +558,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   backButtonText: {
     fontSize: 16,

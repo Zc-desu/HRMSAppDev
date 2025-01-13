@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,16 @@ import {
   Platform,
   ScrollView,
   TextInput,
+  Modal,
 } from 'react-native';
-import { launchCamera, CameraOptions, MediaType } from 'react-native-image-picker';
+import {
+  Camera,
+  useCameraDevices,
+  PhotoFile,
+  CameraPermissionStatus,
+  CameraDevice,
+  CameraPosition,
+} from 'react-native-vision-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../setting/ThemeContext';
 import { useLanguage } from '../setting/LanguageContext';
@@ -43,7 +51,8 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
     gpsNotAvailable,
     employeeId,
     companyId,
-    baseUrl
+    baseUrl,
+    autoReason
   } = route.params;
 
   const [frontPhoto, setFrontPhoto] = useState<PhotoData | null>(null);
@@ -63,6 +72,11 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
   });
   const [userToken, setUserToken] = useState<string>('');
   const [reason, setReason] = useState<string>('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [isFrontPhoto, setIsFrontPhoto] = useState(true);
+  const camera = useRef<Camera>(null);
+  const devices = useCameraDevices();
+  const device = isFrontPhoto ? devices[1] : devices[0];
 
   useEffect(() => {
     const getData = async () => {
@@ -144,6 +158,11 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           sessionExpired: 'Sesi log masuk telah tamat. Sila log masuk semula.',
           reasonPlaceholder: 'Masukkan sebab (pilihan) - Bahasa Inggeris/Melayu sahaja',
           reasonError: 'Sila gunakan Bahasa Inggeris atau Bahasa Melayu sahaja',
+          useFrontCamera: 'Sila gunakan kamera depan untuk mengambil gambar hadapan',
+          useBackCamera: 'Sila gunakan kamera belakang untuk mengambil gambar belakang',
+          pleaseTakeFrontPhotoWithFrontCamera: 'Sila ambil gambar hadapan menggunakan kamera hadapan.',
+          pleaseTakeBackPhotoWithBackCamera: 'Sila ambil gambar belakang menggunakan kamera belakang.',
+          photoCaptureFailed: 'Gagal mengambil gambar. Sila cuba lagi.',
         }[key] || key;
       
       case 'zh-Hans':
@@ -167,6 +186,11 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           sessionExpired: '登录会话已过期，请重新登录。',
           reasonPlaceholder: '输入原因（可选）- 仅限英文/马来文',
           reasonError: '请使用英文或马来文',
+          useFrontCamera: '请使用前置摄像头拍摄正面照片',
+          useBackCamera: '请使用后置摄像头拍摄背面照片',
+          pleaseTakeFrontPhotoWithFrontCamera: '请使用前置摄像头拍摄正面照片。',
+          pleaseTakeBackPhotoWithBackCamera: '请使用后置摄像头拍摄背面照片。',
+          photoCaptureFailed: '拍照失败。请重试。',
         }[key] || key;
       
       case 'zh-Hant':
@@ -190,6 +214,11 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           sessionExpired: '登入會話已過期，請重新登入。',
           reasonPlaceholder: '輸入原因（可選）- 僅限英文/馬來文',
           reasonError: '請使用英文或馬來文',
+          useFrontCamera: '請使用前置攝像頭拍攝正面照片',
+          useBackCamera: '請使用後置攝像頭拍攝背面照片',
+          pleaseTakeFrontPhotoWithFrontCamera: '請使用前置攝像頭拍攝正面照片。',
+          pleaseTakeBackPhotoWithBackCamera: '請使用後置攝像頭拍攝背面照片。',
+          photoCaptureFailed: '拍照失败。请重试。',
         }[key] || key;
       
       default: // 'en'
@@ -213,36 +242,59 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           sessionExpired: 'Login session has expired. Please login again.',
           reasonPlaceholder: 'Enter reason (optional) - English/Malay only',
           reasonError: 'Please use English or Malay only',
+          useFrontCamera: 'Please use front camera for front photo',
+          useBackCamera: 'Please use back camera for back photo',
+          pleaseTakeFrontPhotoWithFrontCamera: 'Please take front photo using front camera.',
+          pleaseTakeBackPhotoWithBackCamera: 'Please take back photo using back camera.',
+          photoCaptureFailed: 'Failed to capture photo. Please try again.',
         }[key] || key;
     }
   };
 
+  useEffect(() => {
+    checkPermission();
+  }, []);
+
+  const checkPermission = async () => {
+    const cameraPermission = await Camera.requestCameraPermission();
+    if (cameraPermission !== 'granted') {
+      showAlert(
+        getLocalizedText('cameraError'),
+        getLocalizedText('cameraPermissionDenied')
+      );
+    }
+  };
+
   const takePhoto = async (isFront: boolean) => {
-    const options: CameraOptions = {
-      mediaType: 'photo' as MediaType,
-      cameraType: isFront ? 'front' : 'back',
-      quality: 0.8,
-      saveToPhotos: false,
-    };
+    setIsFrontPhoto(isFront);
+    setShowCamera(true);
+  };
+
+  const capturePhoto = async () => {
     try {
-      const result = await launchCamera(options);
-      if (result.assets && result.assets[0]) {
-        const photo = {
-          uri: result.assets[0].uri || '',
-          type: result.assets[0].type || 'image/jpeg',
-          fileName: result.assets[0].fileName || 'photo.jpg',
+      if (camera.current) {
+        const photo = await camera.current.takePhoto({
+          flash: 'off',
+        });
+        
+        const photoData = {
+          uri: `file://${photo.path}`,
+          type: 'image/jpeg',
+          fileName: photo.path.split('/').pop() || 'photo.jpg',
         };
-        if (isFront) {
-          setFrontPhoto(photo);
+
+        if (isFrontPhoto) {
+          setFrontPhoto(photoData);
         } else {
-          setBackPhoto(photo);
+          setBackPhoto(photoData);
         }
+        setShowCamera(false);
       }
     } catch (error) {
       console.error('Camera error:', error);
       showAlert(
         getLocalizedText('cameraError'),
-        getLocalizedText('cameraNotWorking')
+        getLocalizedText('photoCaptureFailed')
       );
     }
   };
@@ -348,9 +400,9 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
         formData.append('AuthorizeZoneName', authorizeZoneName);
 
         // Boolean flags - send as boolean values
-        formData.append('IsOutOfFence', isOutOfFence);
-        formData.append('IsCameraBroken', isCameraBroken);
-        formData.append('GpsNotAvailable', gpsNotAvailable);
+        formData.append('IsOutOfFence', isOutOfFence.toString());
+        formData.append('IsCameraBroken', isCameraBroken.toString());
+        formData.append('GpsNotAvailable', gpsNotAvailable.toString());
 
         // Optional reason field
         if (reason) {
@@ -364,14 +416,14 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
               uri: frontPhoto.uri,
               type: 'image/jpeg',
               name: 'front_photo.jpg'
-            });
+            } as unknown as Blob);
           }
           if (backPhoto) {
             formData.append('BackPhoto', {
               uri: backPhoto.uri,
               type: 'image/jpeg',
               name: 'back_photo.jpg'
-            });
+            } as unknown as Blob);
           }
         }
 
@@ -482,6 +534,58 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
     return englishMalayRegex.test(text);
   };
 
+  useEffect(() => {
+    const reasonParts: string[] = [];
+    
+    // Add clock action first (with proper spacing)
+    if (autoReason) reasonParts.push(autoReason.trim()); // Clock In/Out
+    
+    // Join all parts with semicolon and space
+    const finalReason = reasonParts.length > 0 ? reasonParts.join('; ') + '; ' : '';
+    setReason(finalReason);
+    
+    console.log('Final reason:', finalReason);
+  }, [autoReason, gpsNotAvailable, isCameraBroken]);
+
+  // Add Camera UI Component
+  const CameraUI = () => {
+    if (!device) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      );
+    }
+
+    return (
+      <Modal visible={showCamera} animationType="slide">
+        <View style={styles.cameraContainer}>
+          <Camera
+            ref={camera}
+            style={StyleSheet.absoluteFill}
+            device={device}
+            isActive={showCamera}
+            photo={true}
+          />
+          <View style={styles.cameraControls}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowCamera(false)}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.captureButton}
+              onPress={capturePhoto}
+            >
+              <View style={styles.captureButtonInner} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
@@ -579,39 +683,8 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.inputContainer, { backgroundColor: theme.card }]}>
-          <TextInput
-            style={[
-              styles.reasonInput,
-              { 
-                backgroundColor: theme.card,
-                color: theme.text,
-              }
-            ]}
-            placeholder={getLocalizedText('reasonPlaceholder')}
-            placeholderTextColor={'#666'}
-            value={reason}
-            onChangeText={(text) => {
-              if (text === '' || isEnglishOrMalay(text)) {
-                setReason(text);
-              } else {
-                showAlert(
-                  getLocalizedText('error'),
-                  getLocalizedText('reasonError')
-                );
-              }
-            }}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
-
         <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: theme.primary },
-            isSubmitting && styles.disabledButton,
-          ]}
+          style={[styles.submitButton, { backgroundColor: theme.primary }]}
           onPress={handleSubmit}
           disabled={isSubmitting}
         >
@@ -622,6 +695,8 @@ const ATPhotoCapture = ({ route, navigation }: any) => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      <CameraUI />
 
       <CustomAlert
         visible={alertConfig.visible}
@@ -742,6 +817,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 20,
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'white',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: -50,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
 
